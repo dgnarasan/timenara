@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Course, ScheduleItem, Venue, TimeSlot } from "@/lib/types";
+import { fetchCourses, addCourse, addCourses } from "@/lib/db";
 import CourseCard from "@/components/CourseCard";
 import AddCourseForm from "@/components/AddCourseForm";
 import PDFUploader from "@/components/PDFUploader";
@@ -11,6 +12,26 @@ const Index = () => {
   const [courses, setCourses] = useState<Course[]>([]);
   const [schedule, setSchedule] = useState<ScheduleItem[]>([]);
   const { toast } = useToast();
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const loadCourses = async () => {
+      try {
+        const loadedCourses = await fetchCourses();
+        setCourses(loadedCourses);
+      } catch (error) {
+        toast({
+          title: "Error Loading Courses",
+          description: error instanceof Error ? error.message : "Failed to load courses",
+          variant: "destructive",
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadCourses();
+  }, [toast]);
 
   const isFoundationalCourse = (courseCode: string): boolean => {
     return /^[A-Z]{2}10[0-9]/.test(courseCode);
@@ -205,14 +226,6 @@ const Index = () => {
     }
   };
 
-  const handleAddCourse = (newCourse: Omit<Course, "id">) => {
-    const course: Course = {
-      ...newCourse,
-      id: Math.random().toString(36).substr(2, 9),
-    };
-    setCourses([...courses, course]);
-  };
-
   const handleEditCourse = (course: Course) => {
     toast({
       title: "Edit Course",
@@ -220,18 +233,38 @@ const Index = () => {
     });
   };
 
-  const handleCoursesExtracted = (extractedCourses: Omit<Course, "id">[]) => {
-    const newCourses = extractedCourses.map((course) => ({
-      ...course,
-      id: Math.random().toString(36).substr(2, 9),
-    }));
-    
-    setCourses((prevCourses) => [...prevCourses, ...newCourses]);
-    
-    toast({
-      title: "Courses Added",
-      description: `Successfully added ${newCourses.length} courses from PDF`,
-    });
+  const handleAddCourse = async (newCourse: Omit<Course, "id">) => {
+    try {
+      const course = await addCourse(newCourse);
+      setCourses((prev) => [...prev, course]);
+      toast({
+        title: "Course Added",
+        description: "Successfully added new course",
+      });
+    } catch (error) {
+      toast({
+        title: "Error Adding Course",
+        description: error instanceof Error ? error.message : "Failed to add course",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleCoursesExtracted = async (extractedCourses: Omit<Course, "id">[]) => {
+    try {
+      const newCourses = await addCourses(extractedCourses);
+      setCourses((prev) => [...prev, ...newCourses]);
+      toast({
+        title: "Courses Added",
+        description: `Successfully added ${newCourses.length} courses from PDF`,
+      });
+    } catch (error) {
+      toast({
+        title: "Error Adding Courses",
+        description: error instanceof Error ? error.message : "Failed to add courses",
+        variant: "destructive",
+      });
+    }
   };
 
   return (
@@ -263,14 +296,17 @@ const Index = () => {
         <div className="space-y-6">
           <h2 className="text-2xl font-semibold">Course List</h2>
           <div className="grid gap-4">
-            {courses.map((course) => (
-              <CourseCard
-                key={course.id}
-                course={course}
-                onEdit={handleEditCourse}
-              />
-            ))}
-            {courses.length === 0 && (
+            {isLoading ? (
+              <p className="text-muted-foreground text-center py-8">Loading courses...</p>
+            ) : courses.length > 0 ? (
+              courses.map((course) => (
+                <CourseCard
+                  key={course.id}
+                  course={course}
+                  onEdit={handleEditCourse}
+                />
+              ))
+            ) : (
               <p className="text-muted-foreground text-center py-8">
                 No courses added yet. Add your first course or import from PDF to get started.
               </p>

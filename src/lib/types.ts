@@ -26,3 +26,23 @@ export interface ScheduleItem extends Course {
   venue: Venue;
   timeSlot: TimeSlot;
 }
+
+// Add database types
+export type DBCourse = {
+  id: string;
+  code: string;
+  name: string;
+  lecturer: string;
+  class_size: number;
+  preferred_slots: TimeSlot[] | null;
+  constraints: string[] | null;
+  created_at: string;
+};
+
+export type DBVenue = {
+  id: string;
+  name: string;
+  capacity: number;
+  availability: TimeSlot[];
+  created_at: string;
+};
