@@ -34,22 +34,34 @@ serve(async (req) => {
         messages: [
           {
             role: "system",
-            content: `Extract course information from the provided PDF text. 
-            Return a JSON array of courses with the following format:
-            {
-              code: string (e.g., "CS101"),
-              name: string,
-              lecturer: string,
-              classSize: number
-            }`
+            content: `You are a course information extractor. Extract course information from the provided PDF text.
+            Return ONLY a JSON array of courses with the following format, and nothing else:
+            [
+              {
+                "code": string (e.g., "CS101"),
+                "name": string,
+                "lecturer": string,
+                "credits": number,
+                "venue": string,
+                "timeSlot": string (e.g., "MON_0800"),
+                "academicLevel": string,
+                "classSize": number,
+                "department": string
+              }
+            ]`
           },
           {
             role: "user",
             content: pdfContent
           }
-        ]
+        ],
+        temperature: 0.3
       })
     });
+
+    if (!response.ok) {
+      throw new Error(`OpenAI API error: ${response.statusText}`);
+    }
 
     const data = await response.json();
     const extractedText = data.choices[0].message.content;
@@ -60,9 +72,10 @@ serve(async (req) => {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     } catch (error) {
-      throw new Error("Failed to parse extracted course data");
+      throw new Error("Failed to parse extracted course data: " + error.message);
     }
   } catch (error) {
+    console.error("Error processing PDF:", error);
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
