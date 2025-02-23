@@ -1,4 +1,3 @@
-
 import { Course } from "@/lib/types";
 
 export const isFoundationalCourse = (courseCode: string): boolean => {
@@ -10,5 +9,17 @@ export const getActiveInstructors = (courses: Course[]): number => {
 };
 
 export const getAcademicLevels = (courses: Course[]): number => {
-  return new Set(courses.map(course => course.code.substring(0, 4))).size;
+  // Extract level numbers from course codes (e.g., CS101 -> 1, CS201 -> 2)
+  const levelSet = new Set(
+    courses.map(course => {
+      // Find the first number in the course code
+      const match = course.code.match(/\d/);
+      return match ? parseInt(match[0]) : null;
+    }).filter((level): level is number => 
+      // Only keep valid levels (1-4 for standard undergraduate courses)
+      level !== null && level >= 1 && level <= 4
+    )
+  );
+  
+  return levelSet.size;
 };
