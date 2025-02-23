@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Course, ScheduleItem } from "@/lib/types";
 import { fetchCourses, addCourse, addCourses, deleteCourse, deleteAllCourses } from "@/lib/db";
@@ -78,22 +77,40 @@ const AdminDashboard = () => {
     }
   };
 
-  const handleGenerateSchedule = () => {
-    const { schedule: newSchedule, conflicts } = generateSchedule(courses);
-    setSchedule(newSchedule);
+  const handleGenerateSchedule = async () => {
+    try {
+      const { schedule: newSchedule, conflicts } = await generateSchedule(courses);
+      
+      if (conflicts.length > 0) {
+        conflicts.forEach(({ reason }) => {
+          toast({
+            title: "Scheduling Conflict",
+            description: reason,
+            variant: "destructive",
+          });
+        });
+      }
 
-    if (conflicts.length > 0) {
-      conflicts.forEach(({ course, reason }) => {
+      if (newSchedule.length > 0) {
+        setSchedule(newSchedule);
         toast({
-          title: `Scheduling Conflict: ${course.code}`,
-          description: reason,
+          title: "Schedule Generated",
+          description: `Successfully scheduled ${newSchedule.length} courses${
+            conflicts.length > 0 ? ' with some conflicts' : ''
+          }`,
+        });
+      } else {
+        toast({
+          title: "Generation Failed",
+          description: "Could not generate a valid schedule. Please check the conflicts and try again.",
           variant: "destructive",
         });
-      });
-    } else {
+      }
+    } catch (error) {
       toast({
-        title: "Schedule Generated Successfully",
-        description: "All courses have been scheduled without conflicts.",
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to generate schedule",
+        variant: "destructive",
       });
     }
   };
@@ -197,4 +214,3 @@ const AdminDashboard = () => {
 };
 
 export default AdminDashboard;
-

@@ -1,8 +1,6 @@
 
 import { Course, ScheduleItem, Venue } from "@/lib/types";
-import { isFoundationalCourse } from "@/utils/scheduling/courseUtils";
-import { findNextBestTimeSlot, generateAlternativeSchedule } from "@/utils/scheduling/timeSlotUtils";
-import { suggestClassSplitting, getDefaultVenues, findAlternativeVenue } from "@/utils/scheduling/venueUtils";
+import { supabase } from "@/integrations/supabase/client";
 
 export type ScheduleConflict = {
   course: Course;
@@ -11,100 +9,59 @@ export type ScheduleConflict = {
   alternativeSchedule?: ScheduleItem[];
 };
 
-export const generateSchedule = (
+export const generateSchedule = async (
   courses: Course[]
-): { schedule: ScheduleItem[]; conflicts: ScheduleConflict[] } => {
-  const venues = getDefaultVenues();
-  const newSchedule: ScheduleItem[] = [];
-  const conflicts: ScheduleConflict[] = [];
+): Promise<{ schedule: ScheduleItem[]; conflicts: ScheduleConflict[] }> => {
+  try {
+    // Get default venues (you might want to fetch this from Supabase in a real app)
+    const venues = [
+      {
+        name: "Room 101",
+        capacity: 30,
+      },
+      {
+        name: "Room 102",
+        capacity: 40,
+      },
+      {
+        name: "Lecture Hall 1",
+        capacity: 100,
+      },
+      {
+        name: "Lecture Hall 2",
+        capacity: 150,
+      },
+    ];
 
-  // Sort courses by priority and constraints
-  const sortedCourses = [...courses].sort((a, b) => {
-    // Foundational courses get highest priority
-    if (isFoundationalCourse(a.code) && !isFoundationalCourse(b.code)) return -1;
-    if (!isFoundationalCourse(a.code) && isFoundationalCourse(b.code)) return 1;
-    
-    // Then sort by class size (larger classes are harder to place)
-    return b.classSize - a.classSize;
-  });
+    const { data, error } = await supabase.functions.invoke('generate-schedule', {
+      body: { courses, venues }
+    });
 
-  for (const course of sortedCourses) {
-    // Check for venue capacity and suggest splitting if needed
-    const splitSuggestion = suggestClassSplitting(course, venues);
-    if (splitSuggestion) {
-      conflicts.push({
-        course,
-        reason: `Class size (${course.classSize}) exceeds maximum venue capacity (${splitSuggestion.venue.capacity}).`,
-        suggestion: `Consider splitting into ${splitSuggestion.groups} groups of ${splitSuggestion.suggestedSize} students.`
-      });
-      continue;
-    }
+    if (error) throw error;
 
-    // Find suitable venues
-    const suitableVenues = venues.filter(
-      (venue) => venue.capacity >= course.classSize
-    );
-
-    if (suitableVenues.length === 0) {
-      const alternativeVenue = findAlternativeVenue(course.classSize, venues);
-      conflicts.push({
-        course,
-        reason: "No venue with sufficient capacity available.",
-        suggestion: alternativeVenue 
-          ? `Consider using ${alternativeVenue.name} (capacity: ${alternativeVenue.capacity}) and splitting the class.`
-          : "Consider adding more venues or reducing class size."
-      });
-      continue;
-    }
-
-    // Try to find the best time slot
-    let assignment = findNextBestTimeSlot(
-      suitableVenues,
-      course.lecturer,
-      newSchedule,
-      course.preferredSlots?.[0]?.day
-    );
-
-    // If no optimal slot found with preferred day, try without it
-    if (!assignment && course.preferredSlots?.[0]?.day) {
-      assignment = findNextBestTimeSlot(
-        suitableVenues,
-        course.lecturer,
-        newSchedule
-      );
-    }
-
-    if (assignment) {
-      const scheduleItem: ScheduleItem = {
-        ...course,
-        venue: assignment.venue,
-        timeSlot: assignment.timeSlot,
+    if (!data.success) {
+      return {
+        schedule: [],
+        conflicts: data.errors.map((error: string) => ({
+          course: { id: '', code: '', name: '', lecturer: '', classSize: 0 },
+          reason: error
+        }))
       };
-      newSchedule.push(scheduleItem);
-
-      // If the assignment isn't optimal, add it to conflicts with suggestions
-      if (!assignment.isOptimal) {
-        const alternativeSchedule = generateAlternativeSchedule(
-          newSchedule,
-          venues,
-          course
-        );
-        
-        conflicts.push({
-          course,
-          reason: "Course scheduled with relaxed constraints.",
-          suggestion: "Consider reviewing this slot for potential improvements.",
-          alternativeSchedule: alternativeSchedule
-        });
-      }
-    } else {
-      conflicts.push({
-        course,
-        reason: "No suitable time slot available.",
-        suggestion: "Consider adding more time slots or reviewing lecturer availability."
-      });
     }
-  }
 
-  return { schedule: newSchedule, conflicts };
+    return {
+      schedule: data.schedule,
+      conflicts: []
+    };
+
+  } catch (error) {
+    console.error('Error generating schedule:', error);
+    return {
+      schedule: [],
+      conflicts: [{
+        course: { id: '', code: '', name: '', lecturer: '', classSize: 0 },
+        reason: error instanceof Error ? error.message : 'Failed to generate schedule'
+      }]
+    };
+  }
 };
