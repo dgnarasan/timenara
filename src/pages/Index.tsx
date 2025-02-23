@@ -6,7 +6,9 @@ import AddCourseForm from "@/components/AddCourseForm";
 import PDFUploader from "@/components/PDFUploader";
 import Timetable from "@/components/Timetable";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
+import { FileText, Users, GraduationCap, BookOpen } from "lucide-react";
 
 const Index = () => {
   const [courses, setCourses] = useState<Course[]>([]);
@@ -267,62 +269,116 @@ const Index = () => {
     }
   };
 
+  const getActiveInstructors = () => {
+    return new Set(courses.map(course => course.lecturer)).size;
+  };
+
+  const getAcademicLevels = () => {
+    return new Set(courses.map(course => course.code.substring(0, 4))).size;
+  };
+
   return (
-    <div className="container mx-auto py-8 px-4 space-y-8">
-      <div className="text-center space-y-4">
-        <div className="inline-block px-3 py-1 bg-secondary rounded-full text-sm font-medium">
-          Schedule Generator
+    <div className="container mx-auto py-8 space-y-8">
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold">Course Timetable</h1>
+            <p className="text-muted-foreground">
+              Manage and view your department's course schedule
+            </p>
+          </div>
+          <Button>
+            Generate with AI
+          </Button>
         </div>
-        <h1 className="text-4xl font-bold tracking-tight">University Timetable</h1>
-        <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-          Create optimal class schedules while preventing time overlaps and
-          considering various constraints.
-        </p>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <Card className="p-6 space-y-2">
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Total Courses</p>
+                <h3 className="text-2xl font-bold">{courses.length}</h3>
+                <p className="text-sm text-muted-foreground">Courses in current schedule</p>
+              </div>
+              <BookOpen className="h-4 w-4 text-muted-foreground" />
+            </div>
+          </Card>
+
+          <Card className="p-6 space-y-2">
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Academic Levels</p>
+                <h3 className="text-2xl font-bold">{getAcademicLevels()}</h3>
+                <p className="text-sm text-muted-foreground">Different course levels</p>
+              </div>
+              <GraduationCap className="h-4 w-4 text-muted-foreground" />
+            </div>
+          </Card>
+
+          <Card className="p-6 space-y-2">
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Instructors</p>
+                <h3 className="text-2xl font-bold">{getActiveInstructors()}</h3>
+                <p className="text-sm text-muted-foreground">Active instructors</p>
+              </div>
+              <Users className="h-4 w-4 text-muted-foreground" />
+            </div>
+          </Card>
+        </div>
       </div>
 
       <div className="grid md:grid-cols-2 gap-8">
         <div className="space-y-6">
-          <div className="space-y-4">
-            <h2 className="text-2xl font-semibold">Import Courses from PDF</h2>
-            <PDFUploader onCoursesExtracted={handleCoursesExtracted} />
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-semibold">Course Schedule</h2>
+            <div className="space-x-2">
+              <Button variant="outline" size="sm">
+                <FileText className="h-4 w-4 mr-2" />
+                CSV
+              </Button>
+              <Button variant="outline" size="sm">
+                <FileText className="h-4 w-4 mr-2" />
+                PDF
+              </Button>
+            </div>
           </div>
-          
-          <div className="space-y-4">
-            <h2 className="text-2xl font-semibold">Add New Course</h2>
-            <AddCourseForm onSubmit={handleAddCourse} />
-          </div>
+          <Timetable schedule={schedule} />
         </div>
 
         <div className="space-y-6">
-          <h2 className="text-2xl font-semibold">Course List</h2>
-          <div className="grid gap-4">
-            {isLoading ? (
-              <p className="text-muted-foreground text-center py-8">Loading courses...</p>
-            ) : courses.length > 0 ? (
-              courses.map((course) => (
-                <CourseCard
-                  key={course.id}
-                  course={course}
-                  onEdit={handleEditCourse}
-                />
-              ))
-            ) : (
-              <p className="text-muted-foreground text-center py-8">
-                No courses added yet. Add your first course or import from PDF to get started.
-              </p>
+          <h2 className="text-xl font-semibold">Add Courses</h2>
+          <p className="text-sm text-muted-foreground">
+            Upload course lists to generate an AI-optimized timetable
+          </p>
+          
+          <div className="space-y-6">
+            <div className="space-y-4">
+              <h3 className="text-lg font-medium">Course Input Assistant</h3>
+              <PDFUploader onCoursesExtracted={handleCoursesExtracted} />
+            </div>
+
+            <div className="space-y-4">
+              <h3 className="text-lg font-medium">Manual Input</h3>
+              <AddCourseForm onSubmit={handleAddCourse} />
+            </div>
+
+            {courses.length > 0 && (
+              <div className="space-y-4">
+                <h3 className="text-lg font-medium">Current Courses</h3>
+                <div className="grid gap-4">
+                  {courses.map((course) => (
+                    <CourseCard
+                      key={course.id}
+                      course={course}
+                      onEdit={handleEditCourse}
+                    />
+                  ))}
+                </div>
+              </div>
             )}
           </div>
         </div>
-      </div>
-
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <h2 className="text-2xl font-semibold">Generated Timetable</h2>
-          <Button onClick={generateSchedule} disabled={courses.length === 0}>
-            Generate Schedule
-          </Button>
-        </div>
-        <Timetable schedule={schedule} />
       </div>
     </div>
   );
