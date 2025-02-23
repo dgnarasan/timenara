@@ -1,5 +1,5 @@
 
-import { TimeSlot, Venue, ScheduleItem } from "@/lib/types";
+import { TimeSlot, Venue, ScheduleItem, Course } from "@/lib/types";
 
 export const HOURS_PER_DAY = 9; // 9:00 to 17:00
 const MAX_CLASSES_PER_DAY = 4;
