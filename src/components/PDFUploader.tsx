@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { Course } from "@/lib/types";
-import { Loader2, Upload } from "lucide-react";
+import { Loader2, Upload, RefreshCw } from "lucide-react";
 import CoursePreview from "./CoursePreview";
 
 interface PDFUploaderProps {
@@ -15,10 +15,10 @@ interface PDFUploaderProps {
 const PDFUploader = ({ onCoursesExtracted }: PDFUploaderProps) => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [extractedCourses, setExtractedCourses] = useState<Omit<Course, "id">[]>([]);
+  const [lastFile, setLastFile] = useState<File | null>(null);
   const { toast } = useToast();
 
-  const onDrop = useCallback(async (acceptedFiles: File[]) => {
-    const file = acceptedFiles[0];
+  const processPDF = async (file: File) => {
     if (!file) return;
 
     setIsProcessing(true);
@@ -31,28 +31,67 @@ const PDFUploader = ({ onCoursesExtracted }: PDFUploaderProps) => {
         body: formData,
       });
 
-      if (!response.ok) {
-        throw new Error("Failed to process PDF");
+      const contentType = response.headers.get("content-type");
+      if (!contentType?.includes("application/json")) {
+        throw new Error("Server returned invalid content type. Expected JSON.");
       }
 
-      const { courses } = await response.json();
-      setExtractedCourses(courses);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to process PDF");
+      }
+
+      const data = await response.json();
+      
+      if (!data.courses || !Array.isArray(data.courses)) {
+        throw new Error("Invalid response format from server");
+      }
+
+      setExtractedCourses(data.courses);
+      setLastFile(file);
       
       toast({
         title: "PDF Processed Successfully",
-        description: `Found ${courses.length} courses in the document.`,
+        description: `Found ${data.courses.length} courses. ${data.requiresReview ? `${data.requiresReview} courses need review.` : ""}`,
       });
     } catch (error) {
+      console.error("PDF processing error:", error);
+      
+      let errorMessage = "Failed to process PDF. ";
+      if (error instanceof Error) {
+        errorMessage += error.message;
+      } else {
+        errorMessage += "Unknown error occurred";
+      }
+      
       toast({
         title: "Error Processing PDF",
-        description: error instanceof Error ? error.message : "Unknown error occurred",
+        description: errorMessage,
         variant: "destructive",
+        action: lastFile ? (
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={() => processPDF(lastFile)}
+            className="mt-2"
+          >
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Retry
+          </Button>
+        ) : undefined,
       });
       setExtractedCourses([]);
     } finally {
       setIsProcessing(false);
     }
-  }, [toast]);
+  };
+
+  const onDrop = useCallback(async (acceptedFiles: File[]) => {
+    const file = acceptedFiles[0];
+    if (file) {
+      await processPDF(file);
+    }
+  }, []);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
@@ -65,6 +104,7 @@ const PDFUploader = ({ onCoursesExtracted }: PDFUploaderProps) => {
   const handleConfirm = (courses: Omit<Course, "id">[]) => {
     onCoursesExtracted(courses);
     setExtractedCourses([]);
+    setLastFile(null);
     toast({
       title: "Success",
       description: `${courses.length} courses have been added to your schedule.`,
@@ -72,8 +112,6 @@ const PDFUploader = ({ onCoursesExtracted }: PDFUploaderProps) => {
   };
 
   const handleEdit = (index: number) => {
-    // For now, we'll just remove the course. In a full implementation,
-    // we would open a modal or form to edit the course details.
     const newCourses = [...extractedCourses];
     newCourses.splice(index, 1);
     setExtractedCourses(newCourses);
@@ -91,6 +129,7 @@ const PDFUploader = ({ onCoursesExtracted }: PDFUploaderProps) => {
 
   const handleCancel = () => {
     setExtractedCourses([]);
+    setLastFile(null);
     toast({
       title: "Preview Cancelled",
       description: "All extracted courses have been discarded.",

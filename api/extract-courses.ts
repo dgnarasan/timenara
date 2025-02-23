@@ -20,9 +20,24 @@ serve(async (req) => {
       throw new Error("No PDF file provided");
     }
 
-    const pdfContent = await pdfFile.text();
+    // Log file details for debugging
+    console.log("Processing PDF:", {
+      name: pdfFile.name,
+      type: pdfFile.type,
+      size: pdfFile.size
+    });
 
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    const pdfContent = await pdfFile.text();
+    
+    // Validate PDF content
+    if (!pdfContent || pdfContent.trim().length === 0) {
+      throw new Error("PDF content is empty");
+    }
+
+    // Log first 100 characters of content for debugging
+    console.log("PDF content preview:", pdfContent.substring(0, 100));
+
+    const openAIResponse = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${Deno.env.get("OPENAI_API_KEY")}`,
@@ -55,15 +70,7 @@ serve(async (req) => {
                 "description": string (optional),
                 "confidence": number (0-1, indicating extraction confidence)
               }
-            ]
-
-            Validation requirements:
-            - Course codes must match pattern: [A-Z]{2,4}[0-9]{3,4}
-            - Course names must be complete and meaningful
-            - Class size must be a reasonable number
-            - Remove any incomplete or invalid entries
-            - Set confidence score based on data completeness and clarity
-            - Handle edge cases (typos, formatting issues) intelligently`
+            ]`
           },
           {
             role: "user",
@@ -75,17 +82,33 @@ serve(async (req) => {
       })
     });
 
-    if (!response.ok) {
-      throw new Error(`OpenAI API error: ${response.statusText}`);
+    if (!openAIResponse.ok) {
+      const errorText = await openAIResponse.text();
+      console.error("OpenAI API error response:", errorText);
+      
+      try {
+        const errorJson = JSON.parse(errorText);
+        throw new Error(`OpenAI API error: ${errorJson.error?.message || 'Unknown error'}`);
+      } catch (e) {
+        throw new Error(`OpenAI API error: ${errorText.substring(0, 200)}`);
+      }
     }
 
-    const data = await response.json();
+    const contentType = openAIResponse.headers.get("content-type");
+    if (!contentType?.includes("application/json")) {
+      throw new Error("OpenAI API returned invalid content type");
+    }
+
+    const data = await openAIResponse.json();
     const extractedText = data.choices[0].message.content;
     
     try {
       const courses = JSON.parse(extractedText);
       
-      // Enhanced validation
+      if (!Array.isArray(courses)) {
+        throw new Error("OpenAI response is not a valid array");
+      }
+
       const validatedCourses = courses.filter(course => {
         const isValid = 
           course.code && 
@@ -94,33 +117,29 @@ serve(async (req) => {
           course.name.length >= 3 &&
           typeof course.classSize === 'number' &&
           course.classSize > 0 &&
-          course.classSize < 1000; // reasonable class size limit
+          course.classSize < 1000;
           
         return isValid;
       });
 
-      // Enhanced course processing
       const processedCourses = validatedCourses.map(course => ({
         ...course,
         needsReview: course.confidence < 0.8 || 
-                    course.name.length < 5 || // likely incomplete name
-                    !course.lecturer // missing lecturer info
+                    course.name.length < 5 ||
+                    !course.lecturer
       }));
 
       return new Response(JSON.stringify({ 
         courses: processedCourses,
         totalExtracted: courses.length,
         validCount: processedCourses.length,
-        requiresReview: processedCourses.filter(c => c.needsReview).length,
-        stats: {
-          averageConfidence: processedCourses.reduce((acc, c) => acc + c.confidence, 0) / processedCourses.length,
-          completeEntries: processedCourses.filter(c => c.lecturer && c.prerequisites).length
-        }
+        requiresReview: processedCourses.filter(c => c.needsReview).length
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     } catch (error) {
-      throw new Error("Failed to parse extracted course data: " + error.message);
+      console.error("Failed to parse extracted course data:", error);
+      throw new Error(`Failed to parse course data: ${error.message}`);
     }
   } catch (error) {
     console.error("Error processing PDF:", error);
