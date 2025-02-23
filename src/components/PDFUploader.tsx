@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { Course } from "@/lib/types";
-import { Loader2 } from "lucide-react";
+import { Loader2, Upload } from "lucide-react";
 import CoursePreview from "./CoursePreview";
 
 interface PDFUploaderProps {
@@ -65,6 +65,10 @@ const PDFUploader = ({ onCoursesExtracted }: PDFUploaderProps) => {
   const handleConfirm = (courses: Omit<Course, "id">[]) => {
     onCoursesExtracted(courses);
     setExtractedCourses([]);
+    toast({
+      title: "Success",
+      description: `${courses.length} courses have been added to your schedule.`,
+    });
   };
 
   const handleEdit = (index: number) => {
@@ -79,10 +83,18 @@ const PDFUploader = ({ onCoursesExtracted }: PDFUploaderProps) => {
     const newCourses = [...extractedCourses];
     newCourses.splice(index, 1);
     setExtractedCourses(newCourses);
+    toast({
+      title: "Course Removed",
+      description: "The course has been removed from the preview.",
+    });
   };
 
   const handleCancel = () => {
     setExtractedCourses([]);
+    toast({
+      title: "Preview Cancelled",
+      description: "All extracted courses have been discarded.",
+    });
   };
 
   if (extractedCourses.length > 0) {
@@ -114,6 +126,7 @@ const PDFUploader = ({ onCoursesExtracted }: PDFUploaderProps) => {
         ) : (
           <>
             <div className="p-4">
+              <Upload className="h-8 w-8 mx-auto text-muted-foreground mb-4" />
               <p className="text-sm font-medium">
                 {isDragActive
                   ? "Drop the PDF here"
