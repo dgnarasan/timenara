@@ -11,36 +11,36 @@ interface StatsCardsProps {
 const StatsCards = ({ totalCourses, academicLevels, activeInstructors }: StatsCardsProps) => {
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-      <Card className="p-6 space-y-2">
+      <Card className="p-6 shadow-sm hover:shadow-md transition-shadow duration-200">
         <div className="flex items-start justify-between">
           <div>
             <p className="text-sm font-medium text-muted-foreground">Total Courses</p>
-            <h3 className="text-2xl font-bold">{totalCourses}</h3>
-            <p className="text-sm text-muted-foreground">Courses in current schedule</p>
+            <h3 className="text-2xl font-bold mt-2">{totalCourses}</h3>
+            <p className="text-sm text-muted-foreground mt-1">Courses in current schedule</p>
           </div>
-          <BookOpen className="h-4 w-4 text-muted-foreground" />
+          <BookOpen className="h-5 w-5 text-primary" />
         </div>
       </Card>
 
-      <Card className="p-6 space-y-2">
+      <Card className="p-6 shadow-sm hover:shadow-md transition-shadow duration-200">
         <div className="flex items-start justify-between">
           <div>
             <p className="text-sm font-medium text-muted-foreground">Academic Levels</p>
-            <h3 className="text-2xl font-bold">{academicLevels}</h3>
-            <p className="text-sm text-muted-foreground">Different course levels</p>
+            <h3 className="text-2xl font-bold mt-2">{academicLevels}</h3>
+            <p className="text-sm text-muted-foreground mt-1">Different course levels</p>
           </div>
-          <GraduationCap className="h-4 w-4 text-muted-foreground" />
+          <GraduationCap className="h-5 w-5 text-primary" />
         </div>
       </Card>
 
-      <Card className="p-6 space-y-2">
+      <Card className="p-6 shadow-sm hover:shadow-md transition-shadow duration-200">
         <div className="flex items-start justify-between">
           <div>
             <p className="text-sm font-medium text-muted-foreground">Instructors</p>
-            <h3 className="text-2xl font-bold">{activeInstructors}</h3>
-            <p className="text-sm text-muted-foreground">Active instructors</p>
+            <h3 className="text-2xl font-bold mt-2">{activeInstructors}</h3>
+            <p className="text-sm text-muted-foreground mt-1">Active instructors</p>
           </div>
-          <Users className="h-4 w-4 text-muted-foreground" />
+          <Users className="h-5 w-5 text-primary" />
         </div>
       </Card>
     </div>

@@ -97,20 +97,22 @@ const AdminDashboard = () => {
   };
 
   return (
-    <div className="container mx-auto py-8 space-y-8">
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
+    <div className="container mx-auto py-8 min-h-screen bg-background">
+      {/* Header Section */}
+      <div className="mb-8 bg-card rounded-lg p-6 shadow-sm">
+        <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-3xl font-bold">Admin Dashboard</h1>
-            <p className="text-muted-foreground">
-              Manage your department's course schedule
+            <h1 className="text-3xl font-bold tracking-tight">Admin Dashboard</h1>
+            <p className="text-muted-foreground mt-1">
+              Manage and generate your department's course schedule
             </p>
           </div>
-          <Button onClick={handleGenerateSchedule}>
+          <Button onClick={handleGenerateSchedule} className="shadow-sm">
             Generate with AI
           </Button>
         </div>
 
+        {/* Stats Cards */}
         <StatsCards
           totalCourses={courses.length}
           academicLevels={getAcademicLevels(courses)}
@@ -118,14 +120,26 @@ const AdminDashboard = () => {
         />
       </div>
 
-      <div className="grid md:grid-cols-2 gap-8">
-        <CourseScheduleSection schedule={schedule} />
-        <CourseManagementSection
-          courses={courses}
-          onAddCourse={handleAddCourse}
-          onCoursesExtracted={handleCoursesExtracted}
-          onEditCourse={handleEditCourse}
-        />
+      {/* Main Content */}
+      <div className="grid lg:grid-cols-2 gap-8">
+        {/* Left Column - Schedule */}
+        <div className="space-y-8">
+          <div className="bg-card rounded-lg p-6 shadow-sm">
+            <CourseScheduleSection schedule={schedule} />
+          </div>
+        </div>
+
+        {/* Right Column - Course Management */}
+        <div className="space-y-8">
+          <div className="bg-card rounded-lg p-6 shadow-sm">
+            <CourseManagementSection
+              courses={courses}
+              onAddCourse={handleAddCourse}
+              onCoursesExtracted={handleCoursesExtracted}
+              onEditCourse={handleEditCourse}
+            />
+          </div>
+        </div>
       </div>
     </div>
   );

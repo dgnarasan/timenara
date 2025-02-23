@@ -19,20 +19,24 @@ const CourseManagementSection = ({
 }: CourseManagementSectionProps) => {
   return (
     <div className="space-y-6">
-      <h2 className="text-xl font-semibold">Add Courses</h2>
+      <h2 className="text-xl font-semibold tracking-tight">Course Management</h2>
       <p className="text-sm text-muted-foreground">
-        Upload course lists to generate an AI-optimized timetable
+        Add and manage courses to generate an AI-optimized timetable
       </p>
       
       <div className="space-y-6">
         <div className="space-y-4">
           <h3 className="text-lg font-medium">Course Input Assistant</h3>
-          <PDFUploader onCoursesExtracted={onCoursesExtracted} />
+          <div className="bg-card/50 rounded-lg p-4 border shadow-sm">
+            <PDFUploader onCoursesExtracted={onCoursesExtracted} />
+          </div>
         </div>
 
         <div className="space-y-4">
           <h3 className="text-lg font-medium">Manual Input</h3>
-          <AddCourseForm onSubmit={onAddCourse} />
+          <div className="bg-card/50 rounded-lg border shadow-sm">
+            <AddCourseForm onSubmit={onAddCourse} />
+          </div>
         </div>
 
         {courses.length > 0 && (
