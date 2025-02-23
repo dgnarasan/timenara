@@ -1,6 +1,7 @@
 
 import { supabase } from "@/integrations/supabase/client";
-import { Course, DBCourse, Venue, DBVenue } from "./types";
+import { Course, DBCourse, Venue, DBVenue, TimeSlot } from "./types";
+import { PostgrestResponse } from "@supabase/supabase-js";
 
 export const mapDBCourseToClient = (dbCourse: DBCourse): Course => ({
   id: dbCourse.id,
@@ -26,7 +27,7 @@ export const fetchCourses = async (): Promise<Course[]> => {
     .order('created_at', { ascending: true });
 
   if (error) throw error;
-  return (data as DBCourse[]).map(mapDBCourseToClient);
+  return (data as unknown as DBCourse[]).map(mapDBCourseToClient);
 };
 
 export const addCourse = async (course: Omit<Course, "id">): Promise<Course> => {
@@ -37,14 +38,18 @@ export const addCourse = async (course: Omit<Course, "id">): Promise<Course> => 
       name: course.name,
       lecturer: course.lecturer,
       class_size: course.classSize,
-      preferred_slots: course.preferredSlots || null,
+      preferred_slots: course.preferredSlots ? JSON.stringify(course.preferredSlots) : null,
       constraints: course.constraints || null,
     })
     .select()
     .single();
 
   if (error) throw error;
-  return mapDBCourseToClient(data as DBCourse);
+  const dbCourse = data as unknown as DBCourse;
+  if (dbCourse.preferred_slots) {
+    dbCourse.preferred_slots = JSON.parse(dbCourse.preferred_slots as unknown as string);
+  }
+  return mapDBCourseToClient(dbCourse);
 };
 
 export const addCourses = async (courses: Omit<Course, "id">[]): Promise<Course[]> => {
@@ -56,12 +61,17 @@ export const addCourses = async (courses: Omit<Course, "id">[]): Promise<Course[
         name: course.name,
         lecturer: course.lecturer,
         class_size: course.classSize,
-        preferred_slots: course.preferredSlots || null,
+        preferred_slots: course.preferredSlots ? JSON.stringify(course.preferredSlots) : null,
         constraints: course.constraints || null,
       }))
     )
     .select();
 
   if (error) throw error;
-  return (data as DBCourse[]).map(mapDBCourseToClient);
+  return (data as unknown as DBCourse[]).map(course => {
+    if (course.preferred_slots) {
+      course.preferred_slots = JSON.parse(course.preferred_slots as unknown as string);
+    }
+    return mapDBCourseToClient(course);
+  });
 };
