@@ -8,7 +8,6 @@ const corsHeaders = {
 };
 
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -34,21 +33,35 @@ serve(async (req) => {
         messages: [
           {
             role: "system",
-            content: `You are a course information extractor. Extract course information from the provided PDF text.
-            Return ONLY a JSON array of courses with the following format, and nothing else:
+            content: `You are a course information extractor specialized in academic course data.
+            Analyze the provided text carefully for course information.
+            For each course, extract and validate:
+            - Course code (must follow standard format, e.g., CS101, MATH201)
+            - Course name (full name)
+            - Lecturer name (if available)
+            - Class size (numeric value or estimate based on context)
+            - Prerequisites (if mentioned)
+            - Course description (if available)
+
+            Return ONLY a JSON array with this exact structure:
             [
               {
-                "code": string (e.g., "CS101"),
+                "code": string,
                 "name": string,
                 "lecturer": string,
-                "credits": number,
-                "venue": string,
-                "timeSlot": string (e.g., "MON_0800"),
-                "academicLevel": string,
                 "classSize": number,
-                "department": string
+                "academicLevel": null,
+                "prerequisites": string[],
+                "description": string,
+                "confidence": number
               }
-            ]`
+            ]
+            
+            For each field:
+            - Set empty string if information is missing
+            - Set confidence score (0-1) based on certainty of extraction
+            - Validate course codes against common patterns
+            - Remove any malformed or incomplete entries`
           },
           {
             role: "user",
@@ -68,7 +81,30 @@ serve(async (req) => {
     
     try {
       const courses = JSON.parse(extractedText);
-      return new Response(JSON.stringify({ courses }), {
+      
+      // Validate course data
+      const validatedCourses = courses.filter(course => {
+        const isValid = 
+          course.code && 
+          course.code.match(/^[A-Z]{2,4}\d{3,4}$/) && 
+          course.name &&
+          typeof course.classSize === 'number';
+          
+        return isValid;
+      });
+
+      // Flag courses with low confidence
+      const processedCourses = validatedCourses.map(course => ({
+        ...course,
+        needsReview: course.confidence < 0.8
+      }));
+
+      return new Response(JSON.stringify({ 
+        courses: processedCourses,
+        totalExtracted: courses.length,
+        validCount: processedCourses.length,
+        requiresReview: processedCourses.filter(c => c.needsReview).length
+      }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     } catch (error) {
@@ -76,7 +112,10 @@ serve(async (req) => {
     }
   } catch (error) {
     console.error("Error processing PDF:", error);
-    return new Response(JSON.stringify({ error: error.message }), {
+    return new Response(JSON.stringify({ 
+      error: error.message,
+      suggestion: "Please verify the PDF content and try again, or enter courses manually."
+    }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
