@@ -5,27 +5,39 @@ import CourseCard from "@/components/CourseCard";
 import AddCourseForm from "@/components/AddCourseForm";
 import Timetable from "@/components/Timetable";
 import { Button } from "@/components/ui/button";
-import { useToast } from "@/components/ui/use-toast";
+import { useToast } from "@/hooks/use-toast";
 
 const Index = () => {
   const [courses, setCourses] = useState<Course[]>([]);
   const [schedule, setSchedule] = useState<ScheduleItem[]>([]);
   const { toast } = useToast();
 
-  const handleAddCourse = (newCourse: Omit<Course, "id">) => {
-    const course: Course = {
-      ...newCourse,
-      id: Math.random().toString(36).substr(2, 9),
-    };
-    setCourses([...courses, course]);
+  // Helper function to determine if a course is foundational
+  const isFoundationalCourse = (courseCode: string): boolean => {
+    return /^[A-Z]{2}10[0-9]/.test(courseCode); // Matches patterns like CS101, MA102, etc.
   };
 
-  const handleEditCourse = (course: Course) => {
-    // Implement edit functionality
-    toast({
-      title: "Edit Course",
-      description: "Edit functionality coming soon",
+  // Helper function to check consecutive classes for a lecturer
+  const hasConsecutiveClasses = (
+    lecturer: string,
+    timeSlot: TimeSlot,
+    existingSchedule: ScheduleItem[]
+  ): boolean => {
+    const lecturerClasses = existingSchedule.filter(
+      (item) => item.lecturer === lecturer && item.timeSlot.day === timeSlot.day
+    );
+    
+    const currentHour = parseInt(timeSlot.startTime);
+    let consecutiveCount = 1;
+
+    lecturerClasses.forEach((item) => {
+      const itemHour = parseInt(item.timeSlot.startTime);
+      if (Math.abs(itemHour - currentHour) <= 2) {
+        consecutiveCount++;
+      }
     });
+
+    return consecutiveCount > 3;
   };
 
   // Helper function to check if a time slot conflicts with existing schedules
@@ -43,16 +55,18 @@ const Index = () => {
     );
   };
 
-  // Helper function to get available time slots
-  const getAvailableTimeSlot = (
+  // Helper function to find the next best available time slot
+  const findNextBestTimeSlot = (
     venues: Venue[],
     lecturer: string,
-    currentSchedule: ScheduleItem[]
+    currentSchedule: ScheduleItem[],
+    preferredDay?: string
   ): { timeSlot: TimeSlot; venue: Venue } | null => {
-    const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
+    const days = preferredDay 
+      ? [preferredDay] 
+      : ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
     const times = Array.from({ length: 9 }, (_, i) => `${i + 9}:00`);
 
-    // Try each possible combination of day, time, and venue
     for (const day of days) {
       for (const startTime of times) {
         for (const venue of venues) {
@@ -62,11 +76,34 @@ const Index = () => {
             endTime: `${parseInt(startTime) + 1}:00`,
           };
 
-          if (!hasConflict(timeSlot, venue, lecturer, currentSchedule)) {
+          if (!hasConflict(timeSlot, venue, lecturer, currentSchedule) &&
+              !hasConsecutiveClasses(lecturer, timeSlot, currentSchedule)) {
             return { timeSlot, venue };
           }
         }
       }
+    }
+
+    return null;
+  };
+
+  // Helper function to suggest class splitting
+  const suggestClassSplitting = (
+    course: Course,
+    venues: Venue[]
+  ): { groups: number; suggestedSize: number; venue: Venue } | null => {
+    const largestVenue = venues.reduce((max, venue) => 
+      venue.capacity > max.capacity ? venue : max
+    );
+
+    if (course.classSize > largestVenue.capacity) {
+      const groups = Math.ceil(course.classSize / largestVenue.capacity);
+      const suggestedSize = Math.ceil(course.classSize / groups);
+      return {
+        groups,
+        suggestedSize,
+        venue: largestVenue
+      };
     }
 
     return null;
@@ -95,28 +132,56 @@ const Index = () => {
     ];
 
     const newSchedule: ScheduleItem[] = [];
-    const unscheduledCourses: Course[] = [];
+    const conflicts: Array<{ course: Course; reason: string }> = [];
 
-    // Sort courses by class size (descending) to schedule larger classes first
-    const sortedCourses = [...courses].sort((a, b) => b.classSize - a.classSize);
+    // Sort courses by priority (foundational first) and then by size
+    const sortedCourses = [...courses].sort((a, b) => {
+      if (isFoundationalCourse(a.code) && !isFoundationalCourse(b.code)) return -1;
+      if (!isFoundationalCourse(a.code) && isFoundationalCourse(b.code)) return 1;
+      return b.classSize - a.classSize;
+    });
 
     for (const course of sortedCourses) {
+      // Check if class needs to be split
+      const splitSuggestion = suggestClassSplitting(course, venues);
+      if (splitSuggestion) {
+        conflicts.push({
+          course,
+          reason: `Class size (${course.classSize}) exceeds maximum venue capacity (${splitSuggestion.venue.capacity}). ` +
+                  `Suggestion: Split into ${splitSuggestion.groups} groups of ${splitSuggestion.suggestedSize} students.`
+        });
+        continue;
+      }
+
       // Filter suitable venues based on capacity
       const suitableVenues = venues.filter(
         (venue) => venue.capacity >= course.classSize
       );
 
       if (suitableVenues.length === 0) {
-        unscheduledCourses.push(course);
+        conflicts.push({
+          course,
+          reason: "No venue with sufficient capacity available."
+        });
         continue;
       }
 
-      // Find an available time slot and venue
-      const assignment = getAvailableTimeSlot(
+      // Try to find an optimal time slot
+      let assignment = findNextBestTimeSlot(
         suitableVenues,
         course.lecturer,
-        newSchedule
+        newSchedule,
+        course.preferredSlots?.[0]?.day
       );
+
+      if (!assignment && course.preferredSlots?.[0]?.day) {
+        // If preferred slot is not available, try any other slot
+        assignment = findNextBestTimeSlot(
+          suitableVenues,
+          course.lecturer,
+          newSchedule
+        );
+      }
 
       if (assignment) {
         newSchedule.push({
@@ -125,17 +190,23 @@ const Index = () => {
           timeSlot: assignment.timeSlot,
         });
       } else {
-        unscheduledCourses.push(course);
+        conflicts.push({
+          course,
+          reason: "No suitable time slot available due to lecturer scheduling constraints."
+        });
       }
     }
 
     setSchedule(newSchedule);
 
-    if (unscheduledCourses.length > 0) {
-      toast({
-        title: "Schedule Generated with Conflicts",
-        description: `${unscheduledCourses.length} courses could not be scheduled due to constraints.`,
-        variant: "destructive",
+    // Provide detailed feedback
+    if (conflicts.length > 0) {
+      conflicts.forEach(({ course, reason }) => {
+        toast({
+          title: `Scheduling Conflict: ${course.code}`,
+          description: reason,
+          variant: "destructive",
+        });
       });
     } else {
       toast({
@@ -143,6 +214,22 @@ const Index = () => {
         description: "All courses have been scheduled without conflicts.",
       });
     }
+  };
+
+  const handleAddCourse = (newCourse: Omit<Course, "id">) => {
+    const course: Course = {
+      ...newCourse,
+      id: Math.random().toString(36).substr(2, 9),
+    };
+    setCourses([...courses, course]);
+  };
+
+  const handleEditCourse = (course: Course) => {
+    // Implement edit functionality
+    toast({
+      title: "Edit Course",
+      description: "Edit functionality coming soon",
+    });
   };
 
   return (
