@@ -1,4 +1,5 @@
 
+import React from "react";
 import { ScheduleItem } from "@/lib/types";
 import { Card } from "@/components/ui/card";
 
