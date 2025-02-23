@@ -9,12 +9,21 @@ import CourseScheduleSection from "@/components/dashboard/CourseScheduleSection"
 import CourseManagementSection from "@/components/dashboard/CourseManagementSection";
 import { generateSchedule } from "@/services/scheduleGenerator";
 import { getActiveInstructors, getAcademicLevels } from "@/utils/scheduling/courseUtils";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import PDFUploader from "@/components/PDFUploader";
 
 const AdminDashboard = () => {
   const [courses, setCourses] = useState<Course[]>([]);
   const [schedule, setSchedule] = useState<ScheduleItem[]>([]);
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(true);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
 
   useEffect(() => {
     const loadCourses = async () => {
@@ -83,6 +92,7 @@ const AdminDashboard = () => {
     try {
       const newCourses = await addCourses(extractedCourses);
       setCourses((prev) => [...prev, ...newCourses]);
+      setIsDialogOpen(false);
       toast({
         title: "Courses Added",
         description: `Successfully added ${newCourses.length} courses from PDF`,
@@ -107,9 +117,19 @@ const AdminDashboard = () => {
               Manage and generate your department's course schedule
             </p>
           </div>
-          <Button onClick={handleGenerateSchedule} className="shadow-sm">
-            Generate with AI
-          </Button>
+          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <DialogTrigger asChild>
+              <Button className="shadow-sm">Generate with AI</Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Course Input Assistant</DialogTitle>
+              </DialogHeader>
+              <div className="py-4">
+                <PDFUploader onCoursesExtracted={handleCoursesExtracted} />
+              </div>
+            </DialogContent>
+          </Dialog>
         </div>
 
         {/* Stats Cards */}
