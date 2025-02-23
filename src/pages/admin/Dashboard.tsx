@@ -1,5 +1,6 @@
+
 import { useState, useEffect } from "react";
-import { Course, ScheduleItem } from "@/lib/types";
+import { Course, ScheduleItem, TimeSlot, Venue } from "@/lib/types";
 import { fetchCourses, addCourse, addCourses } from "@/lib/db";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
