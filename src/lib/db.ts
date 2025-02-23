@@ -75,3 +75,22 @@ export const addCourses = async (courses: Omit<Course, "id">[]): Promise<Course[
     return mapDBCourseToClient(course);
   });
 };
+
+export const deleteCourse = async (courseId: string): Promise<void> => {
+  const { error } = await supabase
+    .from('courses')
+    .delete()
+    .eq('id', courseId);
+
+  if (error) throw error;
+};
+
+export const deleteAllCourses = async (): Promise<void> => {
+  const { error } = await supabase
+    .from('courses')
+    .delete()
+    .neq('id', 'none'); // Delete all rows
+
+  if (error) throw error;
+};
+

@@ -1,7 +1,7 @@
 
 import { useState, useEffect } from "react";
 import { Course, ScheduleItem } from "@/lib/types";
-import { fetchCourses, addCourse, addCourses } from "@/lib/db";
+import { fetchCourses, addCourse, addCourses, deleteCourse, deleteAllCourses } from "@/lib/db";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import StatsCards from "@/components/dashboard/StatsCards";
@@ -43,6 +43,40 @@ const AdminDashboard = () => {
 
     loadCourses();
   }, [toast]);
+
+  const handleDeleteCourse = async (courseId: string) => {
+    try {
+      await deleteCourse(courseId);
+      setCourses(prev => prev.filter(course => course.id !== courseId));
+      toast({
+        title: "Course Deleted",
+        description: "The course has been removed successfully.",
+      });
+    } catch (error) {
+      toast({
+        title: "Error Deleting Course",
+        description: error instanceof Error ? error.message : "Failed to delete course",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleClearAllCourses = async () => {
+    try {
+      await deleteAllCourses();
+      setCourses([]);
+      toast({
+        title: "All Courses Deleted",
+        description: "All courses have been removed successfully.",
+      });
+    } catch (error) {
+      toast({
+        title: "Error Deleting Courses",
+        description: error instanceof Error ? error.message : "Failed to delete courses",
+        variant: "destructive",
+      });
+    }
+  };
 
   const handleGenerateSchedule = () => {
     const { schedule: newSchedule, conflicts } = generateSchedule(courses);
@@ -95,7 +129,7 @@ const AdminDashboard = () => {
       setIsDialogOpen(false);
       toast({
         title: "Courses Added",
-        description: `Successfully added ${newCourses.length} courses from PDF`,
+        description: `Successfully added ${newCourses.length} courses`,
       });
     } catch (error) {
       toast({
@@ -108,7 +142,6 @@ const AdminDashboard = () => {
 
   return (
     <div className="container mx-auto py-8 min-h-screen bg-background">
-      {/* Header Section */}
       <div className="mb-8 bg-card rounded-lg p-6 shadow-sm">
         <div className="flex items-center justify-between mb-6">
           <div>
@@ -132,7 +165,6 @@ const AdminDashboard = () => {
           </Dialog>
         </div>
 
-        {/* Stats Cards */}
         <StatsCards
           totalCourses={courses.length}
           academicLevels={getAcademicLevels(courses)}
@@ -140,16 +172,13 @@ const AdminDashboard = () => {
         />
       </div>
 
-      {/* Main Content */}
       <div className="grid lg:grid-cols-2 gap-8">
-        {/* Left Column - Schedule */}
         <div className="space-y-8">
           <div className="bg-card rounded-lg p-6 shadow-sm">
             <CourseScheduleSection schedule={schedule} />
           </div>
         </div>
 
-        {/* Right Column - Course Management */}
         <div className="space-y-8">
           <div className="bg-card rounded-lg p-6 shadow-sm">
             <CourseManagementSection
@@ -157,6 +186,8 @@ const AdminDashboard = () => {
               onAddCourse={handleAddCourse}
               onCoursesExtracted={handleCoursesExtracted}
               onEditCourse={handleEditCourse}
+              onDeleteCourse={handleDeleteCourse}
+              onClearAllCourses={handleClearAllCourses}
             />
           </div>
         </div>
@@ -166,3 +197,4 @@ const AdminDashboard = () => {
 };
 
 export default AdminDashboard;
+
