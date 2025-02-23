@@ -8,6 +8,7 @@ const corsHeaders = {
 };
 
 serve(async (req) => {
+  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -17,30 +18,68 @@ serve(async (req) => {
     const pdfFile = formData.get("pdf") as File;
     
     if (!pdfFile) {
-      throw new Error("No PDF file provided");
+      return new Response(
+        JSON.stringify({ error: "No PDF file provided" }),
+        { 
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
     }
 
     // Log file details for debugging
-    console.log("Processing PDF:", {
+    console.log("[Debug] Processing PDF:", {
       name: pdfFile.name,
       type: pdfFile.type,
       size: pdfFile.size
     });
 
-    const pdfContent = await pdfFile.text();
-    
-    // Validate PDF content
-    if (!pdfContent || pdfContent.trim().length === 0) {
-      throw new Error("PDF content is empty");
+    let pdfContent: string;
+    try {
+      pdfContent = await pdfFile.text();
+      console.log("[Debug] PDF content length:", pdfContent.length);
+      console.log("[Debug] PDF content preview:", pdfContent.substring(0, 200));
+    } catch (error) {
+      console.error("[Error] Failed to read PDF content:", error);
+      return new Response(
+        JSON.stringify({ 
+          error: "Failed to read PDF content",
+          details: error.message 
+        }),
+        { 
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
     }
 
-    // Log first 100 characters of content for debugging
-    console.log("PDF content preview:", pdfContent.substring(0, 100));
+    if (!pdfContent || pdfContent.trim().length === 0) {
+      return new Response(
+        JSON.stringify({ error: "PDF content is empty" }),
+        { 
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
+    }
 
+    const openAIKey = Deno.env.get("OPENAI_API_KEY");
+    if (!openAIKey) {
+      console.error("[Error] OpenAI API key not found");
+      return new Response(
+        JSON.stringify({ error: "OpenAI API key not configured" }),
+        { 
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
+    }
+
+    console.log("[Debug] Sending request to OpenAI API");
     const openAIResponse = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${Deno.env.get("OPENAI_API_KEY")}`,
+        'Authorization': `Bearer ${openAIKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
@@ -82,21 +121,42 @@ serve(async (req) => {
       })
     });
 
+    // Log OpenAI response status and headers
+    console.log("[Debug] OpenAI Response:", {
+      status: openAIResponse.status,
+      statusText: openAIResponse.statusText,
+      contentType: openAIResponse.headers.get("content-type")
+    });
+
     if (!openAIResponse.ok) {
       const errorText = await openAIResponse.text();
-      console.error("OpenAI API error response:", errorText);
+      console.error("[Error] OpenAI API error response:", errorText);
       
-      try {
-        const errorJson = JSON.parse(errorText);
-        throw new Error(`OpenAI API error: ${errorJson.error?.message || 'Unknown error'}`);
-      } catch (e) {
-        throw new Error(`OpenAI API error: ${errorText.substring(0, 200)}`);
-      }
+      return new Response(
+        JSON.stringify({ 
+          error: "OpenAI API error",
+          details: errorText.substring(0, 200)
+        }),
+        { 
+          status: openAIResponse.status,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
     }
 
     const contentType = openAIResponse.headers.get("content-type");
     if (!contentType?.includes("application/json")) {
-      throw new Error("OpenAI API returned invalid content type");
+      console.error("[Error] Invalid content type from OpenAI:", contentType);
+      return new Response(
+        JSON.stringify({ 
+          error: "Invalid response from OpenAI API",
+          details: `Expected JSON but got ${contentType}` 
+        }),
+        { 
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
     }
 
     const data = await openAIResponse.json();
@@ -104,6 +164,7 @@ serve(async (req) => {
     
     try {
       const courses = JSON.parse(extractedText);
+      console.log("[Debug] Parsed courses:", courses);
       
       if (!Array.isArray(courses)) {
         throw new Error("OpenAI response is not a valid array");
@@ -119,6 +180,9 @@ serve(async (req) => {
           course.classSize > 0 &&
           course.classSize < 1000;
           
+        if (!isValid) {
+          console.log("[Debug] Invalid course:", course);
+        }
         return isValid;
       });
 
@@ -138,17 +202,29 @@ serve(async (req) => {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     } catch (error) {
-      console.error("Failed to parse extracted course data:", error);
-      throw new Error(`Failed to parse course data: ${error.message}`);
+      console.error("[Error] Failed to parse course data:", error);
+      return new Response(
+        JSON.stringify({ 
+          error: "Failed to parse course data",
+          details: error.message
+        }),
+        { 
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
     }
   } catch (error) {
-    console.error("Error processing PDF:", error);
-    return new Response(JSON.stringify({ 
-      error: error.message,
-      suggestion: "Please verify the PDF content and try again, or enter courses manually."
-    }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    console.error("[Error] Unexpected error:", error);
+    return new Response(
+      JSON.stringify({ 
+        error: "An unexpected error occurred",
+        details: error.message
+      }),
+      { 
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      }
+    );
   }
 });
