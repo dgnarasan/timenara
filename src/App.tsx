@@ -5,7 +5,8 @@ import { ThemeProvider } from "next-themes";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/toaster";
 import { Routes, Route } from "react-router-dom";
-import Index from "@/pages/Index";
+import AdminDashboard from "@/pages/admin/Dashboard";
+import StudentSchedule from "@/pages/student/Schedule";
 import NotFound from "@/pages/NotFound";
 import "./App.css";
 
@@ -26,7 +27,9 @@ function App() {
         <TooltipProvider>
           <BrowserRouter>
             <Routes>
-              <Route path="/" element={<Index />} />
+              <Route path="/" element={<AdminDashboard />} />
+              <Route path="/admin" element={<AdminDashboard />} />
+              <Route path="/schedule" element={<StudentSchedule />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>
