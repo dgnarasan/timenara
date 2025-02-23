@@ -22,6 +22,17 @@ export const suggestClassSplitting = (
   return null;
 };
 
+export const findAlternativeVenue = (
+  requiredCapacity: number,
+  venues: Venue[]
+): Venue | null => {
+  // Sort venues by capacity
+  const sortedVenues = [...venues].sort((a, b) => b.capacity - a.capacity);
+  
+  // Find the venue with closest capacity to required
+  return sortedVenues.find(venue => venue.capacity >= requiredCapacity * 0.8) || null;
+};
+
 export const getDefaultVenues = (): Venue[] => [
   {
     id: "v1",
