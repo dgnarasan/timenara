@@ -29,46 +29,49 @@ serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: "gpt-4o-mini",
+        model: "gpt-4o",
         messages: [
           {
             role: "system",
-            content: `You are a course information extractor specialized in academic course data.
-            Analyze the provided text carefully for course information.
-            For each course, extract and validate:
-            - Course code (must follow standard format, e.g., CS101, MATH201)
-            - Course name (full name)
-            - Lecturer name (if available)
-            - Class size (numeric value or estimate based on context)
-            - Prerequisites (if mentioned)
-            - Course description (if available)
+            content: `You are a specialized academic course information extractor. Extract and structure course information from educational documents with high precision.
 
-            Return ONLY a JSON array with this exact structure:
+            For each course found, identify and validate:
+            1. Course Code: Must follow academic format (e.g., CS101, MATH201, ENG303)
+            2. Course Name: Full official course title
+            3. Lecturer Name: Primary instructor (if available)
+            4. Class Size: Expected or maximum class size (numeric)
+            5. Prerequisites (if mentioned)
+            6. Course Description (if available)
+
+            Format the response as a JSON array of course objects:
             [
               {
-                "code": string,
-                "name": string,
-                "lecturer": string,
-                "classSize": number,
+                "code": string (required, format: 2-4 letters + 3-4 digits),
+                "name": string (required),
+                "lecturer": string (optional),
+                "classSize": number (required),
                 "academicLevel": null,
-                "prerequisites": string[],
-                "description": string,
-                "confidence": number
+                "prerequisites": string[] (optional),
+                "description": string (optional),
+                "confidence": number (0-1, indicating extraction confidence)
               }
             ]
-            
-            For each field:
-            - Set empty string if information is missing
-            - Set confidence score (0-1) based on certainty of extraction
-            - Validate course codes against common patterns
-            - Remove any malformed or incomplete entries`
+
+            Validation requirements:
+            - Course codes must match pattern: [A-Z]{2,4}[0-9]{3,4}
+            - Course names must be complete and meaningful
+            - Class size must be a reasonable number
+            - Remove any incomplete or invalid entries
+            - Set confidence score based on data completeness and clarity
+            - Handle edge cases (typos, formatting issues) intelligently`
           },
           {
             role: "user",
             content: pdfContent
           }
         ],
-        temperature: 0.3
+        temperature: 0.2,
+        max_tokens: 2000
       })
     });
 
@@ -82,28 +85,37 @@ serve(async (req) => {
     try {
       const courses = JSON.parse(extractedText);
       
-      // Validate course data
+      // Enhanced validation
       const validatedCourses = courses.filter(course => {
         const isValid = 
           course.code && 
-          course.code.match(/^[A-Z]{2,4}\d{3,4}$/) && 
+          course.code.match(/^[A-Z]{2,4}\d{3,4}$/) &&
           course.name &&
-          typeof course.classSize === 'number';
+          course.name.length >= 3 &&
+          typeof course.classSize === 'number' &&
+          course.classSize > 0 &&
+          course.classSize < 1000; // reasonable class size limit
           
         return isValid;
       });
 
-      // Flag courses with low confidence
+      // Enhanced course processing
       const processedCourses = validatedCourses.map(course => ({
         ...course,
-        needsReview: course.confidence < 0.8
+        needsReview: course.confidence < 0.8 || 
+                    course.name.length < 5 || // likely incomplete name
+                    !course.lecturer // missing lecturer info
       }));
 
       return new Response(JSON.stringify({ 
         courses: processedCourses,
         totalExtracted: courses.length,
         validCount: processedCourses.length,
-        requiresReview: processedCourses.filter(c => c.needsReview).length
+        requiresReview: processedCourses.filter(c => c.needsReview).length,
+        stats: {
+          averageConfidence: processedCourses.reduce((acc, c) => acc + c.confidence, 0) / processedCourses.length,
+          completeEntries: processedCourses.filter(c => c.lecturer && c.prerequisites).length
+        }
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
