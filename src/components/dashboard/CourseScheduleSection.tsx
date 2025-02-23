@@ -20,7 +20,7 @@ const CourseScheduleSection = ({ schedule }: CourseScheduleSectionProps) => {
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-3">
           <Calendar className="h-6 w-6 text-primary" />
-          <h2 className="text-2xl font-playfair font-bold tracking-tight bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
+          <h2 className="text-2xl font-bold tracking-tight bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
             Course Schedule
           </h2>
         </div>
@@ -65,8 +65,8 @@ const CourseScheduleSection = ({ schedule }: CourseScheduleSectionProps) => {
       {schedule.length === 0 && (
         <div className="text-center py-12 text-muted-foreground">
           <Calendar className="h-12 w-12 mx-auto mb-4 opacity-20" />
-          <p className="text-base font-playfair">No courses scheduled yet.</p>
-          <p className="text-sm mt-2 font-playfair text-muted-foreground/80">
+          <p className="text-base">No courses scheduled yet.</p>
+          <p className="text-sm mt-2 text-muted-foreground/80">
             Generate a schedule or add courses manually to get started.
           </p>
         </div>
