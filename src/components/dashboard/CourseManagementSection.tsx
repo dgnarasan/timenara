@@ -1,8 +1,6 @@
-
 import { useState } from "react";
 import { Course } from "@/lib/types";
 import AddCourseForm from "@/components/AddCourseForm";
-import PDFUploader from "@/components/PDFUploader";
 import CourseCard from "@/components/CourseCard";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
@@ -110,7 +108,6 @@ const CourseManagementSection = ({
       const worksheet = workbook.Sheets[workbook.SheetNames[0]];
       const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as string[][];
 
-      // Validate headers
       const headers = rows[0];
       const expectedHeaders = ["Course Code*", "Course Name*", "Lecturer Name*", "Class Size*"];
       if (!expectedHeaders.every((header, index) => headers[index] === header)) {
@@ -123,7 +120,6 @@ const CourseManagementSection = ({
         throw new Error("No valid courses found in template");
       }
 
-      // Check for duplicates if in 'add' mode
       if (uploadMode === 'add') {
         const duplicates = newCourses.filter(newCourse => 
           courses.some(existingCourse => 
@@ -242,13 +238,6 @@ const CourseManagementSection = ({
         </div>
 
         <div className="space-y-4">
-          <h3 className="text-lg font-medium">PDF Upload</h3>
-          <div className="bg-card/50 rounded-lg p-4 border shadow-sm">
-            <PDFUploader onCoursesExtracted={onCoursesExtracted} />
-          </div>
-        </div>
-
-        <div className="space-y-4">
           <h3 className="text-lg font-medium">Manual Input</h3>
           <div className="bg-card/50 rounded-lg border shadow-sm">
             <AddCourseForm onSubmit={onAddCourse} />
@@ -342,4 +331,3 @@ const CourseManagementSection = ({
 };
 
 export default CourseManagementSection;
-
