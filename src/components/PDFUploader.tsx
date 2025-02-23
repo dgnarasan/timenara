@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { Course } from "@/lib/types";
 import { Loader2 } from "lucide-react";
+import CoursePreview from "./CoursePreview";
 
 interface PDFUploaderProps {
   onCoursesExtracted: (courses: Omit<Course, "id">[]) => void;
@@ -13,6 +14,7 @@ interface PDFUploaderProps {
 
 const PDFUploader = ({ onCoursesExtracted }: PDFUploaderProps) => {
   const [isProcessing, setIsProcessing] = useState(false);
+  const [extractedCourses, setExtractedCourses] = useState<Omit<Course, "id">[]>([]);
   const { toast } = useToast();
 
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
@@ -34,23 +36,23 @@ const PDFUploader = ({ onCoursesExtracted }: PDFUploaderProps) => {
       }
 
       const { courses } = await response.json();
+      setExtractedCourses(courses);
       
       toast({
         title: "PDF Processed Successfully",
-        description: `Extracted ${courses.length} courses from the document.`,
+        description: `Found ${courses.length} courses in the document.`,
       });
-
-      onCoursesExtracted(courses);
     } catch (error) {
       toast({
         title: "Error Processing PDF",
         description: error instanceof Error ? error.message : "Unknown error occurred",
         variant: "destructive",
       });
+      setExtractedCourses([]);
     } finally {
       setIsProcessing(false);
     }
-  }, [onCoursesExtracted, toast]);
+  }, [toast]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
@@ -59,6 +61,41 @@ const PDFUploader = ({ onCoursesExtracted }: PDFUploaderProps) => {
     },
     multiple: false,
   });
+
+  const handleConfirm = (courses: Omit<Course, "id">[]) => {
+    onCoursesExtracted(courses);
+    setExtractedCourses([]);
+  };
+
+  const handleEdit = (index: number) => {
+    // For now, we'll just remove the course. In a full implementation,
+    // we would open a modal or form to edit the course details.
+    const newCourses = [...extractedCourses];
+    newCourses.splice(index, 1);
+    setExtractedCourses(newCourses);
+  };
+
+  const handleRemove = (index: number) => {
+    const newCourses = [...extractedCourses];
+    newCourses.splice(index, 1);
+    setExtractedCourses(newCourses);
+  };
+
+  const handleCancel = () => {
+    setExtractedCourses([]);
+  };
+
+  if (extractedCourses.length > 0) {
+    return (
+      <CoursePreview
+        courses={extractedCourses}
+        onConfirm={handleConfirm}
+        onEdit={handleEdit}
+        onRemove={handleRemove}
+        onCancel={handleCancel}
+      />
+    );
+  }
 
   return (
     <Card
