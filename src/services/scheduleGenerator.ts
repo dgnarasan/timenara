@@ -42,7 +42,7 @@ export const generateSchedule = async (
     if (!data.success) {
       return {
         schedule: [],
-        conflicts: data.errors.map((error: string) => ({
+        conflicts: data.conflicts.map((error: string) => ({
           course: { id: '', code: '', name: '', lecturer: '', classSize: 0 },
           reason: error
         }))
@@ -51,7 +51,7 @@ export const generateSchedule = async (
 
     return {
       schedule: data.schedule,
-      conflicts: []
+      conflicts: data.conflicts || []
     };
 
   } catch (error) {
