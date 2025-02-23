@@ -1,8 +1,8 @@
-
 import { useState } from "react";
 import { Course, ScheduleItem, Venue, TimeSlot } from "@/lib/types";
 import CourseCard from "@/components/CourseCard";
 import AddCourseForm from "@/components/AddCourseForm";
+import PDFUploader from "@/components/PDFUploader";
 import Timetable from "@/components/Timetable";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
@@ -12,12 +12,10 @@ const Index = () => {
   const [schedule, setSchedule] = useState<ScheduleItem[]>([]);
   const { toast } = useToast();
 
-  // Helper function to determine if a course is foundational
   const isFoundationalCourse = (courseCode: string): boolean => {
-    return /^[A-Z]{2}10[0-9]/.test(courseCode); // Matches patterns like CS101, MA102, etc.
+    return /^[A-Z]{2}10[0-9]/.test(courseCode);
   };
 
-  // Helper function to check consecutive classes for a lecturer
   const hasConsecutiveClasses = (
     lecturer: string,
     timeSlot: TimeSlot,
@@ -40,7 +38,6 @@ const Index = () => {
     return consecutiveCount > 3;
   };
 
-  // Helper function to check if a time slot conflicts with existing schedules
   const hasConflict = (
     timeSlot: TimeSlot,
     venue: Venue,
@@ -55,7 +52,6 @@ const Index = () => {
     );
   };
 
-  // Helper function to find the next best available time slot
   const findNextBestTimeSlot = (
     venues: Venue[],
     lecturer: string,
@@ -87,7 +83,6 @@ const Index = () => {
     return null;
   };
 
-  // Helper function to suggest class splitting
   const suggestClassSplitting = (
     course: Course,
     venues: Venue[]
@@ -134,7 +129,6 @@ const Index = () => {
     const newSchedule: ScheduleItem[] = [];
     const conflicts: Array<{ course: Course; reason: string }> = [];
 
-    // Sort courses by priority (foundational first) and then by size
     const sortedCourses = [...courses].sort((a, b) => {
       if (isFoundationalCourse(a.code) && !isFoundationalCourse(b.code)) return -1;
       if (!isFoundationalCourse(a.code) && isFoundationalCourse(b.code)) return 1;
@@ -142,7 +136,6 @@ const Index = () => {
     });
 
     for (const course of sortedCourses) {
-      // Check if class needs to be split
       const splitSuggestion = suggestClassSplitting(course, venues);
       if (splitSuggestion) {
         conflicts.push({
@@ -153,7 +146,6 @@ const Index = () => {
         continue;
       }
 
-      // Filter suitable venues based on capacity
       const suitableVenues = venues.filter(
         (venue) => venue.capacity >= course.classSize
       );
@@ -166,7 +158,6 @@ const Index = () => {
         continue;
       }
 
-      // Try to find an optimal time slot
       let assignment = findNextBestTimeSlot(
         suitableVenues,
         course.lecturer,
@@ -175,7 +166,6 @@ const Index = () => {
       );
 
       if (!assignment && course.preferredSlots?.[0]?.day) {
-        // If preferred slot is not available, try any other slot
         assignment = findNextBestTimeSlot(
           suitableVenues,
           course.lecturer,
@@ -199,7 +189,6 @@ const Index = () => {
 
     setSchedule(newSchedule);
 
-    // Provide detailed feedback
     if (conflicts.length > 0) {
       conflicts.forEach(({ course, reason }) => {
         toast({
@@ -225,10 +214,23 @@ const Index = () => {
   };
 
   const handleEditCourse = (course: Course) => {
-    // Implement edit functionality
     toast({
       title: "Edit Course",
       description: "Edit functionality coming soon",
+    });
+  };
+
+  const handleCoursesExtracted = (extractedCourses: Omit<Course, "id">[]) => {
+    const newCourses = extractedCourses.map((course) => ({
+      ...course,
+      id: Math.random().toString(36).substr(2, 9),
+    }));
+    
+    setCourses((prevCourses) => [...prevCourses, ...newCourses]);
+    
+    toast({
+      title: "Courses Added",
+      description: `Successfully added ${newCourses.length} courses from PDF`,
     });
   };
 
@@ -247,8 +249,15 @@ const Index = () => {
 
       <div className="grid md:grid-cols-2 gap-8">
         <div className="space-y-6">
-          <h2 className="text-2xl font-semibold">Add New Course</h2>
-          <AddCourseForm onSubmit={handleAddCourse} />
+          <div className="space-y-4">
+            <h2 className="text-2xl font-semibold">Import Courses from PDF</h2>
+            <PDFUploader onCoursesExtracted={handleCoursesExtracted} />
+          </div>
+          
+          <div className="space-y-4">
+            <h2 className="text-2xl font-semibold">Add New Course</h2>
+            <AddCourseForm onSubmit={handleAddCourse} />
+          </div>
         </div>
 
         <div className="space-y-6">
@@ -263,7 +272,7 @@ const Index = () => {
             ))}
             {courses.length === 0 && (
               <p className="text-muted-foreground text-center py-8">
-                No courses added yet. Add your first course to get started.
+                No courses added yet. Add your first course or import from PDF to get started.
               </p>
             )}
           </div>
