@@ -3,6 +3,7 @@ import { Course } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Check, X, Edit2, AlertTriangle } from "lucide-react";
+import { useState } from "react";
 import {
   Select,
   SelectContent,
@@ -20,11 +21,16 @@ interface CoursePreviewProps {
   onCancel: () => void;
 }
 
-const CoursePreview = ({ courses, onConfirm, onEdit, onRemove, onCancel }: CoursePreviewProps) => {
+const CoursePreview = ({ courses: initialCourses, onConfirm, onEdit, onRemove, onCancel }: CoursePreviewProps) => {
+  const [courses, setCourses] = useState(initialCourses);
   const academicLevels = ["100", "200", "300", "400", "500", "Graduate"];
 
   const updateCourseLevel = (index: number, level: string) => {
-    courses[index].academicLevel = level;
+    setCourses(prevCourses => {
+      const newCourses = [...prevCourses];
+      newCourses[index] = { ...newCourses[index], academicLevel: level };
+      return newCourses;
+    });
   };
 
   return (

@@ -5,6 +5,7 @@ export interface Course {
   name: string;
   lecturer: string;
   classSize: number;
+  academicLevel?: string;
   preferredSlots?: TimeSlot[];
   constraints?: string[];
 }
@@ -34,6 +35,7 @@ export type DBCourse = {
   name: string;
   lecturer: string;
   class_size: number;
+  academic_level?: string;
   preferred_slots: TimeSlot[] | null;
   constraints: string[] | null;
   created_at: string;
