@@ -61,34 +61,79 @@ const CourseManagementSection = ({
       const worksheet = workbook.Sheets[workbook.SheetNames[0]];
       const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as string[][];
 
-      // Skip header row and process data rows
-      const courses = rows.slice(1).map((row) => {
-        if (row.length < 4) return null;
-        
-        return {
-          code: row[0],
-          name: row[1],
-          lecturer: row[2],
-          classSize: parseInt(row[3]) || 0,
-        };
-      }).filter((course): course is Omit<Course, "id"> => 
-        course !== null && 
-        typeof course.code === 'string' && 
-        typeof course.name === 'string' && 
-        typeof course.lecturer === 'string' && 
-        course.classSize > 0
-      );
+      // Validate headers
+      const headers = rows[0];
+      const expectedHeaders = ["Course Code*", "Course Name*", "Lecturer Name*", "Class Size*"];
+      const isValidHeader = expectedHeaders.every((header, index) => headers[index] === header);
+      
+      if (!isValidHeader) {
+        throw new Error("Invalid template format. Please use the provided template.");
+      }
 
-      if (courses.length === 0) {
+      // Skip header row and process data rows
+      const validationErrors: string[] = [];
+      const newCourses = rows.slice(1).map((row, index) => {
+        if (row.length < 4) {
+          validationErrors.push(`Row ${index + 2}: Missing required fields`);
+          return null;
+        }
+
+        const code = row[0]?.toString().trim();
+        const name = row[1]?.toString().trim();
+        const lecturer = row[2]?.toString().trim();
+        const classSize = parseInt(row[3]) || 0;
+
+        // Validate individual fields
+        if (!code || !/^[A-Z]{2,4}\d{3,4}$/.test(code)) {
+          validationErrors.push(`Row ${index + 2}: Invalid course code format (e.g., CS101)`);
+          return null;
+        }
+
+        if (!name || name.length < 3) {
+          validationErrors.push(`Row ${index + 2}: Course name is too short`);
+          return null;
+        }
+
+        if (!lecturer) {
+          validationErrors.push(`Row ${index + 2}: Lecturer name is required`);
+          return null;
+        }
+
+        if (classSize <= 0 || classSize > 1000) {
+          validationErrors.push(`Row ${index + 2}: Invalid class size (must be between 1-1000)`);
+          return null;
+        }
+
+        // Check for duplicates in existing courses
+        if (courses.some(c => c.code === code)) {
+          validationErrors.push(`Row ${index + 2}: Course code ${code} already exists`);
+          return null;
+        }
+
+        return {
+          code,
+          name,
+          lecturer,
+          classSize,
+        };
+      }).filter((course): course is Omit<Course, "id"> => course !== null);
+
+      if (validationErrors.length > 0) {
+        throw new Error(
+          "Validation errors found:\n" + validationErrors.join("\n")
+        );
+      }
+
+      if (newCourses.length === 0) {
         throw new Error("No valid courses found in template");
       }
 
-      onCoursesExtracted(courses);
+      onCoursesExtracted(newCourses);
       setShowTemplateUpload(false);
       
       toast({
         title: "Success",
-        description: `${courses.length} courses imported from template`,
+        description: `${newCourses.length} courses imported from template`,
       });
     } catch (error) {
       toast({
