@@ -27,22 +27,20 @@ const CourseManagementSection = ({
 
   const downloadTemplate = () => {
     const template = [
-      ["Course Code*", "Course Name*", "Lecturer Name*", "Class Size*", "Academic Level", "Constraints"],
-      ["CS101", "Introduction to Computer Science", "Dr. John Doe", "30", "Undergraduate", "Lab Required"],
+      ["Course Code*", "Course Name*", "Lecturer Name*", "Class Size*"],
+      ["CS101", "Introduction to Computer Science", "Dr. John Doe", "30"],
     ];
 
     const ws = XLSX.utils.aoa_to_sheet(template);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Course Template");
 
-    // Add validation rules
+    // Add column widths for better readability
     ws["!cols"] = [
       { width: 15 }, // Course Code
       { width: 40 }, // Course Name
       { width: 25 }, // Lecturer Name
       { width: 15 }, // Class Size
-      { width: 20 }, // Academic Level
-      { width: 30 }, // Constraints
     ];
 
     XLSX.writeFile(wb, "course_template.xlsx");
@@ -72,14 +70,12 @@ const CourseManagementSection = ({
           name: row[1],
           lecturer: row[2],
           classSize: parseInt(row[3]) || 0,
-          academicLevel: row[4] || undefined,
-          constraints: row[5] ? [row[5]] : [],
         };
       }).filter((course): course is Omit<Course, "id"> => 
         course !== null && 
-        course.code && 
-        course.name && 
-        course.lecturer && 
+        typeof course.code === 'string' && 
+        typeof course.name === 'string' && 
+        typeof course.lecturer === 'string' && 
         course.classSize > 0
       );
 
