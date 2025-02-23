@@ -24,9 +24,8 @@ const Timetable = ({ schedule }: TimetableProps) => {
             </div>
           ))}
           {timeSlots.map((time) => (
-            <>
+            <React.Fragment key={time}>
               <div
-                key={time}
                 className="h-20 flex items-center justify-center font-medium text-muted-foreground"
               >
                 {time}
@@ -52,7 +51,7 @@ const Timetable = ({ schedule }: TimetableProps) => {
                     ))}
                 </Card>
               ))}
-            </>
+            </React.Fragment>
           ))}
         </div>
       </div>

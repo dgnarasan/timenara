@@ -13,6 +13,8 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
+  DialogFooter,
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Download, Upload, FileSpreadsheet } from "lucide-react";
@@ -80,8 +82,17 @@ const AdminDashboard = () => {
     }
   };
 
-  const handleGenerateSchedule = async () => {
+  const handleGenerateAI = async () => {
     try {
+      if (courses.length === 0) {
+        toast({
+          title: "No Courses Found",
+          description: "Please add courses before generating a schedule",
+          variant: "destructive",
+        });
+        return;
+      }
+
       const { schedule: newSchedule, conflicts } = await generateSchedule(courses);
       
       if (conflicts.length > 0) {
@@ -96,6 +107,7 @@ const AdminDashboard = () => {
 
       if (newSchedule.length > 0) {
         setSchedule(newSchedule);
+        setIsDialogOpen(false);
         toast({
           title: "Schedule Generated",
           description: `Successfully scheduled ${newSchedule.length} courses${
@@ -269,64 +281,40 @@ const AdminDashboard = () => {
           </div>
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
-              <Button className="shadow-sm">
+              <Button 
+                className="shadow-sm"
+                disabled={courses.length === 0}
+              >
                 Generate with AI
               </Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Course Template Upload</DialogTitle>
+                <DialogTitle>Generate AI Schedule</DialogTitle>
+                <DialogDescription>
+                  Generate an optimized schedule for {courses.length} courses using AI
+                </DialogDescription>
               </DialogHeader>
-              <div className="py-4">
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-1">
-                      <h4 className="text-sm font-medium">Course Template</h4>
-                      <p className="text-xs text-muted-foreground">
-                        Download the template, fill it with your courses, and upload it back
-                      </p>
-                    </div>
-                    <div className="flex gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={downloadTemplate}
-                      >
-                        <Download className="h-4 w-4 mr-2" />
-                        Template
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setShowTemplateUpload(true)}
-                      >
-                        <Upload className="h-4 w-4 mr-2" />
-                        Upload
-                      </Button>
-                    </div>
-                  </div>
-                  
-                  {showTemplateUpload && (
-                    <div className="mt-4 p-4 border border-dashed rounded-md">
-                      <div className="flex items-center justify-center">
-                        <label className="flex flex-col items-center gap-2 cursor-pointer">
-                          <FileSpreadsheet className="h-8 w-8 text-muted-foreground" />
-                          <span className="text-sm font-medium">Choose Template File</span>
-                          <span className="text-xs text-muted-foreground">
-                            XLSX or CSV format
-                          </span>
-                          <input
-                            type="file"
-                            accept=".xlsx,.csv"
-                            className="hidden"
-                            onChange={handleTemplateUpload}
-                          />
-                        </label>
-                      </div>
-                    </div>
-                  )}
+              <div className="py-4 space-y-4">
+                <div className="space-y-2">
+                  <h4 className="text-sm font-medium">Scheduling Constraints</h4>
+                  <ul className="text-sm text-muted-foreground list-disc list-inside space-y-1">
+                    <li>No lecturer teaches multiple classes simultaneously</li>
+                    <li>No venue hosts multiple classes at the same time</li>
+                    <li>Class sizes respect venue capacities</li>
+                    <li>Courses are distributed evenly across the week</li>
+                    <li>Time slots are from 9:00 to 17:00, Monday to Friday</li>
+                  </ul>
                 </div>
               </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
+                  Cancel
+                </Button>
+                <Button onClick={handleGenerateAI}>
+                  Generate Schedule
+                </Button>
+              </DialogFooter>
             </DialogContent>
           </Dialog>
         </div>
