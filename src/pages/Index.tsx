@@ -28,33 +28,121 @@ const Index = () => {
     });
   };
 
+  // Helper function to check if a time slot conflicts with existing schedules
+  const hasConflict = (
+    timeSlot: TimeSlot,
+    venue: Venue,
+    lecturer: string,
+    existingSchedule: ScheduleItem[]
+  ): boolean => {
+    return existingSchedule.some(
+      (item) =>
+        item.timeSlot.day === timeSlot.day &&
+        item.timeSlot.startTime === timeSlot.startTime &&
+        (item.venue.id === venue.id || item.lecturer === lecturer)
+    );
+  };
+
+  // Helper function to get available time slots
+  const getAvailableTimeSlot = (
+    venues: Venue[],
+    lecturer: string,
+    currentSchedule: ScheduleItem[]
+  ): { timeSlot: TimeSlot; venue: Venue } | null => {
+    const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
+    const times = Array.from({ length: 9 }, (_, i) => `${i + 9}:00`);
+
+    // Try each possible combination of day, time, and venue
+    for (const day of days) {
+      for (const startTime of times) {
+        for (const venue of venues) {
+          const timeSlot: TimeSlot = {
+            day: day as TimeSlot["day"],
+            startTime,
+            endTime: `${parseInt(startTime) + 1}:00`,
+          };
+
+          if (!hasConflict(timeSlot, venue, lecturer, currentSchedule)) {
+            return { timeSlot, venue };
+          }
+        }
+      }
+    }
+
+    return null;
+  };
+
   const generateSchedule = () => {
-    // This is a simplified version of schedule generation
-    // In a real application, this would be more complex
-    const dummyVenue: Venue = {
-      id: "v1",
-      name: "Room 101",
-      capacity: 50,
-      availability: [],
-    };
+    const venues: Venue[] = [
+      {
+        id: "v1",
+        name: "Room 101",
+        capacity: 30,
+        availability: [],
+      },
+      {
+        id: "v2",
+        name: "Room 102",
+        capacity: 50,
+        availability: [],
+      },
+      {
+        id: "v3",
+        name: "Lecture Hall 1",
+        capacity: 100,
+        availability: [],
+      },
+    ];
 
-    const dummyTimeSlot: TimeSlot = {
-      day: "Monday",
-      startTime: "9:00",
-      endTime: "10:00",
-    };
+    const newSchedule: ScheduleItem[] = [];
+    const unscheduledCourses: Course[] = [];
 
-    const newSchedule: ScheduleItem[] = courses.map((course) => ({
-      ...course,
-      venue: dummyVenue,
-      timeSlot: dummyTimeSlot,
-    }));
+    // Sort courses by class size (descending) to schedule larger classes first
+    const sortedCourses = [...courses].sort((a, b) => b.classSize - a.classSize);
+
+    for (const course of sortedCourses) {
+      // Filter suitable venues based on capacity
+      const suitableVenues = venues.filter(
+        (venue) => venue.capacity >= course.classSize
+      );
+
+      if (suitableVenues.length === 0) {
+        unscheduledCourses.push(course);
+        continue;
+      }
+
+      // Find an available time slot and venue
+      const assignment = getAvailableTimeSlot(
+        suitableVenues,
+        course.lecturer,
+        newSchedule
+      );
+
+      if (assignment) {
+        newSchedule.push({
+          ...course,
+          venue: assignment.venue,
+          timeSlot: assignment.timeSlot,
+        });
+      } else {
+        unscheduledCourses.push(course);
+      }
+    }
 
     setSchedule(newSchedule);
-    toast({
-      title: "Schedule Generated",
-      description: "Timetable has been created successfully",
-    });
+
+    if (unscheduledCourses.length > 0) {
+      toast({
+        title: "Schedule Generated with Conflicts",
+        description: `${unscheduledCourses.length} courses could not be scheduled due to constraints.`,
+        variant: "destructive",
+      });
+    } else {
+      toast({
+        title: "Schedule Generated Successfully",
+        description: "All courses have been scheduled without conflicts.",
+      });
+    }
   };
 
   return (
