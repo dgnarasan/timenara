@@ -14,6 +14,7 @@ import NotFound from "@/pages/NotFound";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { Users } from "lucide-react";
 import "./App.css";
 
 const queryClient = new QueryClient({
@@ -29,6 +30,7 @@ function NavBar() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const isOnAdminPage = window.location.pathname.includes('/admin');
 
   const handleLogout = async () => {
     try {
@@ -49,6 +51,22 @@ function NavBar() {
     }
   };
 
+  const handleViewSwitch = () => {
+    if (isOnAdminPage) {
+      navigate('/schedule');
+      toast({
+        title: "View Switched",
+        description: "Switched to student view",
+      });
+    } else {
+      navigate('/admin');
+      toast({
+        title: "View Switched",
+        description: "Switched to admin view",
+      });
+    }
+  };
+
   return (
     <div className="fixed top-0 left-0 right-0 p-4 flex justify-between items-center bg-background/95 backdrop-blur-sm border-b z-50">
       <Button
@@ -63,6 +81,16 @@ function NavBar() {
           <span className="text-sm text-muted-foreground">
             {user.email}
           </span>
+          {user.role === 'admin' && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleViewSwitch}
+            >
+              <Users className="mr-2 h-4 w-4" />
+              {isOnAdminPage ? 'Switch to Student View' : 'Switch to Admin View'}
+            </Button>
+          )}
           <Button
             variant="outline"
             onClick={handleLogout}
