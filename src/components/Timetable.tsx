@@ -9,7 +9,15 @@ interface TimetableProps {
 
 const Timetable = ({ schedule }: TimetableProps) => {
   const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
-  const timeSlots = Array.from({ length: 10 }, (_, i) => `${i + 8}:00`);
+  const timeSlots = Array.from({ length: 8 }, (_, i) => `${i + 9}:00`);
+
+  const getScheduledItemsForSlot = (day: string, startTime: string) => {
+    return schedule.filter(
+      (item) =>
+        item.timeSlot.day === day &&
+        item.timeSlot.startTime === startTime
+    );
+  };
 
   return (
     <div className="w-full overflow-x-auto animate-fade-in">
@@ -37,11 +45,7 @@ const Timetable = ({ schedule }: TimetableProps) => {
                   {time}
                 </td>
                 {days.map((day) => {
-                  const scheduledItems = schedule.filter(
-                    (item) =>
-                      item.timeSlot.day === day &&
-                      item.timeSlot.startTime === time
-                  );
+                  const scheduledItems = getScheduledItemsForSlot(day, time);
 
                   return (
                     <td
@@ -55,7 +59,13 @@ const Timetable = ({ schedule }: TimetableProps) => {
                         >
                           <div className="text-sm font-medium">{item.code}</div>
                           <div className="text-xs text-muted-foreground mt-1">
-                            {item.venue.name}
+                            {item.name}
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            {item.lecturer}
+                          </div>
+                          <div className="text-xs text-muted-foreground mt-1">
+                            {item.timeSlot.startTime} - {item.timeSlot.endTime}
                           </div>
                         </Card>
                       ))}

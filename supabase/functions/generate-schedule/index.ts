@@ -9,31 +9,25 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-interface Course {
+interface TimeSlot {
+  day: "Monday" | "Tuesday" | "Wednesday" | "Thursday" | "Friday";
+  startTime: string;
+  endTime: string;
+}
+
+interface ScheduleItem {
   id: string;
   code: string;
   name: string;
   lecturer: string;
   classSize: number;
-}
-
-interface TimeSlot {
-  day: "Monday" | "Tuesday" | "Wednesday" | "Thursday" | "Friday";
-  startTime: string;
-}
-
-interface ScheduleItem extends Course {
   timeSlot: TimeSlot;
 }
 
-function extractJsonFromMarkdown(content: string): string {
-  // Remove markdown code block syntax if present
-  const jsonMatch = content.match(/```(?:json)?\n?([\s\S]*?)\n?```/);
-  if (jsonMatch) {
-    return jsonMatch[1].trim();
-  }
-  // If no markdown block found, try to parse the content directly
-  return content.trim();
+function isValidTimeSlot(startTime: string, endTime: string): boolean {
+  const start = parseInt(startTime.split(':')[0]);
+  const end = parseInt(endTime.split(':')[0]);
+  return start >= 9 && end <= 17 && end - start === 2;
 }
 
 function isValidScheduleItem(item: any): item is ScheduleItem {
@@ -47,7 +41,9 @@ function isValidScheduleItem(item: any): item is ScheduleItem {
     item.timeSlot &&
     typeof item.timeSlot.day === 'string' &&
     typeof item.timeSlot.startTime === 'string' &&
-    ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"].includes(item.timeSlot.day)
+    typeof item.timeSlot.endTime === 'string' &&
+    ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"].includes(item.timeSlot.day) &&
+    isValidTimeSlot(item.timeSlot.startTime, item.timeSlot.endTime)
   );
 }
 
@@ -66,7 +62,7 @@ Generate a timetable that assigns courses to time slots following these rules:
 1. No lecturer should teach multiple classes at the same time
 2. Classes should be distributed evenly throughout the week
 3. Time slots are from 9:00 to 17:00, Monday to Friday
-4. Each class is 1 hour long
+4. Each class is EXACTLY 2 hours long
 5. Consider class sizes when distributing - try to avoid scheduling multiple large classes in the same time slot
 
 Return the schedule as a JSON array where each item contains:
@@ -75,14 +71,22 @@ Return the schedule as a JSON array where each item contains:
 - name (from input)
 - lecturer (from input)
 - classSize (from input)
-- timeSlot: { day: string, startTime: string }
+- timeSlot: { 
+    day: string, 
+    startTime: string (HH:00 format),
+    endTime: string (HH:00 format, must be startTime + 2 hours)
+  }
 
 IMPORTANT: Return ONLY the JSON array, no markdown formatting or additional text.`;
 
     const userPrompt = `Generate an optimized weekly schedule for these courses:
 ${JSON.stringify(courses, null, 2)}
 
-The schedule should maximize teaching efficiency and student comfort by distributing courses evenly across the week.`;
+Requirements:
+- Every course must be exactly 2 hours long
+- No lecturer can teach multiple courses at the same time
+- Distribute courses evenly across Monday to Friday
+- Only use time slots between 9 AM and 5 PM`;
 
     console.log('Sending request to OpenAI...');
     
@@ -110,11 +114,16 @@ The schedule should maximize teaching efficiency and student comfort by distribu
       throw new Error('Invalid response structure from OpenAI');
     }
 
-    // Extract JSON from potential markdown formatting
-    const content = rawResponse.choices[0].message.content;
+    const content = rawResponse.choices[0].message.content.trim();
     console.log('Raw content from OpenAI:', content);
     
-    const jsonString = extractJsonFromMarkdown(content);
+    let jsonString = content;
+    // Handle markdown code blocks if present
+    const markdownMatch = content.match(/```(?:json)?\n?([\s\S]*?)\n?```/);
+    if (markdownMatch) {
+      jsonString = markdownMatch[1].trim();
+    }
+    
     console.log('Extracted JSON string:', jsonString);
 
     let parsedContent: any;
@@ -122,39 +131,38 @@ The schedule should maximize teaching efficiency and student comfort by distribu
       parsedContent = JSON.parse(jsonString);
       console.log('Parsed content:', JSON.stringify(parsedContent, null, 2));
     } catch (parseError) {
-      console.error('Failed to parse extracted JSON:', jsonString);
-      console.error('Parse error:', parseError);
+      console.error('Failed to parse JSON:', parseError);
       throw new Error('Failed to parse schedule from OpenAI response');
     }
 
     if (!Array.isArray(parsedContent)) {
-      console.error('Parsed content is not an array:', typeof parsedContent);
       throw new Error('OpenAI response is not an array');
     }
 
-    // Filter out invalid items and log them
-    const validScheduleItems = parsedContent.filter((item) => {
-      const isValid = isValidScheduleItem(item);
-      if (!isValid) {
-        console.log('Invalid schedule item:', item);
-      }
-      return isValid;
-    });
-
-    console.log('Valid schedule items:', JSON.stringify(validScheduleItems, null, 2));
-
+    // Validate all schedule items
+    const validScheduleItems = parsedContent.filter(isValidScheduleItem);
     if (validScheduleItems.length === 0) {
       throw new Error('No valid schedule items found in OpenAI response');
     }
 
+    // Check for scheduling conflicts
     const conflicts = validateSchedule(validScheduleItems);
-    console.log('Schedule conflicts:', conflicts);
-    
+    if (conflicts.length > 0) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          schedule: [],
+          conflicts
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     return new Response(
       JSON.stringify({
-        success: conflicts.length === 0,
+        success: true,
         schedule: validScheduleItems,
-        conflicts: conflicts
+        conflicts: []
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
@@ -178,32 +186,61 @@ The schedule should maximize teaching efficiency and student comfort by distribu
 
 function validateSchedule(schedule: ScheduleItem[]): { reason: string }[] {
   const conflicts: { reason: string }[] = [];
-  const timeSlotMap = new Map<string, { lecturer: string, totalClassSize: number }>();
+  const timeSlotMap = new Map<string, Set<string>>();
+  const lecturerMap = new Map<string, Set<string>>();
 
   for (const item of schedule) {
-    const timeKey = `${item.timeSlot.day}-${item.timeSlot.startTime}`;
-    const existing = timeSlotMap.get(timeKey);
+    const { timeSlot, lecturer } = item;
+    const timeKey = `${timeSlot.day}-${timeSlot.startTime}-${timeSlot.endTime}`;
 
-    if (existing) {
-      if (existing.lecturer === item.lecturer) {
-        conflicts.push({
-          reason: `Lecturer ${item.lecturer} is scheduled for multiple classes at ${timeKey}`
-        });
-      }
+    // Check if the slot is already taken
+    if (!timeSlotMap.has(timeKey)) {
+      timeSlotMap.set(timeKey, new Set());
+    }
+    timeSlotMap.get(timeKey)!.add(lecturer);
 
-      const totalClassSize = existing.totalClassSize + item.classSize;
-      if (totalClassSize > 300) {
-        conflicts.push({
-          reason: `Too many large classes scheduled at ${timeKey} (total students: ${totalClassSize})`
-        });
-      }
+    // Check lecturer availability
+    if (!lecturerMap.has(lecturer)) {
+      lecturerMap.set(lecturer, new Set());
+    }
+    lecturerMap.get(lecturer)!.add(timeKey);
+
+    // Validate time slot duration
+    const startHour = parseInt(timeSlot.startTime.split(':')[0]);
+    const endHour = parseInt(timeSlot.endTime.split(':')[0]);
+    if (endHour - startHour !== 2) {
+      conflicts.push({
+        reason: `Course ${item.code} duration is not exactly 2 hours (${timeSlot.startTime} - ${timeSlot.endTime})`
+      });
     }
 
-    timeSlotMap.set(timeKey, {
-      lecturer: item.lecturer,
-      totalClassSize: (existing?.totalClassSize || 0) + item.classSize
+    // Check for lecturer conflicts
+    const lecturerSlots = lecturerMap.get(lecturer)!;
+    lecturerSlots.forEach(slot => {
+      if (slot !== timeKey && doTimeSlotsOverlap(timeKey, slot)) {
+        conflicts.push({
+          reason: `Lecturer ${lecturer} has overlapping classes at ${timeSlot.day} ${timeSlot.startTime}-${timeSlot.endTime}`
+        });
+      }
     });
   }
 
   return conflicts;
+}
+
+function doTimeSlotsOverlap(slot1: string, slot2: string): boolean {
+  const [day1, start1, end1] = slot1.split('-');
+  const [day2, start2, end2] = slot2.split('-');
+
+  if (day1 !== day2) return false;
+
+  const start1Hour = parseInt(start1.split(':')[0]);
+  const end1Hour = parseInt(end1.split(':')[0]);
+  const start2Hour = parseInt(start2.split(':')[0]);
+  const end2Hour = parseInt(end2.split(':')[0]);
+
+  return (
+    (start1Hour >= start2Hour && start1Hour < end2Hour) ||
+    (start2Hour >= start1Hour && start2Hour < end1Hour)
+  );
 }
