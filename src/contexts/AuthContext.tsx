@@ -2,9 +2,10 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import { User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
+import { UserRole } from '@/lib/types';
 
 type AuthContextType = {
-  user: User | null;
+  user: (User & { role: UserRole }) | null;
   loading: boolean;
   signOut: () => Promise<void>;
 };
@@ -20,7 +21,7 @@ export const useAuth = () => {
 };
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<(User & { role: UserRole }) | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -28,7 +29,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const initializeAuth = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
-        setUser(session?.user ?? null);
+        if (session?.user) {
+          const userWithRole = {
+            ...session.user,
+            role: 'student' as UserRole // Default role
+          };
+          setUser(userWithRole);
+        } else {
+          setUser(null);
+        }
       } catch (error) {
         console.error('Error getting session:', error);
       } finally {
@@ -41,7 +50,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       console.log('Auth state changed:', event);
-      setUser(session?.user ?? null);
+      if (session?.user) {
+        const userWithRole = {
+          ...session.user,
+          role: 'student' as UserRole // Default role
+        };
+        setUser(userWithRole);
+      } else {
+        setUser(null);
+      }
       setLoading(false);
     });
 
