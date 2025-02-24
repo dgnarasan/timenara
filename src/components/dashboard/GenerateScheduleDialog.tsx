@@ -37,7 +37,6 @@ const GenerateScheduleDialog = ({ courses, onScheduleGenerated }: GenerateSchedu
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [timeoutWarning, setTimeoutWarning] = useState(false);
   const [selectedDepartment, setSelectedDepartment] = useState<Department | ''>('');
   const { toast } = useToast();
 
@@ -46,22 +45,21 @@ const GenerateScheduleDialog = ({ courses, onScheduleGenerated }: GenerateSchedu
     : courses;
 
   const handleGenerateAI = async () => {
+    if (filteredCourses.length === 0) {
+      toast({
+        title: "No Courses Found",
+        description: selectedDepartment 
+          ? `No courses found for ${selectedDepartment} department` 
+          : "Please add courses before generating a schedule",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsLoading(true);
+    setProgress(0);
+
     try {
-      if (filteredCourses.length === 0) {
-        toast({
-          title: "No Courses Found",
-          description: selectedDepartment 
-            ? `No courses found for ${selectedDepartment} department` 
-            : "Please add courses before generating a schedule",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      setIsLoading(true);
-      setProgress(0);
-      setTimeoutWarning(false);
-
       // Start progress animation
       const progressInterval = setInterval(() => {
         setProgress(prev => {
@@ -73,19 +71,9 @@ const GenerateScheduleDialog = ({ courses, onScheduleGenerated }: GenerateSchedu
         });
       }, 3000);
 
-      // Set timeout warning after 30 seconds
-      const timeoutTimer = setTimeout(() => {
-        setTimeoutWarning(true);
-        toast({
-          title: "Processing",
-          description: "Schedule generation is taking longer than expected. Please wait...",
-        });
-      }, 30000);
-
       const { schedule: newSchedule, conflicts } = await generateSchedule(filteredCourses);
       
       clearInterval(progressInterval);
-      clearTimeout(timeoutTimer);
       setProgress(100);
 
       if (conflicts.length > 0) {
@@ -115,6 +103,7 @@ const GenerateScheduleDialog = ({ courses, onScheduleGenerated }: GenerateSchedu
         });
       }
     } catch (error) {
+      console.error('Error generating schedule:', error);
       toast({
         title: "Error",
         description: error instanceof Error ? error.message : "Failed to generate schedule",
@@ -187,11 +176,7 @@ const GenerateScheduleDialog = ({ courses, onScheduleGenerated }: GenerateSchedu
                 />
               </div>
               <p className="text-sm text-muted-foreground text-center">
-                {timeoutWarning ? (
-                  "Processing may take longer than expected..."
-                ) : (
-                  `Generating schedule (${progress}%)`
-                )}
+                Generating schedule ({progress}%)
               </p>
             </div>
           )}
