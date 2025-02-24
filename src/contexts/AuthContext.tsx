@@ -22,102 +22,49 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const { toast } = useToast();
 
   useEffect(() => {
-    let mounted = true;
-    
-    const getInitialSession = async () => {
-      try {
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-        
-        if (sessionError) {
-          console.error('Session error:', sessionError);
-          if (mounted) setState({ user: null, loading: false });
-          return;
-        }
-
-        if (!session?.user) {
-          if (mounted) setState({ user: null, loading: false });
-          return;
-        }
-
-        const { data: profile, error: profileError } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', session.user.id)
-          .maybeSingle();
-
-        if (profileError) {
-          console.error('Profile fetch error:', profileError);
-          if (mounted) setState({ user: null, loading: false });
-          return;
-        }
-
-        if (!profile) {
-          console.error('No profile found for user');
-          if (mounted) setState({ user: null, loading: false });
-          return;
-        }
-
-        if (mounted) {
-          setState({
-            user: {
-              id: session.user.id,
-              email: session.user.email!,
-              role: profile.role,
-            },
-            loading: false,
-          });
-        }
-      } catch (error) {
-        console.error('Unexpected error:', error);
-        if (mounted) setState({ user: null, loading: false });
-      }
-    };
-
-    getInitialSession();
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (!session) {
-        if (mounted) setState({ user: null, loading: false });
+    // Get initial session
+    supabase.auth.getSession().then(({ data: { session }, error }) => {
+      if (error) {
+        console.error('Error fetching session:', error);
+        setState({ user: null, loading: false });
         return;
       }
 
-      try {
-        const { data: profile, error: profileError } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', session.user.id)
-          .maybeSingle();
+      if (session?.user) {
+        setState({
+          user: {
+            id: session.user.id,
+            email: session.user.email!,
+            role: 'student', // Default role
+          },
+          loading: false,
+        });
+      } else {
+        setState({ user: null, loading: false });
+      }
+    });
 
-        if (profileError) {
-          console.error('Profile fetch error:', profileError);
-          if (mounted) setState({ user: null, loading: false });
-          return;
-        }
-
-        if (!profile) {
-          console.error('No profile found for user');
-          if (mounted) setState({ user: null, loading: false });
-          return;
-        }
-
-        if (mounted) {
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        console.log('Auth state changed:', event, session?.user?.email);
+        
+        if (session?.user) {
           setState({
             user: {
               id: session.user.id,
               email: session.user.email!,
-              role: profile.role,
+              role: 'student', // Default role
             },
             loading: false,
           });
+        } else {
+          setState({ user: null, loading: false });
         }
-      } catch (error) {
-        console.error('Unexpected error in auth change:', error);
-        if (mounted) setState({ user: null, loading: false });
       }
-    });
+    );
 
     return () => {
-      mounted = false;
       subscription.unsubscribe();
     };
   }, []);

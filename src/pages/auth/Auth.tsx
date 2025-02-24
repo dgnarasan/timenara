@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -19,14 +20,18 @@ const Auth = () => {
   const { user } = useAuth();
 
   useEffect(() => {
-    if (user) {
-      navigate('/schedule');
-    }
-  }, [user, navigate]);
+    const checkSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        navigate('/schedule');
+      }
+    };
+    checkSession();
+  }, [navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (loading) return;
+    if (loading || !email || !password) return;
     
     setLoading(true);
     console.log('Starting auth process...', { email, isSignUp });
@@ -36,9 +41,6 @@ const Auth = () => {
         const { data, error } = await supabase.auth.signUp({
           email,
           password,
-          options: {
-            emailRedirectTo: `${window.location.origin}/auth`
-          }
         });
         
         if (error) throw error;
@@ -48,22 +50,24 @@ const Auth = () => {
           description: "Please check your email for verification",
         });
       } else {
+        console.log('Attempting sign in...');
         const { error: signInError } = await supabase.auth.signInWithPassword({
           email,
           password,
         });
 
-        if (signInError) {
-          console.error('Sign in error:', signInError);
-          throw signInError;
-        }
+        if (signInError) throw signInError;
 
-        // Clear form
-        setEmail('');
-        setPassword('');
-        
-        // Successful login is handled by the auth state change in AuthContext
+        console.log('Sign in successful');
+        toast({
+          title: "Success",
+          description: "Signed in successfully",
+        });
       }
+
+      // Clear form
+      setEmail('');
+      setPassword('');
     } catch (error) {
       console.error('Auth error:', error);
       toast({
@@ -76,52 +80,9 @@ const Auth = () => {
     }
   };
 
-  const handleLogout = async () => {
-    setLoading(true);
-    try {
-      const { error } = await supabase.auth.signOut();
-      if (error) throw error;
-      
-      toast({
-        title: "Success",
-        description: "You have been logged out successfully",
-      });
-      navigate('/auth');
-    } catch (error) {
-      console.error('Logout error:', error);
-      toast({
-        title: "Error",
-        description: "Failed to log out",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-background via-muted to-background p-4">
-      {/* Navigation Bar */}
-      <div className="fixed top-0 left-0 right-0 p-4 flex justify-between items-center bg-background/95 backdrop-blur-sm border-b">
-        <Button
-          variant="ghost"
-          onClick={() => navigate('/')}
-          className="text-lg font-semibold"
-        >
-          Schedule App
-        </Button>
-        {user && (
-          <Button
-            variant="outline"
-            onClick={handleLogout}
-            className="ml-auto"
-          >
-            Log Out
-          </Button>
-        )}
-      </div>
-
-      <div className="w-full max-w-md space-y-8 mt-16">
+      <div className="w-full max-w-md space-y-8">
         <div className="text-center space-y-2">
           <div className="inline-block p-3 rounded-full bg-primary/10 mb-4">
             {isSignUp ? (
