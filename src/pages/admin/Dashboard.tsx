@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Course, ScheduleItem } from "@/lib/types";
 import { fetchCourses, addCourse, addCourses, deleteCourse, deleteAllCourses } from "@/lib/db";

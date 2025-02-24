@@ -1,3 +1,4 @@
+
 import { FileText, Calendar, Minimize2, Maximize2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Timetable from "@/components/Timetable";
