@@ -26,6 +26,21 @@ interface ScheduleItem extends Course {
   timeSlot: TimeSlot;
 }
 
+function isValidScheduleItem(item: any): item is ScheduleItem {
+  return (
+    item &&
+    typeof item.id === 'string' &&
+    typeof item.code === 'string' &&
+    typeof item.name === 'string' &&
+    typeof item.lecturer === 'string' &&
+    typeof item.classSize === 'number' &&
+    item.timeSlot &&
+    typeof item.timeSlot.day === 'string' &&
+    typeof item.timeSlot.startTime === 'string' &&
+    ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"].includes(item.timeSlot.day)
+  );
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -34,7 +49,7 @@ serve(async (req) => {
   try {
     const { courses } = await req.json();
 
-    console.log('Received courses:', JSON.stringify(courses, null, 2));
+    console.log('Input courses:', JSON.stringify(courses, null, 2));
 
     const systemPrompt = `You are an AI assistant that generates optimal course schedules.
 Generate a timetable that assigns courses to time slots following these rules:
@@ -45,7 +60,7 @@ Generate a timetable that assigns courses to time slots following these rules:
 5. Consider class sizes when distributing - try to avoid scheduling multiple large classes in the same time slot
 
 Return ONLY a JSON array where each item contains:
-- courseId (from input)
+- id (from input)
 - code (from input)
 - name (from input)
 - lecturer (from input)
@@ -77,40 +92,64 @@ The schedule should maximize teaching efficiency and student comfort by distribu
       }),
     });
 
-    const data = await response.json();
-    console.log('OpenAI response received');
+    const rawResponse = await response.json();
+    console.log('Raw OpenAI response:', JSON.stringify(rawResponse, null, 2));
 
-    if (!data.choices || !data.choices[0]?.message?.content) {
-      throw new Error('Invalid response from OpenAI');
+    if (!rawResponse.choices || !rawResponse.choices[0]?.message?.content) {
+      console.error('Invalid OpenAI response structure:', rawResponse);
+      throw new Error('Invalid response structure from OpenAI');
     }
 
-    let schedule: ScheduleItem[];
+    let parsedContent: any;
     try {
-      schedule = JSON.parse(data.choices[0].message.content);
-    } catch (error) {
-      console.error('Failed to parse OpenAI response:', data.choices[0].message.content);
+      parsedContent = JSON.parse(rawResponse.choices[0].message.content);
+      console.log('Parsed content:', JSON.stringify(parsedContent, null, 2));
+    } catch (parseError) {
+      console.error('Failed to parse OpenAI response content:', rawResponse.choices[0].message.content);
+      console.error('Parse error:', parseError);
       throw new Error('Failed to parse schedule from OpenAI response');
     }
 
-    const conflicts = validateSchedule(schedule);
+    if (!Array.isArray(parsedContent)) {
+      console.error('Parsed content is not an array:', typeof parsedContent);
+      throw new Error('OpenAI response is not an array');
+    }
+
+    // Filter out invalid items and log them
+    const validScheduleItems = parsedContent.filter((item) => {
+      const isValid = isValidScheduleItem(item);
+      if (!isValid) {
+        console.log('Invalid schedule item:', item);
+      }
+      return isValid;
+    });
+
+    console.log('Valid schedule items:', JSON.stringify(validScheduleItems, null, 2));
+
+    if (validScheduleItems.length === 0) {
+      throw new Error('No valid schedule items found in OpenAI response');
+    }
+
+    const conflicts = validateSchedule(validScheduleItems);
+    console.log('Schedule conflicts:', conflicts);
     
     return new Response(
       JSON.stringify({
         success: conflicts.length === 0,
-        schedule: schedule,
+        schedule: validScheduleItems,
         conflicts: conflicts
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
   } catch (error) {
-    console.error('Error generating schedule:', error);
+    console.error('Error in generate-schedule function:', error);
     return new Response(
       JSON.stringify({
         success: false,
-        error: error.message,
+        error: error instanceof Error ? error.message : 'Unknown error occurred',
         schedule: [],
-        conflicts: [{ reason: error.message }]
+        conflicts: [{ reason: error instanceof Error ? error.message : 'Failed to generate schedule' }]
       }),
       {
         status: 500,
@@ -137,7 +176,7 @@ function validateSchedule(schedule: ScheduleItem[]): { reason: string }[] {
 
       // Check if too many large classes are scheduled at the same time
       const totalClassSize = existing.totalClassSize + item.classSize;
-      if (totalClassSize > 300) { // Arbitrary threshold for demonstration
+      if (totalClassSize > 300) {
         conflicts.push({
           reason: `Too many large classes scheduled at ${timeKey} (total students: ${totalClassSize})`
         });
