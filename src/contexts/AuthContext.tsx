@@ -34,68 +34,92 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .eq('id', userId)
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching user role:', error);
+        return 'student';
+      }
       return data?.role || 'student';
     } catch (error) {
-      console.error('Error fetching user role:', error);
+      console.error('Error in getUserRole:', error);
       return 'student';
     }
   };
 
   useEffect(() => {
-    // Get initial session
+    let mounted = true;
+
     const initializeAuth = async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session?.user) {
+        // Start with loading state
+        setLoading(true);
+        
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        
+        if (sessionError) {
+          throw sessionError;
+        }
+
+        if (session?.user && mounted) {
           const role = await getUserRole(session.user.id);
+          console.log('User role fetched:', role);
+          
           const userWithRole = {
             ...session.user,
             role
           };
           setUser(userWithRole);
-          console.log('User initialized with role:', role);
-        } else {
+        } else if (mounted) {
           setUser(null);
         }
       } catch (error) {
-        console.error('Error getting session:', error);
-        toast({
-          title: "Error",
-          description: "Failed to initialize user session",
-          variant: "destructive",
-        });
+        console.error('Auth initialization error:', error);
+        if (mounted) {
+          toast({
+            title: "Error",
+            description: "Failed to initialize session",
+            variant: "destructive",
+          });
+          setUser(null);
+        }
       } finally {
-        setLoading(false);
+        if (mounted) {
+          setLoading(false);
+        }
       }
     };
 
     initializeAuth();
 
-    // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       console.log('Auth state changed:', event);
-      if (session?.user) {
+      
+      if (session?.user && mounted) {
         const role = await getUserRole(session.user.id);
+        console.log('User role updated:', role);
+        
         const userWithRole = {
           ...session.user,
           role
         };
         setUser(userWithRole);
-        console.log('User updated with role:', role);
-      } else {
+      } else if (mounted) {
         setUser(null);
       }
-      setLoading(false);
+      
+      if (mounted) {
+        setLoading(false);
+      }
     });
 
     return () => {
+      mounted = false;
       subscription.unsubscribe();
     };
   }, [toast]);
 
   const signOut = async () => {
     try {
+      setLoading(true);
       await supabase.auth.signOut();
       setUser(null);
     } catch (error) {
@@ -105,6 +129,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         description: "Failed to sign out",
         variant: "destructive",
       });
+    } finally {
+      setLoading(false);
     }
   };
 

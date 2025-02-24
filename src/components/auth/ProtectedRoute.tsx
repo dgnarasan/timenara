@@ -12,6 +12,7 @@ const ProtectedRoute = ({ children, allowedRoles }: ProtectedRouteProps) => {
   const { user, loading } = useAuth();
   const location = useLocation();
 
+  // Show loading spinner only if we're still loading the auth state
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -23,14 +24,18 @@ const ProtectedRoute = ({ children, allowedRoles }: ProtectedRouteProps) => {
     );
   }
 
+  // If no user is logged in, redirect to auth page
   if (!user) {
     return <Navigate to="/auth" state={{ from: location }} replace />;
   }
 
+  // If roles are specified and user's role isn't included, redirect to home
   if (allowedRoles && !allowedRoles.includes(user.role)) {
+    console.log('User role not allowed:', user.role, 'Allowed roles:', allowedRoles);
     return <Navigate to="/" replace />;
   }
 
+  // If all checks pass, render the protected content
   return <>{children}</>;
 };
 
