@@ -1,4 +1,3 @@
-
 import { FileText, Calendar, Minimize2, Maximize2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Timetable from "@/components/Timetable";
@@ -20,10 +19,8 @@ const CourseScheduleSection = ({ schedule }: CourseScheduleSectionProps) => {
     const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
     const timeSlots = Array.from({ length: 9 }, (_, i) => `${i + 9}:00`);
 
-    // Create header row
     const data = [["Time", ...days]];
 
-    // Create data rows
     timeSlots.forEach(time => {
       const row = [time];
       days.forEach(day => {
@@ -41,7 +38,6 @@ const CourseScheduleSection = ({ schedule }: CourseScheduleSectionProps) => {
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Timetable");
 
-    // Auto-size columns
     const columnWidths = data[0].map((_, i) => ({
       wch: Math.max(...data.map(row => 
         row[i] ? row[i].toString().length : 0
@@ -74,12 +70,10 @@ const CourseScheduleSection = ({ schedule }: CourseScheduleSectionProps) => {
     const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
     const timeSlots = Array.from({ length: 9 }, (_, i) => `${i + 9}:00`);
 
-    // Add title
     doc.setFontSize(16);
     doc.text("Course Timetable", 14, 15);
     doc.setFontSize(10);
 
-    // Prepare table data
     const tableData = timeSlots.map(time => {
       const row = [time];
       days.forEach(day => {
@@ -93,7 +87,6 @@ const CourseScheduleSection = ({ schedule }: CourseScheduleSectionProps) => {
       return row;
     });
 
-    // Add table
     (doc as any).autoTable({
       head: [["Time", ...days]],
       body: tableData,
@@ -114,34 +107,29 @@ const CourseScheduleSection = ({ schedule }: CourseScheduleSectionProps) => {
   };
 
   return (
-    <div className={`space-y-6 animate-fade-in transition-all duration-300 ease-in-out ${
-      isExpanded ? 'fixed inset-4 z-50 bg-background/95 backdrop-blur-sm p-6 rounded-lg' : ''
-    }`}>
+    <div
+      className={`space-y-6 animate-fade-in transition-all duration-300 ease-in-out ${
+        isExpanded ? "fixed inset-4 z-50 bg-background/95 backdrop-blur-sm p-6 rounded-lg" : ""
+      }`}
+    >
       <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-3">
-          <Calendar className="h-6 w-6 text-primary" />
-          <h2 className="text-2xl font-bold tracking-tight bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
+        <div className="space-y-1.5">
+          <h2 className="text-2xl font-bold tracking-tight">
             Course Schedule
           </h2>
+          <p className="text-muted-foreground text-sm">
+            View and manage your department's timetable
+          </p>
         </div>
-        <div className="flex items-center space-x-3">
+        <div className="flex items-center gap-2">
           <Button 
             variant="outline" 
             size="sm" 
             onClick={exportToCSVRaw}
             className="shadow-sm hover:bg-secondary/80 transition-all duration-200 font-medium"
           >
-            <FileText className="h-4 w-4 mr-2 text-primary" />
+            <FileText className="h-4 w-4 mr-2" />
             CSV
-          </Button>
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={exportToCSV}
-            className="shadow-sm hover:bg-secondary/80 transition-all duration-200 font-medium"
-          >
-            <FileText className="h-4 w-4 mr-2 text-primary" />
-            Excel
           </Button>
           <Button 
             variant="outline" 
@@ -149,27 +137,28 @@ const CourseScheduleSection = ({ schedule }: CourseScheduleSectionProps) => {
             onClick={exportToPDF}
             className="shadow-sm hover:bg-secondary/80 transition-all duration-200 font-medium"
           >
-            <FileText className="h-4 w-4 mr-2 text-primary" />
+            <FileText className="h-4 w-4 mr-2" />
             PDF
           </Button>
           <Button
             variant="ghost"
             size="sm"
             onClick={() => setIsExpanded(!isExpanded)}
-            className="ml-2"
           >
             {isExpanded ? (
-              <Minimize2 className="h-5 w-5 text-primary hover:scale-105 transition-transform" />
+              <Minimize2 className="h-5 w-5" />
             ) : (
-              <Maximize2 className="h-5 w-5 text-primary hover:scale-105 transition-transform" />
+              <Maximize2 className="h-5 w-5" />
             )}
           </Button>
         </div>
       </div>
-      <Card className={`overflow-hidden border-t-4 border-t-primary shadow-lg transition-all duration-300 ${
-        isExpanded ? 'h-[calc(100vh-12rem)]' : ''
-      }`}>
-        <div className={`p-2 ${isExpanded ? 'h-full' : ''}`}>
+      <Card
+        className={`overflow-hidden border shadow-lg transition-all duration-300 ${
+          isExpanded ? "h-[calc(100vh-12rem)]" : ""
+        }`}
+      >
+        <div className={`p-4 ${isExpanded ? "h-full" : ""}`}>
           <Timetable schedule={schedule} />
         </div>
       </Card>
@@ -187,4 +176,3 @@ const CourseScheduleSection = ({ schedule }: CourseScheduleSectionProps) => {
 };
 
 export default CourseScheduleSection;
-

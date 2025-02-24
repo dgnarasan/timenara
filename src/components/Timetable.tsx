@@ -9,50 +9,63 @@ interface TimetableProps {
 
 const Timetable = ({ schedule }: TimetableProps) => {
   const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
-  const timeSlots = Array.from({ length: 9 }, (_, i) => `${i + 9}:00`);
+  const timeSlots = Array.from({ length: 10 }, (_, i) => `${i + 8}:00`);
 
   return (
-    <div className="overflow-x-auto animate-fade-in">
+    <div className="w-full overflow-x-auto animate-fade-in">
       <div className="min-w-[800px]">
-        <div className="grid grid-cols-6 gap-2">
-          <div className="h-20" /> {/* Empty corner cell */}
-          {days.map((day) => (
-            <div
-              key={day}
-              className="h-20 flex items-center justify-center font-semibold bg-secondary rounded-lg"
-            >
-              {day}
-            </div>
-          ))}
-          {timeSlots.map((time) => (
-            <React.Fragment key={time}>
-              <div className="h-20 flex items-center justify-center font-medium text-muted-foreground">
-                {time}
-              </div>
+        <table className="w-full border-collapse">
+          <thead>
+            <tr>
+              <th className="p-4 text-left font-medium text-muted-foreground border-b">
+                TIME
+              </th>
               {days.map((day) => (
-                <Card
-                  key={`${day}-${time}`}
-                  className="h-20 p-2 flex items-center justify-center text-sm hover:shadow-md transition-shadow duration-200"
+                <th
+                  key={day}
+                  className="p-4 text-left font-medium text-muted-foreground border-b"
                 >
-                  {schedule
-                    .filter(
-                      (item) =>
-                        item.timeSlot.day === day &&
-                        item.timeSlot.startTime === time
-                    )
-                    .map((item) => (
-                      <div key={item.id} className="text-center">
-                        <div className="font-medium">{item.code}</div>
-                        <div className="text-xs text-muted-foreground">
-                          {item.venue.name}
-                        </div>
-                      </div>
-                    ))}
-                </Card>
+                  {day.toUpperCase()}
+                </th>
               ))}
-            </React.Fragment>
-          ))}
-        </div>
+            </tr>
+          </thead>
+          <tbody>
+            {timeSlots.map((time) => (
+              <tr key={time}>
+                <td className="p-4 border-b border-border/40 text-sm text-muted-foreground">
+                  {time}
+                </td>
+                {days.map((day) => {
+                  const scheduledItems = schedule.filter(
+                    (item) =>
+                      item.timeSlot.day === day &&
+                      item.timeSlot.startTime === time
+                  );
+
+                  return (
+                    <td
+                      key={`${day}-${time}`}
+                      className="p-2 border-b border-border/40"
+                    >
+                      {scheduledItems.map((item) => (
+                        <Card
+                          key={item.id}
+                          className="p-3 hover:shadow-md transition-shadow duration-200"
+                        >
+                          <div className="text-sm font-medium">{item.code}</div>
+                          <div className="text-xs text-muted-foreground mt-1">
+                            {item.venue.name}
+                          </div>
+                        </Card>
+                      ))}
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   );
