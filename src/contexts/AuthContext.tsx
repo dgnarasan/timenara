@@ -21,9 +21,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   });
   const { toast } = useToast();
 
+  const fetchUserRole = async (userId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', userId)
+        .single();
+
+      if (error) throw error;
+      return data?.role || 'student';
+    } catch (error) {
+      console.error('Error fetching user role:', error);
+      return 'student';
+    }
+  };
+
   useEffect(() => {
     // Get initial session
-    supabase.auth.getSession().then(({ data: { session }, error }) => {
+    supabase.auth.getSession().then(async ({ data: { session }, error }) => {
       if (error) {
         console.error('Error fetching session:', error);
         setState({ user: null, loading: false });
@@ -31,11 +47,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       if (session?.user) {
+        const role = await fetchUserRole(session.user.id);
         setState({
           user: {
             id: session.user.id,
             email: session.user.email!,
-            role: 'student', // Default role
+            role: role,
           },
           loading: false,
         });
@@ -50,11 +67,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.log('Auth state changed:', event, session?.user?.email);
         
         if (session?.user) {
+          const role = await fetchUserRole(session.user.id);
           setState({
             user: {
               id: session.user.id,
               email: session.user.email!,
-              role: 'student', // Default role
+              role: role,
             },
             loading: false,
           });

@@ -20,14 +20,15 @@ const Auth = () => {
   const { user } = useAuth();
 
   useEffect(() => {
-    const checkSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
+    if (user) {
+      // Redirect based on role
+      if (user.role === 'admin') {
+        navigate('/admin');
+      } else {
         navigate('/schedule');
       }
-    };
-    checkSession();
-  }, [navigate]);
+    }
+  }, [user, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -63,6 +64,7 @@ const Auth = () => {
           title: "Success",
           description: "Signed in successfully",
         });
+        // Navigation will be handled by the useEffect when user state updates
       }
 
       // Clear form
