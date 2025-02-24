@@ -34,15 +34,23 @@ function NavBar() {
 
   const handleLogout = async () => {
     try {
+      console.log('Attempting to sign out...');
       const { error } = await supabase.auth.signOut();
-      if (error) throw error;
+      if (error) {
+        console.error('Signout error:', error);
+        throw error;
+      }
       
+      console.log('Successfully signed out');
       toast({
         title: "Success",
         description: "Logged out successfully",
       });
-      navigate('/auth');
+      
+      // Force navigation to auth page after successful logout
+      window.location.href = '/auth';
     } catch (error) {
+      console.error('Logout error:', error);
       toast({
         title: "Error",
         description: "Failed to log out",
