@@ -43,7 +43,7 @@ const CourseFilterBar = ({ courses, onFilterChange, onExport }: CourseFilterBarP
         lecturer: "",
         timeSlot: "",
       },
-      [key]: value,
+      [key]: value === "all" ? "" : value,
     });
   };
 
@@ -63,7 +63,7 @@ const CourseFilterBar = ({ courses, onFilterChange, onExport }: CourseFilterBarP
             <SelectValue placeholder="Academic Level" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">All Levels</SelectItem>
+            <SelectItem value="all">All Levels</SelectItem>
             {uniqueLevels.map((level) => (
               <SelectItem key={level} value={level}>
                 {level}
@@ -79,7 +79,7 @@ const CourseFilterBar = ({ courses, onFilterChange, onExport }: CourseFilterBarP
             <SelectValue placeholder="Lecturer" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">All Lecturers</SelectItem>
+            <SelectItem value="all">All Lecturers</SelectItem>
             {uniqueLecturers.map((lecturer) => (
               <SelectItem key={lecturer} value={lecturer}>
                 {lecturer}
@@ -95,7 +95,7 @@ const CourseFilterBar = ({ courses, onFilterChange, onExport }: CourseFilterBarP
             <SelectValue placeholder="Time Slot" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">All Times</SelectItem>
+            <SelectItem value="all">All Times</SelectItem>
             {timeSlots.map((slot) => (
               <SelectItem key={slot} value={slot}>
                 {slot}
