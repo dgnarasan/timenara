@@ -1,7 +1,8 @@
 
 import { useState } from "react";
-import { ScheduleItem } from "@/lib/types";
+import { Course, ScheduleItem } from "@/lib/types";
 import { useCourses } from "@/hooks/useCourses";
+import { useToast } from "@/hooks/use-toast";
 import StatsCards from "@/components/dashboard/StatsCards";
 import CourseScheduleSection from "@/components/dashboard/CourseScheduleSection";
 import CourseManagementSection from "@/components/dashboard/CourseManagementSection";
@@ -18,6 +19,7 @@ const AdminDashboard = () => {
     handleDeleteCourse,
     handleClearAllCourses,
   } = useCourses();
+  const { toast } = useToast();
 
   const handleEditCourse = (course: Course) => {
     toast({
