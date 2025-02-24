@@ -19,22 +19,28 @@ const Auth = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    console.log('Starting auth process...');
+    console.log('Starting auth process...', { email, isSignUp });
 
     try {
       if (isSignUp) {
-        const { error } = await supabase.auth.signUp({
+        const { data, error } = await supabase.auth.signUp({
           email,
           password,
+          options: {
+            emailRedirectTo: window.location.origin
+          }
         });
+        
         if (error) throw error;
+
         toast({
           title: "Success",
           description: "Please check your email for verification",
         });
       } else {
+        // Sign in process
         console.log('Attempting sign in...');
-        const { data: authData, error: signInError } = await supabase.auth.signInWithPassword({
+        const { error: signInError } = await supabase.auth.signInWithPassword({
           email,
           password,
         });
@@ -44,57 +50,16 @@ const Auth = () => {
           throw signInError;
         }
 
-        if (!authData.user) {
-          console.error('No user data returned from sign in');
-          throw new Error('No user data returned');
-        }
-
-        console.log('Sign in successful, fetching profile...');
-        
-        // Try to get the user's profile
-        const { data: profile, error: profileError } = await supabase
-          .from('profiles')
-          .select('role')
-          .eq('id', authData.user.id)
-          .maybeSingle();
-        
-        if (profileError) {
-          console.error('Profile fetch error:', profileError);
-          throw profileError;
-        }
-        
-        if (!profile) {
-          console.error('No profile found for user');
-          // Instead of throwing an error, let's create a profile
-          const { error: insertError } = await supabase
-            .from('profiles')
-            .insert([{ 
-              id: authData.user.id,
-              email: authData.user.email,
-              role: 'student' 
-            }]);
-            
-          if (insertError) {
-            console.error('Error creating profile:', insertError);
-            throw insertError;
-          }
-          
-          console.log('Created new profile, redirecting to schedule...');
-          navigate('/schedule');
-          return;
-        }
-
-        console.log('Profile found, role:', profile.role);
-        console.log('Redirecting to:', profile.role === 'admin' ? '/admin' : '/schedule');
-        
-        // Redirect based on role
-        navigate(profile.role === 'admin' ? '/admin' : '/schedule');
+        // If sign in is successful, redirect to schedule page
+        // The AuthContext will handle profile checking
+        console.log('Sign in successful, redirecting...');
+        navigate('/schedule');
       }
     } catch (error) {
       console.error('Auth error:', error);
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "An error occurred during sign in",
+        description: error instanceof Error ? error.message : "Invalid email or password",
         variant: "destructive",
       });
     } finally {
