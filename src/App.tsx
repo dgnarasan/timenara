@@ -27,28 +27,19 @@ const queryClient = new QueryClient({
 });
 
 function NavBar() {
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
   const isOnAdminPage = window.location.pathname.includes('/admin');
 
   const handleLogout = async () => {
     try {
-      console.log('Attempting to sign out...');
-      const { error } = await supabase.auth.signOut();
-      if (error) {
-        console.error('Signout error:', error);
-        throw error;
-      }
-      
-      console.log('Successfully signed out');
+      await signOut();
       toast({
         title: "Success",
         description: "Logged out successfully",
       });
-      
-      // Force navigation to auth page after successful logout
-      window.location.href = '/auth';
+      navigate('/auth');
     } catch (error) {
       console.error('Logout error:', error);
       toast({
@@ -79,7 +70,7 @@ function NavBar() {
     <div className="fixed top-0 left-0 right-0 p-4 flex justify-between items-center bg-background/95 backdrop-blur-sm border-b z-50">
       <Button
         variant="ghost"
-        onClick={() => navigate('/')}
+        onClick={() => navigate(user?.role === 'admin' ? '/admin' : '/schedule')}
         className="text-lg font-semibold"
       >
         Schedule App
@@ -119,6 +110,8 @@ function NavBar() {
 }
 
 function AppContent() {
+  const { user } = useAuth();
+
   return (
     <div className="min-h-screen pt-16">
       <NavBar />
@@ -127,9 +120,15 @@ function AppContent() {
         <Route
           path="/"
           element={
-            <ProtectedRoute allowedRoles={["admin"]}>
-              <AdminDashboard />
-            </ProtectedRoute>
+            user?.role === 'admin' ? (
+              <ProtectedRoute allowedRoles={["admin"]}>
+                <AdminDashboard />
+              </ProtectedRoute>
+            ) : (
+              <ProtectedRoute allowedRoles={["student"]}>
+                <StudentSchedule />
+              </ProtectedRoute>
+            )
           }
         />
         <Route
@@ -143,7 +142,7 @@ function AppContent() {
         <Route
           path="/schedule"
           element={
-            <ProtectedRoute allowedRoles={["student"]}>
+            <ProtectedRoute allowedRoles={["admin", "student"]}>
               <StudentSchedule />
             </ProtectedRoute>
           }
