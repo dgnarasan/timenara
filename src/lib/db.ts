@@ -1,6 +1,6 @@
 
 import { supabase } from "@/integrations/supabase/client";
-import { Course, DBCourse, Venue, DBVenue, TimeSlot } from "./types";
+import { Course, DBCourse, Venue, DBVenue, TimeSlot, Department } from "./types";
 import { PostgrestResponse } from "@supabase/supabase-js";
 
 export const mapDBCourseToClient = (dbCourse: DBCourse): Course => ({
@@ -9,6 +9,7 @@ export const mapDBCourseToClient = (dbCourse: DBCourse): Course => ({
   name: dbCourse.name,
   lecturer: dbCourse.lecturer,
   classSize: dbCourse.class_size,
+  department: dbCourse.department,
   preferredSlots: dbCourse.preferred_slots || undefined,
   constraints: dbCourse.constraints || undefined,
 });
@@ -38,6 +39,7 @@ export const addCourse = async (course: Omit<Course, "id">): Promise<Course> => 
       name: course.name,
       lecturer: course.lecturer,
       class_size: course.classSize,
+      department: course.department,
       preferred_slots: course.preferredSlots ? JSON.stringify(course.preferredSlots) : null,
       constraints: course.constraints || null,
     })
@@ -61,6 +63,7 @@ export const addCourses = async (courses: Omit<Course, "id">[]): Promise<Course[
         name: course.name,
         lecturer: course.lecturer,
         class_size: course.classSize,
+        department: course.department,
         preferred_slots: course.preferredSlots ? JSON.stringify(course.preferredSlots) : null,
         constraints: course.constraints || null,
       }))
@@ -93,4 +96,3 @@ export const deleteAllCourses = async (): Promise<void> => {
 
   if (error) throw error;
 };
-

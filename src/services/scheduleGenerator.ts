@@ -28,7 +28,14 @@ export const generateSchedule = async (
       return {
         schedule: [],
         conflicts: data.conflicts.map((conflict: any) => ({
-          course: { id: '', code: '', name: '', lecturer: '', classSize: 0 },
+          course: {
+            id: '',
+            code: '',
+            name: '',
+            lecturer: '',
+            classSize: 0,
+            department: 'Computer Science', // Default department for error cases
+          },
           reason: conflict.reason
         }))
       };
@@ -50,7 +57,14 @@ export const generateSchedule = async (
     return {
       schedule: [],
       conflicts: [{
-        course: { id: '', code: '', name: '', lecturer: '', classSize: 0 },
+        course: {
+          id: '',
+          code: '',
+          name: '',
+          lecturer: '',
+          classSize: 0,
+          department: 'Computer Science', // Default department for error cases
+        },
         reason: error instanceof Error ? error.message : 'Failed to generate schedule'
       }]
     };
