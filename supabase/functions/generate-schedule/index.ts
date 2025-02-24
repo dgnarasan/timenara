@@ -15,23 +15,14 @@ interface Course {
   name: string;
   lecturer: string;
   classSize: number;
-  preferredSlots?: TimeSlot[];
-  constraints?: string[];
-}
-
-interface Venue {
-  name: string;
-  capacity: number;
 }
 
 interface TimeSlot {
   day: "Monday" | "Tuesday" | "Wednesday" | "Thursday" | "Friday";
   startTime: string;
-  endTime: string;
 }
 
 interface ScheduleItem extends Course {
-  venue: Venue;
   timeSlot: TimeSlot;
 }
 
@@ -41,31 +32,32 @@ serve(async (req) => {
   }
 
   try {
-    const { courses, venues } = await req.json();
+    const { courses } = await req.json();
 
-    // Format the prompt for OpenAI
-    const systemPrompt = `You are an AI assistant that generates optimal course schedules. 
-    Your task is to create a weekly timetable following these constraints:
-    1. No lecturer can teach multiple classes at the same time
-    2. No venue can host multiple classes at the same time
-    3. Venue capacity must be sufficient for class size
-    4. Classes should be distributed evenly across the week
-    5. Time slots are from 9:00 to 17:00, Monday to Friday
-    6. Honor preferred time slots when specified
-    7. Each class is 1 hour long
+    console.log('Received courses:', JSON.stringify(courses, null, 2));
 
-    Return ONLY a JSON array of scheduled courses with no additional text.
-    Each scheduled course should include: code, name, lecturer, classSize, venue, and timeSlot (day and startTime).`;
+    const systemPrompt = `You are an AI assistant that generates optimal course schedules.
+Generate a timetable that assigns courses to time slots following these rules:
+1. No lecturer should teach multiple classes at the same time
+2. Classes should be distributed evenly throughout the week
+3. Time slots are from 9:00 to 17:00, Monday to Friday
+4. Each class is 1 hour long
+5. Consider class sizes when distributing - try to avoid scheduling multiple large classes in the same time slot
 
-    const userPrompt = `Generate a schedule for these courses and venues:
-    
-    Courses:
-    ${JSON.stringify(courses, null, 2)}
-    
-    Available Venues:
-    ${JSON.stringify(venues, null, 2)}
-    
-    Response should be a valid JSON array of scheduled courses.`;
+Return ONLY a JSON array where each item contains:
+- courseId (from input)
+- code (from input)
+- name (from input)
+- lecturer (from input)
+- classSize (from input)
+- timeSlot: { day: string, startTime: string }
+
+The response must be valid JSON with no additional text.`;
+
+    const userPrompt = `Generate an optimized weekly schedule for these courses:
+${JSON.stringify(courses, null, 2)}
+
+The schedule should maximize teaching efficiency and student comfort by distributing courses evenly across the week.`;
 
     console.log('Sending request to OpenAI...');
     
@@ -81,7 +73,7 @@ serve(async (req) => {
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt }
         ],
-        temperature: 0.2, // Lower temperature for more consistent results
+        temperature: 0.3,
       }),
     });
 
@@ -92,7 +84,6 @@ serve(async (req) => {
       throw new Error('Invalid response from OpenAI');
     }
 
-    // Parse the schedule from OpenAI's response
     let schedule: ScheduleItem[];
     try {
       schedule = JSON.parse(data.choices[0].message.content);
@@ -101,7 +92,6 @@ serve(async (req) => {
       throw new Error('Failed to parse schedule from OpenAI response');
     }
 
-    // Validate the schedule
     const conflicts = validateSchedule(schedule);
     
     return new Response(
@@ -132,7 +122,7 @@ serve(async (req) => {
 
 function validateSchedule(schedule: ScheduleItem[]): { reason: string }[] {
   const conflicts: { reason: string }[] = [];
-  const timeSlotMap = new Map<string, { lecturer: string; venue: string }>();
+  const timeSlotMap = new Map<string, { lecturer: string, totalClassSize: number }>();
 
   for (const item of schedule) {
     const timeKey = `${item.timeSlot.day}-${item.timeSlot.startTime}`;
@@ -144,24 +134,20 @@ function validateSchedule(schedule: ScheduleItem[]): { reason: string }[] {
           reason: `Lecturer ${item.lecturer} is scheduled for multiple classes at ${timeKey}`
         });
       }
-      if (existing.venue === item.venue.name) {
+
+      // Check if too many large classes are scheduled at the same time
+      const totalClassSize = existing.totalClassSize + item.classSize;
+      if (totalClassSize > 300) { // Arbitrary threshold for demonstration
         conflicts.push({
-          reason: `Venue ${item.venue.name} is double-booked at ${timeKey}`
+          reason: `Too many large classes scheduled at ${timeKey} (total students: ${totalClassSize})`
         });
       }
     }
 
     timeSlotMap.set(timeKey, {
       lecturer: item.lecturer,
-      venue: item.venue.name
+      totalClassSize: (existing?.totalClassSize || 0) + item.classSize
     });
-
-    // Check venue capacity
-    if (item.classSize > item.venue.capacity) {
-      conflicts.push({
-        reason: `Venue ${item.venue.name} capacity (${item.venue.capacity}) is too small for ${item.code} class size (${item.classSize})`
-      });
-    }
   }
 
   return conflicts;
