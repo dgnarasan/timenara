@@ -1,16 +1,7 @@
 
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
-import * as z from "zod";
+import { useState } from "react";
+import { Course } from "@/lib/types";
 import { Button } from "@/components/ui/button";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -19,142 +10,147 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Department } from "@/lib/types";
-
-const departments: Department[] = [
-  'Computer Science',
-  'Cyber Security',
-  'Information Technology',
-  'Software Engineering'
-];
-
-const formSchema = z.object({
-  code: z.string()
-    .min(2, "Course code must be at least 2 characters")
-    .max(10, "Course code must not exceed 10 characters"),
-  name: z.string()
-    .min(3, "Course name must be at least 3 characters")
-    .max(100, "Course name must not exceed 100 characters"),
-  lecturer: z.string()
-    .min(3, "Lecturer name must be at least 3 characters")
-    .max(100, "Lecturer name must not exceed 100 characters"),
-  classSize: z.number()
-    .min(1, "Class size must be at least 1")
-    .max(1000, "Class size must not exceed 1000"),
-  department: z.enum(['Computer Science', 'Cyber Security', 'Information Technology', 'Software Engineering'])
-});
-
-type FormData = z.infer<typeof formSchema>;
 
 interface AddCourseFormProps {
-  onSubmit: (data: FormData) => void;
+  onSubmit: (course: Omit<Course, "id">) => void;
 }
 
+const departments = [
+  "Computer Science",
+  "Cyber Security",
+  "Information Technology",
+  "Software Engineering",
+] as const;
+
 const AddCourseForm = ({ onSubmit }: AddCourseFormProps) => {
-  const form = useForm<FormData>({
-    resolver: zodResolver(formSchema),
-    defaultValues: {
-      code: "",
-      name: "",
-      lecturer: "",
-      classSize: 30,
-      department: 'Computer Science'
-    },
-  });
+  const [code, setCode] = useState("");
+  const [name, setName] = useState("");
+  const [lecturer, setLecturer] = useState("");
+  const [classSize, setClassSize] = useState("");
+  const [department, setDepartment] = useState<Course["department"]>("Computer Science");
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    onSubmit({
+      code,
+      name,
+      lecturer,
+      classSize: parseInt(classSize),
+      department,
+    });
+
+    // Reset form
+    setCode("");
+    setName("");
+    setLecturer("");
+    setClassSize("");
+    setDepartment("Computer Science");
+  };
+
+  const isFormValid = () => {
+    return (
+      code.match(/^[A-Z]{2,4}\d{3,4}$/) &&
+      name.length >= 3 &&
+      lecturer.length >= 3 &&
+      parseInt(classSize) > 0 &&
+      parseInt(classSize) <= 1000 &&
+      departments.includes(department)
+    );
+  };
 
   return (
-    <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="p-4 space-y-4">
-        <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
-          <FormField
-            control={form.control}
-            name="code"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Course Code</FormLabel>
-                <FormControl>
-                  <Input placeholder="e.g., CS101" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="department"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Department</FormLabel>
-                <Select
-                  onValueChange={field.onChange}
-                  defaultValue={field.value}
-                >
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select department" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {departments.map((dept) => (
-                      <SelectItem key={dept} value={dept}>
-                        {dept}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="name"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Course Name</FormLabel>
-                <FormControl>
-                  <Input placeholder="e.g., Introduction to Programming" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="lecturer"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Lecturer</FormLabel>
-                <FormControl>
-                  <Input placeholder="e.g., Dr. Smith" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="classSize"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Class Size</FormLabel>
-                <FormControl>
-                  <Input
-                    type="number"
-                    min={1}
-                    max={1000}
-                    {...field}
-                    onChange={(e) => field.onChange(parseInt(e.target.value))}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="space-y-4">
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <label htmlFor="code" className="text-sm font-medium">
+              Course Code
+            </label>
+            <Input
+              id="code"
+              placeholder="e.g., CS101"
+              value={code}
+              onChange={(e) => setCode(e.target.value.toUpperCase())}
+              pattern="^[A-Z]{2,4}\d{3,4}$"
+              required
+            />
+          </div>
+          <div className="space-y-2">
+            <label htmlFor="classSize" className="text-sm font-medium">
+              Class Size
+            </label>
+            <Input
+              id="classSize"
+              type="number"
+              placeholder="e.g., 30"
+              value={classSize}
+              onChange={(e) => setClassSize(e.target.value)}
+              min="1"
+              max="1000"
+              required
+            />
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <label htmlFor="name" className="text-sm font-medium">
+            Course Name
+          </label>
+          <Input
+            id="name"
+            placeholder="e.g., Introduction to Computer Science"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            minLength={3}
+            required
           />
         </div>
-        <Button type="submit" className="w-full">Add Course</Button>
-      </form>
-    </Form>
+
+        <div className="space-y-2">
+          <label htmlFor="lecturer" className="text-sm font-medium">
+            Lecturer Name
+          </label>
+          <Input
+            id="lecturer"
+            placeholder="e.g., Dr. John Doe"
+            value={lecturer}
+            onChange={(e) => setLecturer(e.target.value)}
+            minLength={3}
+            required
+          />
+        </div>
+
+        <div className="space-y-2">
+          <label htmlFor="department" className="text-sm font-medium">
+            Department
+          </label>
+          <Select
+            value={department}
+            onValueChange={(value) => setDepartment(value as Course["department"])}
+          >
+            <SelectTrigger id="department">
+              <SelectValue placeholder="Select department" />
+            </SelectTrigger>
+            <SelectContent>
+              {departments.map((dept) => (
+                <SelectItem key={dept} value={dept}>
+                  {dept}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      <Button
+        type="submit"
+        className="w-full"
+        disabled={!isFormValid()}
+      >
+        Add Course
+      </Button>
+    </form>
   );
 };
 
