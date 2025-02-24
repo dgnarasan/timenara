@@ -23,6 +23,7 @@ const CourseCard = ({ course, onEdit, onDelete }: CourseCardProps) => {
           </div>
           <p>{course.name}</p>
           <p className="text-sm text-muted-foreground">{course.lecturer}</p>
+          <p className="text-sm text-muted-foreground">{course.department}</p>
         </div>
         <div className="flex gap-2">
           {onEdit && (
@@ -58,4 +59,3 @@ const CourseCard = ({ course, onEdit, onDelete }: CourseCardProps) => {
 };
 
 export default CourseCard;
-
