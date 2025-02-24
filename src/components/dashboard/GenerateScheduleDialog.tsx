@@ -1,5 +1,5 @@
 
-import { Course, ScheduleItem } from "@/lib/types";
+import { Course, Department, ScheduleItem } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -10,6 +10,13 @@ import {
   DialogFooter,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useState } from "react";
 import { generateSchedule } from "@/services/scheduleGenerator";
 import { useToast } from "@/hooks/use-toast";
@@ -19,19 +26,33 @@ interface GenerateScheduleDialogProps {
   onScheduleGenerated: (schedule: ScheduleItem[]) => void;
 }
 
+const departments: Department[] = [
+  'Computer Science',
+  'Cyber Security',
+  'Information Technology',
+  'Software Engineering'
+];
+
 const GenerateScheduleDialog = ({ courses, onScheduleGenerated }: GenerateScheduleDialogProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [timeoutWarning, setTimeoutWarning] = useState(false);
+  const [selectedDepartment, setSelectedDepartment] = useState<Department | ''>('');
   const { toast } = useToast();
+
+  const filteredCourses = selectedDepartment
+    ? courses.filter(course => course.department === selectedDepartment)
+    : courses;
 
   const handleGenerateAI = async () => {
     try {
-      if (courses.length === 0) {
+      if (filteredCourses.length === 0) {
         toast({
           title: "No Courses Found",
-          description: "Please add courses before generating a schedule",
+          description: selectedDepartment 
+            ? `No courses found for ${selectedDepartment} department` 
+            : "Please add courses before generating a schedule",
           variant: "destructive",
         });
         return;
@@ -61,7 +82,7 @@ const GenerateScheduleDialog = ({ courses, onScheduleGenerated }: GenerateSchedu
         });
       }, 30000);
 
-      const { schedule: newSchedule, conflicts } = await generateSchedule(courses);
+      const { schedule: newSchedule, conflicts } = await generateSchedule(filteredCourses);
       
       clearInterval(progressInterval);
       clearTimeout(timeoutTimer);
@@ -83,8 +104,8 @@ const GenerateScheduleDialog = ({ courses, onScheduleGenerated }: GenerateSchedu
         toast({
           title: "Schedule Generated",
           description: `Successfully scheduled ${newSchedule.length} courses${
-            conflicts.length > 0 ? ' with some conflicts' : ''
-          }`,
+            selectedDepartment ? ` for ${selectedDepartment}` : ''
+          }${conflicts.length > 0 ? ' with some conflicts' : ''}`,
         });
       } else {
         toast({
@@ -119,10 +140,34 @@ const GenerateScheduleDialog = ({ courses, onScheduleGenerated }: GenerateSchedu
         <DialogHeader>
           <DialogTitle>Generate AI Schedule</DialogTitle>
           <DialogDescription>
-            Generate an optimized schedule for {courses.length} courses using AI
+            Generate an optimized schedule for {filteredCourses.length} courses using AI
           </DialogDescription>
         </DialogHeader>
         <div className="py-4 space-y-4">
+          <div className="space-y-2">
+            <h4 className="text-sm font-medium">Department</h4>
+            <Select
+              value={selectedDepartment}
+              onValueChange={(value: Department) => setSelectedDepartment(value)}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select a department" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">All Departments</SelectItem>
+                {departments.map((dept) => (
+                  <SelectItem key={dept} value={dept}>
+                    {dept}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-sm text-muted-foreground">
+              {selectedDepartment
+                ? `${filteredCourses.length} courses in ${selectedDepartment}`
+                : `${filteredCourses.length} courses across all departments`}
+            </p>
+          </div>
           <div className="space-y-2">
             <h4 className="text-sm font-medium">Scheduling Constraints</h4>
             <ul className="text-sm text-muted-foreground list-disc list-inside space-y-1">

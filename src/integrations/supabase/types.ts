@@ -15,6 +15,7 @@ export type Database = {
           code: string
           constraints: string[] | null
           created_at: string
+          department: Database["public"]["Enums"]["department"]
           id: string
           lecturer: string
           name: string
@@ -25,6 +26,7 @@ export type Database = {
           code: string
           constraints?: string[] | null
           created_at?: string
+          department: Database["public"]["Enums"]["department"]
           id?: string
           lecturer: string
           name: string
@@ -35,6 +37,7 @@ export type Database = {
           code?: string
           constraints?: string[] | null
           created_at?: string
+          department?: Database["public"]["Enums"]["department"]
           id?: string
           lecturer?: string
           name?: string
@@ -101,6 +104,11 @@ export type Database = {
       }
     }
     Enums: {
+      department:
+        | "Computer Science"
+        | "Cyber Security"
+        | "Information Technology"
+        | "Software Engineering"
       user_role: "student" | "admin"
     }
     CompositeTypes: {
