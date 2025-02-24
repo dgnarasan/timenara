@@ -1,5 +1,4 @@
-
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -19,24 +18,18 @@ const Auth = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
 
+  useEffect(() => {
+    if (user) {
+      navigate('/schedule');
+    }
+  }, [user, navigate]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    // Prevent multiple submissions
     if (loading) return;
     
     setLoading(true);
     console.log('Starting auth process...', { email, isSignUp });
-
-    // Add timeout protection
-    const timeoutId = setTimeout(() => {
-      setLoading(false);
-      toast({
-        title: "Error",
-        description: "Request timed out. Please try again.",
-        variant: "destructive",
-      });
-    }, 10000); // 10 second timeout
 
     try {
       if (isSignUp) {
@@ -44,7 +37,7 @@ const Auth = () => {
           email,
           password,
           options: {
-            emailRedirectTo: window.location.origin
+            emailRedirectTo: `${window.location.origin}/auth`
           }
         });
         
@@ -55,8 +48,6 @@ const Auth = () => {
           description: "Please check your email for verification",
         });
       } else {
-        // Sign in process
-        console.log('Attempting sign in...');
         const { error: signInError } = await supabase.auth.signInWithPassword({
           email,
           password,
@@ -67,30 +58,30 @@ const Auth = () => {
           throw signInError;
         }
 
-        // Clear the timeout since we got a response
-        clearTimeout(timeoutId);
-
-        // If sign in is successful, redirect to schedule page
-        console.log('Sign in successful, redirecting...');
-        navigate('/schedule');
+        // Clear form
+        setEmail('');
+        setPassword('');
+        
+        // Successful login is handled by the auth state change in AuthContext
       }
     } catch (error) {
       console.error('Auth error:', error);
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Invalid email or password",
+        description: error instanceof Error ? error.message : "Authentication failed. Please try again.",
         variant: "destructive",
       });
     } finally {
-      clearTimeout(timeoutId);
       setLoading(false);
     }
   };
 
   const handleLogout = async () => {
+    setLoading(true);
     try {
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
+      
       toast({
         title: "Success",
         description: "You have been logged out successfully",
@@ -103,6 +94,8 @@ const Auth = () => {
         description: "Failed to log out",
         variant: "destructive",
       });
+    } finally {
+      setLoading(false);
     }
   };
 
