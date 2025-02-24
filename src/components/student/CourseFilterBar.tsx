@@ -10,9 +10,6 @@ import {
 import { Course } from "@/lib/types";
 import { Button } from "../ui/button";
 import { Download, FileText } from "lucide-react";
-import * as XLSX from "xlsx";
-import jsPDF from "jspdf";
-import "jspdf-autotable";
 
 interface CourseFilterBarProps {
   courses: Course[];
@@ -39,10 +36,15 @@ const CourseFilterBar = ({ courses, onFilterChange, onExport }: CourseFilterBarP
   ];
 
   const handleFilterChange = (key: keyof FilterOptions, value: string) => {
-    onFilterChange((prev: FilterOptions) => ({
-      ...prev,
+    onFilterChange({
+      ...{
+        search: "",
+        academicLevel: "",
+        lecturer: "",
+        timeSlot: "",
+      },
       [key]: value,
-    }));
+    });
   };
 
   return (
