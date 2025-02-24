@@ -32,23 +32,28 @@ const Auth = () => {
           description: "Please check your email for verification",
         });
       } else {
-        console.log('Attempting to sign in...');
         const { data, error } = await supabase.auth.signInWithPassword({
           email,
           password,
         });
         if (error) throw error;
         
-        console.log('Sign in successful, fetching profile...');
+        if (!data.user) {
+          throw new Error('No user data returned');
+        }
+
         const { data: profile, error: profileError } = await supabase
           .from('profiles')
           .select('role')
           .eq('id', data.user.id)
-          .single();
+          .maybeSingle();
         
         if (profileError) throw profileError;
         
-        console.log('Profile found:', profile);
+        if (!profile) {
+          throw new Error('No profile found');
+        }
+
         navigate(profile.role === 'admin' ? '/admin' : '/schedule');
       }
     } catch (error) {
@@ -96,6 +101,7 @@ const Auth = () => {
                   onChange={(e) => setEmail(e.target.value)}
                   className="pl-10"
                   required
+                  disabled={loading}
                 />
               </div>
               <div className="relative">
@@ -107,6 +113,7 @@ const Auth = () => {
                   onChange={(e) => setPassword(e.target.value)}
                   className="pl-10"
                   required
+                  disabled={loading}
                 />
               </div>
             </div>
@@ -136,6 +143,7 @@ const Auth = () => {
             variant="link"
             onClick={() => setIsSignUp(!isSignUp)}
             className="text-sm hover:text-primary transition-colors"
+            disabled={loading}
           >
             {isSignUp
               ? 'Already have an account? Sign in'

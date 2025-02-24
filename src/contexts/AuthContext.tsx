@@ -22,104 +22,102 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const { toast } = useToast();
 
   useEffect(() => {
+    let mounted = true;
+    
     const getInitialSession = async () => {
       try {
-        console.log('Checking initial session...');
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
         
         if (sessionError) {
           console.error('Session error:', sessionError);
-          setState({ user: null, loading: false });
+          if (mounted) setState({ user: null, loading: false });
           return;
         }
 
         if (!session?.user) {
-          console.log('No active session found');
-          setState({ user: null, loading: false });
+          if (mounted) setState({ user: null, loading: false });
           return;
         }
 
-        console.log('Session found, fetching profile...');
         const { data: profile, error: profileError } = await supabase
           .from('profiles')
           .select('*')
           .eq('id', session.user.id)
-          .single();
+          .maybeSingle();
 
         if (profileError) {
           console.error('Profile fetch error:', profileError);
-          setState({ user: null, loading: false });
+          if (mounted) setState({ user: null, loading: false });
           return;
         }
 
         if (!profile) {
           console.error('No profile found for user');
-          setState({ user: null, loading: false });
+          if (mounted) setState({ user: null, loading: false });
           return;
         }
 
-        console.log('Profile found:', profile);
-        setState({
-          user: {
-            id: session.user.id,
-            email: session.user.email!,
-            role: profile.role,
-          },
-          loading: false,
-        });
+        if (mounted) {
+          setState({
+            user: {
+              id: session.user.id,
+              email: session.user.email!,
+              role: profile.role,
+            },
+            loading: false,
+          });
+        }
       } catch (error) {
         console.error('Unexpected error:', error);
-        setState({ user: null, loading: false });
+        if (mounted) setState({ user: null, loading: false });
       }
     };
 
     getInitialSession();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log('Auth state changed:', event);
-      
       if (!session) {
-        console.log('No session in auth change');
-        setState({ user: null, loading: false });
+        if (mounted) setState({ user: null, loading: false });
         return;
       }
 
       try {
-        console.log('Fetching profile after auth change...');
         const { data: profile, error: profileError } = await supabase
           .from('profiles')
           .select('*')
           .eq('id', session.user.id)
-          .single();
+          .maybeSingle();
 
         if (profileError) {
           console.error('Profile fetch error:', profileError);
-          setState({ user: null, loading: false });
+          if (mounted) setState({ user: null, loading: false });
           return;
         }
 
         if (!profile) {
           console.error('No profile found for user');
-          setState({ user: null, loading: false });
+          if (mounted) setState({ user: null, loading: false });
           return;
         }
 
-        console.log('Profile found after auth change:', profile);
-        setState({
-          user: {
-            id: session.user.id,
-            email: session.user.email!,
-            role: profile.role,
-          },
-          loading: false,
-        });
+        if (mounted) {
+          setState({
+            user: {
+              id: session.user.id,
+              email: session.user.email!,
+              role: profile.role,
+            },
+            loading: false,
+          });
+        }
       } catch (error) {
         console.error('Unexpected error in auth change:', error);
-        setState({ user: null, loading: false });
+        if (mounted) setState({ user: null, loading: false });
       }
     });
 
     return () => {
+      mounted = false;
       subscription.unsubscribe();
     };
   }, []);
