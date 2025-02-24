@@ -21,6 +21,9 @@ interface GenerateScheduleDialogProps {
 
 const GenerateScheduleDialog = ({ courses, onScheduleGenerated }: GenerateScheduleDialogProps) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [timeoutWarning, setTimeoutWarning] = useState(false);
   const { toast } = useToast();
 
   const handleGenerateAI = async () => {
@@ -34,8 +37,36 @@ const GenerateScheduleDialog = ({ courses, onScheduleGenerated }: GenerateSchedu
         return;
       }
 
+      setIsLoading(true);
+      setProgress(0);
+      setTimeoutWarning(false);
+
+      // Start progress animation
+      const progressInterval = setInterval(() => {
+        setProgress(prev => {
+          if (prev >= 90) {
+            clearInterval(progressInterval);
+            return 90;
+          }
+          return prev + 10;
+        });
+      }, 3000);
+
+      // Set timeout warning after 30 seconds
+      const timeoutTimer = setTimeout(() => {
+        setTimeoutWarning(true);
+        toast({
+          title: "Processing",
+          description: "Schedule generation is taking longer than expected. Please wait...",
+        });
+      }, 30000);
+
       const { schedule: newSchedule, conflicts } = await generateSchedule(courses);
       
+      clearInterval(progressInterval);
+      clearTimeout(timeoutTimer);
+      setProgress(100);
+
       if (conflicts.length > 0) {
         conflicts.forEach(({ reason }) => {
           toast({
@@ -68,6 +99,9 @@ const GenerateScheduleDialog = ({ courses, onScheduleGenerated }: GenerateSchedu
         description: error instanceof Error ? error.message : "Failed to generate schedule",
         variant: "destructive",
       });
+    } finally {
+      setIsLoading(false);
+      setProgress(0);
     }
   };
 
@@ -99,13 +133,33 @@ const GenerateScheduleDialog = ({ courses, onScheduleGenerated }: GenerateSchedu
               <li>Time slots are from 9:00 to 17:00, Monday to Friday</li>
             </ul>
           </div>
+          {isLoading && (
+            <div className="space-y-2">
+              <div className="h-2 bg-secondary rounded-full overflow-hidden">
+                <div 
+                  className="h-full bg-primary transition-all duration-500"
+                  style={{ width: `${progress}%` }}
+                />
+              </div>
+              <p className="text-sm text-muted-foreground text-center">
+                {timeoutWarning ? (
+                  "Processing may take longer than expected..."
+                ) : (
+                  `Generating schedule (${progress}%)`
+                )}
+              </p>
+            </div>
+          )}
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => setIsOpen(false)}>
             Cancel
           </Button>
-          <Button onClick={handleGenerateAI}>
-            Generate Schedule
+          <Button 
+            onClick={handleGenerateAI}
+            disabled={isLoading}
+          >
+            {isLoading ? "Generating..." : "Generate Schedule"}
           </Button>
         </DialogFooter>
       </DialogContent>
