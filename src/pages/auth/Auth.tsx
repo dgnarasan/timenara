@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -10,7 +10,7 @@ import { Mail, Lock, LogIn, UserPlus, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 
 const Auth = () => {
-  const [loading, setLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isSignUp, setIsSignUp] = useState(false);
@@ -19,41 +19,60 @@ const Auth = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
 
-  // If user is already logged in, redirect them
-  if (user) {
-    navigate('/schedule');
-    return null;
-  }
+  useEffect(() => {
+    if (user) {
+      navigate('/schedule');
+    }
+  }, [user, navigate]);
+
+  const validateInputs = () => {
+    if (!email) {
+      toast({
+        title: "Error",
+        description: "Please enter your email",
+        variant: "destructive",
+      });
+      return false;
+    }
+    if (!password) {
+      toast({
+        title: "Error",
+        description: "Please enter your password",
+        variant: "destructive",
+      });
+      return false;
+    }
+    if (password.length < 6) {
+      toast({
+        title: "Error",
+        description: "Password must be at least 6 characters long",
+        variant: "destructive",
+      });
+      return false;
+    }
+    return true;
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email || !password) {
-      toast({
-        title: "Error",
-        description: "Please fill in all fields",
-        variant: "destructive",
-      });
-      return;
-    }
+    if (!validateInputs()) return;
 
-    setLoading(true);
-    console.log('Starting auth process...', { email, isSignUp });
-
+    setIsLoading(true);
     try {
       if (isSignUp) {
         const { error } = await supabase.auth.signUp({
           email,
           password,
           options: {
-            emailRedirectTo: window.location.origin,
-          }
+            emailRedirectTo: `${window.location.origin}/auth/callback`,
+          },
         });
-        
+
         if (error) throw error;
 
         toast({
           title: "Success",
-          description: "Please check your email for verification",
+          description: "Please check your email to verify your account",
         });
       } else {
         const { error } = await supabase.auth.signInWithPassword({
@@ -63,24 +82,26 @@ const Auth = () => {
 
         if (error) throw error;
 
-        console.log('Sign in successful');
         toast({
           title: "Success",
-          description: "Signed in successfully",
+          description: "Successfully signed in",
         });
-        navigate('/schedule');
       }
-    } catch (error) {
-      console.error('Auth error:', error);
+    } catch (error: any) {
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Authentication failed",
+        description: error.message || "An error occurred during authentication",
         variant: "destructive",
       });
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   };
+
+  // If already authenticated, don't render the form
+  if (user) {
+    return null;
+  }
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-background via-muted to-background p-4">
@@ -112,10 +133,10 @@ const Auth = () => {
                   type="email"
                   placeholder="Email"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={(e) => setEmail(e.target.value.trim())}
                   className="pl-10"
                   required
-                  disabled={loading}
+                  disabled={isLoading}
                 />
               </div>
               <div className="relative">
@@ -127,7 +148,7 @@ const Auth = () => {
                   onChange={(e) => setPassword(e.target.value)}
                   className="pl-10 pr-10"
                   required
-                  disabled={loading}
+                  disabled={isLoading}
                   minLength={6}
                 />
                 <Button
@@ -149,9 +170,9 @@ const Auth = () => {
             <Button
               type="submit"
               className="w-full text-base py-6"
-              disabled={loading}
+              disabled={isLoading}
             >
-              {loading ? (
+              {isLoading ? (
                 <div className="flex items-center gap-2">
                   <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
                   <span>Please wait...</span>
@@ -171,7 +192,7 @@ const Auth = () => {
             variant="link"
             onClick={() => setIsSignUp(!isSignUp)}
             className="text-sm hover:text-primary transition-colors"
-            disabled={loading}
+            disabled={isLoading}
           >
             {isSignUp
               ? 'Already have an account? Sign in'

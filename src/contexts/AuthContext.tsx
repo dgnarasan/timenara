@@ -1,10 +1,15 @@
 
 import { createContext, useContext, useEffect, useState } from 'react';
+import { User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
-import { AuthState, UserProfile } from '@/lib/types';
-import { useToast } from '@/hooks/use-toast';
 
-const AuthContext = createContext<AuthState>({ user: null, loading: true });
+type AuthContextType = {
+  user: User | null;
+  loading: boolean;
+  signOut: () => Promise<void>;
+};
+
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
@@ -15,57 +20,53 @@ export const useAuth = () => {
 };
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [state, setState] = useState<AuthState>({
-    user: null,
-    loading: true,
-  });
-  const { toast } = useToast();
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Initial session check
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      console.log('Initial session check:', session?.user?.email);
-      if (session?.user) {
-        setState({
-          user: {
-            id: session.user.id,
-            email: session.user.email!,
-            role: 'student', // Default role
-          },
-          loading: false,
-        });
-      } else {
-        setState({ user: null, loading: false });
+    // Get initial session
+    const initializeAuth = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        setUser(session?.user ?? null);
+      } catch (error) {
+        console.error('Error getting session:', error);
+      } finally {
+        setLoading(false);
       }
-    });
+    };
+
+    initializeAuth();
 
     // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        console.log('Auth state changed:', event, session?.user?.email);
-        
-        if (session?.user) {
-          setState({
-            user: {
-              id: session.user.id,
-              email: session.user.email!,
-              role: 'student', // Default role
-            },
-            loading: false,
-          });
-        } else {
-          setState({ user: null, loading: false });
-        }
-      }
-    );
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log('Auth state changed:', event);
+      setUser(session?.user ?? null);
+      setLoading(false);
+    });
 
     return () => {
       subscription.unsubscribe();
     };
   }, []);
 
+  const signOut = async () => {
+    try {
+      await supabase.auth.signOut();
+      setUser(null);
+    } catch (error) {
+      console.error('Error signing out:', error);
+    }
+  };
+
+  const value = {
+    user,
+    loading,
+    signOut,
+  };
+
   return (
-    <AuthContext.Provider value={state}>
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );
