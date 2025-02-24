@@ -21,8 +21,22 @@ const Auth = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Prevent multiple submissions
+    if (loading) return;
+    
     setLoading(true);
     console.log('Starting auth process...', { email, isSignUp });
+
+    // Add timeout protection
+    const timeoutId = setTimeout(() => {
+      setLoading(false);
+      toast({
+        title: "Error",
+        description: "Request timed out. Please try again.",
+        variant: "destructive",
+      });
+    }, 10000); // 10 second timeout
 
     try {
       if (isSignUp) {
@@ -53,8 +67,10 @@ const Auth = () => {
           throw signInError;
         }
 
+        // Clear the timeout since we got a response
+        clearTimeout(timeoutId);
+
         // If sign in is successful, redirect to schedule page
-        // The AuthContext will handle profile checking
         console.log('Sign in successful, redirecting...');
         navigate('/schedule');
       }
@@ -66,6 +82,7 @@ const Auth = () => {
         variant: "destructive",
       });
     } finally {
+      clearTimeout(timeoutId);
       setLoading(false);
     }
   };
