@@ -60,7 +60,7 @@ const Auth = () => {
     setIsLoading(true);
     try {
       if (isSignUp) {
-        const { error } = await supabase.auth.signUp({
+        const { error: signUpError } = await supabase.auth.signUp({
           email,
           password,
           options: {
@@ -68,29 +68,50 @@ const Auth = () => {
           },
         });
 
-        if (error) throw error;
+        if (signUpError) throw signUpError;
 
         toast({
           title: "Success",
           description: "Please check your email to verify your account",
         });
       } else {
-        const { error } = await supabase.auth.signInWithPassword({
+        console.log('Attempting to sign in with:', { email });
+        const { error: signInError, data } = await supabase.auth.signInWithPassword({
           email,
           password,
         });
 
-        if (error) throw error;
+        if (signInError) {
+          console.error('Sign in error:', signInError);
+          throw signInError;
+        }
 
+        if (!data.user) {
+          throw new Error('No user returned from sign in');
+        }
+
+        console.log('Sign in successful:', data.user);
         toast({
           title: "Success",
           description: "Successfully signed in",
         });
+        
+        // Redirect will be handled by the AuthContext through the onAuthStateChange event
       }
     } catch (error: any) {
+      console.error('Auth error:', error);
+      let errorMessage = 'An error occurred during authentication';
+      
+      // Handle specific error cases
+      if (error.message?.toLowerCase().includes('invalid login')) {
+        errorMessage = 'Invalid email or password';
+      } else if (error.message?.toLowerCase().includes('email not confirmed')) {
+        errorMessage = 'Please verify your email before signing in';
+      }
+      
       toast({
         title: "Error",
-        description: error.message || "An error occurred during authentication",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
