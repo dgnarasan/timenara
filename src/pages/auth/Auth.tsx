@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -19,29 +19,34 @@ const Auth = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
 
-  useEffect(() => {
-    if (user) {
-      // Redirect based on role
-      if (user.role === 'admin') {
-        navigate('/admin');
-      } else {
-        navigate('/schedule');
-      }
-    }
-  }, [user, navigate]);
+  // If user is already logged in, redirect them
+  if (user) {
+    navigate('/schedule');
+    return null;
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (loading || !email || !password) return;
-    
+    if (!email || !password) {
+      toast({
+        title: "Error",
+        description: "Please fill in all fields",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setLoading(true);
     console.log('Starting auth process...', { email, isSignUp });
 
     try {
       if (isSignUp) {
-        const { data, error } = await supabase.auth.signUp({
+        const { error } = await supabase.auth.signUp({
           email,
           password,
+          options: {
+            emailRedirectTo: window.location.origin,
+          }
         });
         
         if (error) throw error;
@@ -51,30 +56,25 @@ const Auth = () => {
           description: "Please check your email for verification",
         });
       } else {
-        console.log('Attempting sign in...');
-        const { error: signInError } = await supabase.auth.signInWithPassword({
+        const { error } = await supabase.auth.signInWithPassword({
           email,
           password,
         });
 
-        if (signInError) throw signInError;
+        if (error) throw error;
 
         console.log('Sign in successful');
         toast({
           title: "Success",
           description: "Signed in successfully",
         });
-        // Navigation will be handled by the useEffect when user state updates
+        navigate('/schedule');
       }
-
-      // Clear form
-      setEmail('');
-      setPassword('');
     } catch (error) {
       console.error('Auth error:', error);
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Authentication failed. Please try again.",
+        description: error instanceof Error ? error.message : "Authentication failed",
         variant: "destructive",
       });
     } finally {
