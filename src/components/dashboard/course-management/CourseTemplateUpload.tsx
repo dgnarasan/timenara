@@ -17,14 +17,14 @@ const CourseTemplateUpload = ({ courses, onCoursesExtracted }: CourseTemplateUpl
 
   const downloadTemplate = () => {
     const template = [
-      ["Course Code*", "Course Name*", "Lecturer Name*", "Class Size*"],
-      ["CS101", "Introduction to Computer Science", "Dr. John Doe", "30"],
+      ["Course Code*", "Course Name*", "Lecturer Name*", "Class Size*", "Department*"],
+      ["CS101", "Introduction to Computer Science", "Dr. John Doe", "30", "Computer Science"],
     ];
 
     const ws = XLSX.utils.aoa_to_sheet(template);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Course Template");
-    ws["!cols"] = [{ width: 15 }, { width: 40 }, { width: 25 }, { width: 15 }];
+    ws["!cols"] = [{ width: 15 }, { width: 40 }, { width: 25 }, { width: 15 }, { width: 25 }];
     XLSX.writeFile(wb, "course_template.xlsx");
     toast({
       title: "Template Downloaded",
@@ -43,7 +43,7 @@ const CourseTemplateUpload = ({ courses, onCoursesExtracted }: CourseTemplateUpl
       const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as string[][];
 
       const headers = rows[0];
-      const expectedHeaders = ["Course Code*", "Course Name*", "Lecturer Name*", "Class Size*"];
+      const expectedHeaders = ["Course Code*", "Course Name*", "Lecturer Name*", "Class Size*", "Department*"];
       if (!expectedHeaders.every((header, index) => headers[index] === header)) {
         throw new Error("Invalid template format. Please use the provided template.");
       }
@@ -86,7 +86,7 @@ const CourseTemplateUpload = ({ courses, onCoursesExtracted }: CourseTemplateUpl
   const validateAndProcessCourses = (rows: string[][]): Omit<Course, "id">[] => {
     const validationErrors: string[] = [];
     const processedCourses = rows.slice(1).map((row, index) => {
-      if (row.length < 4) {
+      if (row.length < 5) {
         validationErrors.push(`Row ${index + 2}: Missing required fields`);
         return null;
       }
@@ -95,6 +95,7 @@ const CourseTemplateUpload = ({ courses, onCoursesExtracted }: CourseTemplateUpl
       const name = row[1]?.toString().trim();
       const lecturer = row[2]?.toString().trim();
       const classSize = parseInt(row[3]) || 0;
+      const department = row[4]?.toString().trim() as Course["department"];
 
       if (!code || !/^[A-Z]{2,4}\d{3,4}$/.test(code)) {
         validationErrors.push(`Row ${index + 2}: Invalid course code format (e.g., CS101)`);
@@ -116,7 +117,12 @@ const CourseTemplateUpload = ({ courses, onCoursesExtracted }: CourseTemplateUpl
         return null;
       }
 
-      return { code, name, lecturer, classSize };
+      if (!['Computer Science', 'Cyber Security', 'Information Technology', 'Software Engineering'].includes(department)) {
+        validationErrors.push(`Row ${index + 2}: Invalid department`);
+        return null;
+      }
+
+      return { code, name, lecturer, classSize, department };
     }).filter((course): course is Omit<Course, "id"> => course !== null);
 
     if (validationErrors.length > 0) {
