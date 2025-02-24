@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Course, ScheduleItem } from "@/lib/types";
 import CourseFilterBar, { FilterOptions } from "./CourseFilterBar";
@@ -7,6 +6,8 @@ import { useToast } from "@/hooks/use-toast";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
+import { Star } from "lucide-react";
+import { Button } from "../ui/button";
 
 interface StudentTimetableViewProps {
   schedule: ScheduleItem[];
@@ -15,12 +16,44 @@ interface StudentTimetableViewProps {
 const StudentTimetableView = ({ schedule }: StudentTimetableViewProps) => {
   const { toast } = useToast();
   const [filteredSchedule, setFilteredSchedule] = useState<ScheduleItem[]>(schedule);
+  const [favorites, setFavorites] = useState<Set<string>>(new Set());
   const [filters, setFilters] = useState<FilterOptions>({
     search: "",
     academicLevel: "",
     lecturer: "",
     timeSlot: "",
   });
+
+  useEffect(() => {
+    const savedFavorites = localStorage.getItem('favoriteCourses');
+    if (savedFavorites) {
+      setFavorites(new Set(JSON.parse(savedFavorites)));
+    }
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem('favoriteCourses', JSON.stringify(Array.from(favorites)));
+  }, [favorites]);
+
+  const toggleFavorite = (courseId: string) => {
+    setFavorites(prev => {
+      const newFavorites = new Set(prev);
+      if (newFavorites.has(courseId)) {
+        newFavorites.delete(courseId);
+        toast({
+          title: "Course Removed",
+          description: "Course removed from favorites",
+        });
+      } else {
+        newFavorites.add(courseId);
+        toast({
+          title: "Course Added",
+          description: "Course added to favorites",
+        });
+      }
+      return newFavorites;
+    });
+  };
 
   useEffect(() => {
     const filtered = schedule.filter((item) => {
@@ -124,12 +157,39 @@ const StudentTimetableView = ({ schedule }: StudentTimetableViewProps) => {
 
   return (
     <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <div className="space-y-2">
+          <h2 className="text-xl font-semibold">Your Schedule</h2>
+          <p className="text-sm text-muted-foreground">
+            {favorites.size} courses favorited
+          </p>
+        </div>
+        <Button
+          variant="outline"
+          onClick={() => setFilters(prev => ({
+            ...prev,
+            search: "",
+            academicLevel: "",
+            lecturer: "",
+            timeSlot: "",
+          }))}
+          size="sm"
+        >
+          Clear Filters
+        </Button>
+      </div>
+
       <CourseFilterBar
         courses={schedule}
         onFilterChange={setFilters}
         onExport={handleExport}
       />
-      <Timetable schedule={filteredSchedule} />
+
+      <Timetable 
+        schedule={filteredSchedule} 
+        favorites={favorites}
+        onToggleFavorite={toggleFavorite}
+      />
     </div>
   );
 };

@@ -48,3 +48,4 @@ export type DBVenue = {
   availability: TimeSlot[];
   created_at: string;
 };
+

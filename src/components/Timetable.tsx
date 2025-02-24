@@ -2,12 +2,16 @@
 import React from "react";
 import { ScheduleItem } from "@/lib/types";
 import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Star } from "lucide-react";
 
 interface TimetableProps {
   schedule: ScheduleItem[];
+  favorites?: Set<string>;
+  onToggleFavorite?: (courseId: string) => void;
 }
 
-const Timetable = ({ schedule }: TimetableProps) => {
+const Timetable = ({ schedule, favorites = new Set(), onToggleFavorite }: TimetableProps) => {
   const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
   const timeSlots = Array.from({ length: 8 }, (_, i) => `${i + 9}:00`);
 
@@ -57,15 +61,40 @@ const Timetable = ({ schedule }: TimetableProps) => {
                           key={item.id}
                           className="p-3 hover:shadow-md transition-shadow duration-200"
                         >
-                          <div className="text-sm font-medium">{item.code}</div>
-                          <div className="text-xs text-muted-foreground mt-1">
-                            {item.name}
-                          </div>
-                          <div className="text-xs text-muted-foreground">
-                            {item.lecturer}
-                          </div>
-                          <div className="text-xs text-muted-foreground mt-1">
-                            {item.timeSlot.startTime} - {item.timeSlot.endTime}
+                          <div className="flex items-start justify-between">
+                            <div>
+                              <div className="text-sm font-medium">{item.code}</div>
+                              <div className="text-xs text-muted-foreground mt-1">
+                                {item.name}
+                              </div>
+                              <div className="text-xs text-muted-foreground">
+                                {item.lecturer}
+                              </div>
+                              <div className="text-xs text-muted-foreground mt-1">
+                                {item.timeSlot.startTime} - {item.timeSlot.endTime}
+                              </div>
+                            </div>
+                            {onToggleFavorite && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8"
+                                onClick={() => onToggleFavorite(item.id)}
+                              >
+                                <Star
+                                  className={`h-4 w-4 ${
+                                    favorites.has(item.id)
+                                      ? "fill-yellow-400 text-yellow-400"
+                                      : "text-muted-foreground"
+                                  }`}
+                                />
+                                <span className="sr-only">
+                                  {favorites.has(item.id)
+                                    ? "Remove from favorites"
+                                    : "Add to favorites"}
+                                </span>
+                              </Button>
+                            )}
                           </div>
                         </Card>
                       ))}
