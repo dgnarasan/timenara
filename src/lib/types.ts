@@ -1,4 +1,3 @@
-
 export interface Course {
   id: string;
   code: string;
@@ -49,3 +48,15 @@ export type DBVenue = {
   created_at: string;
 };
 
+export type UserRole = 'student' | 'admin';
+
+export interface UserProfile {
+  id: string;
+  email: string;
+  role: UserRole;
+}
+
+export interface AuthState {
+  user: UserProfile | null;
+  loading: boolean;
+}
