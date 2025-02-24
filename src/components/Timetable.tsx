@@ -26,9 +26,7 @@ const Timetable = ({ schedule }: TimetableProps) => {
           ))}
           {timeSlots.map((time) => (
             <React.Fragment key={time}>
-              <div
-                className="h-20 flex items-center justify-center font-medium text-muted-foreground"
-              >
+              <div className="h-20 flex items-center justify-center font-medium text-muted-foreground">
                 {time}
               </div>
               {days.map((day) => (
