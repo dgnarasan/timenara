@@ -26,6 +26,16 @@ interface ScheduleItem extends Course {
   timeSlot: TimeSlot;
 }
 
+function extractJsonFromMarkdown(content: string): string {
+  // Remove markdown code block syntax if present
+  const jsonMatch = content.match(/```(?:json)?\n?([\s\S]*?)\n?```/);
+  if (jsonMatch) {
+    return jsonMatch[1].trim();
+  }
+  // If no markdown block found, try to parse the content directly
+  return content.trim();
+}
+
 function isValidScheduleItem(item: any): item is ScheduleItem {
   return (
     item &&
@@ -59,7 +69,7 @@ Generate a timetable that assigns courses to time slots following these rules:
 4. Each class is 1 hour long
 5. Consider class sizes when distributing - try to avoid scheduling multiple large classes in the same time slot
 
-Return ONLY a JSON array where each item contains:
+Return the schedule as a JSON array where each item contains:
 - id (from input)
 - code (from input)
 - name (from input)
@@ -67,7 +77,7 @@ Return ONLY a JSON array where each item contains:
 - classSize (from input)
 - timeSlot: { day: string, startTime: string }
 
-The response must be valid JSON with no additional text.`;
+IMPORTANT: Return ONLY the JSON array, no markdown formatting or additional text.`;
 
     const userPrompt = `Generate an optimized weekly schedule for these courses:
 ${JSON.stringify(courses, null, 2)}
@@ -100,12 +110,19 @@ The schedule should maximize teaching efficiency and student comfort by distribu
       throw new Error('Invalid response structure from OpenAI');
     }
 
+    // Extract JSON from potential markdown formatting
+    const content = rawResponse.choices[0].message.content;
+    console.log('Raw content from OpenAI:', content);
+    
+    const jsonString = extractJsonFromMarkdown(content);
+    console.log('Extracted JSON string:', jsonString);
+
     let parsedContent: any;
     try {
-      parsedContent = JSON.parse(rawResponse.choices[0].message.content);
+      parsedContent = JSON.parse(jsonString);
       console.log('Parsed content:', JSON.stringify(parsedContent, null, 2));
     } catch (parseError) {
-      console.error('Failed to parse OpenAI response content:', rawResponse.choices[0].message.content);
+      console.error('Failed to parse extracted JSON:', jsonString);
       console.error('Parse error:', parseError);
       throw new Error('Failed to parse schedule from OpenAI response');
     }
@@ -174,7 +191,6 @@ function validateSchedule(schedule: ScheduleItem[]): { reason: string }[] {
         });
       }
 
-      // Check if too many large classes are scheduled at the same time
       const totalClassSize = existing.totalClassSize + item.classSize;
       if (totalClassSize > 300) {
         conflicts.push({
