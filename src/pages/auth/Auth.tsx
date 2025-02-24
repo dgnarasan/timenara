@@ -32,14 +32,27 @@ const Auth = () => {
           description: "Please check your email for verification",
         });
       } else {
-        const { error } = await supabase.auth.signInWithPassword({
+        console.log('Attempting to sign in...');
+        const { data, error } = await supabase.auth.signInWithPassword({
           email,
           password,
         });
         if (error) throw error;
-        navigate('/');
+        
+        console.log('Sign in successful, fetching profile...');
+        const { data: profile, error: profileError } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', data.user.id)
+          .single();
+        
+        if (profileError) throw profileError;
+        
+        console.log('Profile found:', profile);
+        navigate(profile.role === 'admin' ? '/admin' : '/schedule');
       }
     } catch (error) {
+      console.error('Auth error:', error);
       toast({
         title: "Error",
         description: error instanceof Error ? error.message : "An error occurred",

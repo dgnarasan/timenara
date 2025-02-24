@@ -22,58 +22,99 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const { toast } = useToast();
 
   useEffect(() => {
-    // Check active sessions and get user profile
     const getInitialSession = async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session?.user) {
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', session.user.id)
-            .single();
-
-          if (profile) {
-            setState({
-              user: {
-                id: session.user.id,
-                email: session.user.email!,
-                role: profile.role,
-              },
-              loading: false,
-            });
-          }
-        } else {
+        console.log('Checking initial session...');
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        
+        if (sessionError) {
+          console.error('Session error:', sessionError);
           setState({ user: null, loading: false });
+          return;
         }
+
+        if (!session?.user) {
+          console.log('No active session found');
+          setState({ user: null, loading: false });
+          return;
+        }
+
+        console.log('Session found, fetching profile...');
+        const { data: profile, error: profileError } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', session.user.id)
+          .single();
+
+        if (profileError) {
+          console.error('Profile fetch error:', profileError);
+          setState({ user: null, loading: false });
+          return;
+        }
+
+        if (!profile) {
+          console.error('No profile found for user');
+          setState({ user: null, loading: false });
+          return;
+        }
+
+        console.log('Profile found:', profile);
+        setState({
+          user: {
+            id: session.user.id,
+            email: session.user.email!,
+            role: profile.role,
+          },
+          loading: false,
+        });
       } catch (error) {
-        console.error('Error fetching session:', error);
+        console.error('Unexpected error:', error);
         setState({ user: null, loading: false });
       }
     };
 
     getInitialSession();
 
-    // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (session?.user) {
-        const { data: profile } = await supabase
+      console.log('Auth state changed:', event);
+      
+      if (!session) {
+        console.log('No session in auth change');
+        setState({ user: null, loading: false });
+        return;
+      }
+
+      try {
+        console.log('Fetching profile after auth change...');
+        const { data: profile, error: profileError } = await supabase
           .from('profiles')
           .select('*')
           .eq('id', session.user.id)
           .single();
 
-        if (profile) {
-          setState({
-            user: {
-              id: session.user.id,
-              email: session.user.email!,
-              role: profile.role,
-            },
-            loading: false,
-          });
+        if (profileError) {
+          console.error('Profile fetch error:', profileError);
+          setState({ user: null, loading: false });
+          return;
         }
-      } else {
+
+        if (!profile) {
+          console.error('No profile found for user');
+          setState({ user: null, loading: false });
+          return;
+        }
+
+        console.log('Profile found after auth change:', profile);
+        setState({
+          user: {
+            id: session.user.id,
+            email: session.user.email!,
+            role: profile.role,
+          },
+          loading: false,
+        });
+      } catch (error) {
+        console.error('Unexpected error in auth change:', error);
         setState({ user: null, loading: false });
       }
     });
