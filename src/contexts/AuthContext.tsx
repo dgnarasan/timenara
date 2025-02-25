@@ -28,6 +28,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const getUserRole = async (userId: string): Promise<UserRole> => {
     try {
+      console.log('Fetching role for user:', userId);
       const { data, error } = await supabase
         .from('profiles')
         .select('role')
@@ -38,6 +39,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.error('Error fetching user role:', error);
         return 'student';
       }
+      
+      console.log('Role data received:', data);
       return data?.role || 'student';
     } catch (error) {
       console.error('Error in getUserRole:', error);
@@ -53,22 +56,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // Start with loading state
         setLoading(true);
         
+        console.log('Initializing auth state...');
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
         
         if (sessionError) {
+          console.error('Session error:', sessionError);
           throw sessionError;
         }
 
         if (session?.user && mounted) {
-          const role = await getUserRole(session.user.id);
-          console.log('User role fetched:', role);
-          
-          const userWithRole = {
-            ...session.user,
-            role
-          };
-          setUser(userWithRole);
+          console.log('Session found for user:', session.user.id);
+          try {
+            const role = await getUserRole(session.user.id);
+            console.log('User role fetched:', role);
+            
+            const userWithRole = {
+              ...session.user,
+              role
+            };
+            setUser(userWithRole);
+          } catch (roleError) {
+            console.error('Failed to get user role:', roleError);
+            // Still set the user with default role
+            setUser({
+              ...session.user,
+              role: 'student'
+            });
+          }
         } else if (mounted) {
+          console.log('No active session found');
           setUser(null);
         }
       } catch (error) {
@@ -93,15 +109,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       console.log('Auth state changed:', event);
       
+      if (event === 'SIGNED_OUT') {
+        if (mounted) {
+          console.log('User signed out');
+          setUser(null);
+          setLoading(false);
+        }
+        return;
+      }
+      
       if (session?.user && mounted) {
-        const role = await getUserRole(session.user.id);
-        console.log('User role updated:', role);
-        
-        const userWithRole = {
-          ...session.user,
-          role
-        };
-        setUser(userWithRole);
+        console.log('User session updated:', session.user.id);
+        try {
+          const role = await getUserRole(session.user.id);
+          console.log('User role updated:', role);
+          
+          const userWithRole = {
+            ...session.user,
+            role
+          };
+          setUser(userWithRole);
+        } catch (error) {
+          console.error('Error updating user role:', error);
+          // Still set the user with default role
+          setUser({
+            ...session.user,
+            role: 'student'
+          });
+        }
       } else if (mounted) {
         setUser(null);
       }
@@ -120,7 +155,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signOut = async () => {
     try {
       setLoading(true);
-      await supabase.auth.signOut();
+      console.log('Signing out user...');
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        console.error('Error during sign out:', error);
+        throw error;
+      }
+      console.log('Sign out successful');
       setUser(null);
     } catch (error) {
       console.error('Error signing out:', error);
