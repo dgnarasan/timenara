@@ -1,13 +1,13 @@
 
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { CalendarDays, GraduationCap, Calendar, ArrowRight, LogIn, LogOut } from "lucide-react";
+import { CalendarDays, GraduationCap, Calendar, ArrowRight, LogIn, LogOut, Shield, User } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 
 const Home = () => {
   const navigate = useNavigate();
-  const { user, signOut } = useAuth();
+  const { user, role, signOut } = useAuth();
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-muted to-background">
@@ -17,9 +17,26 @@ const Home = () => {
         <div>
           {user ? (
             <div className="flex items-center gap-4">
-              <span className="text-sm text-muted-foreground hidden md:inline-block">
-                Welcome, {user.email?.split('@')[0]}
-              </span>
+              <div className="hidden md:flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">
+                  Welcome, {user.email?.split('@')[0]}
+                </span>
+                {role && (
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary">
+                    {role === 'admin' ? (
+                      <>
+                        <Shield className="h-3 w-3 mr-1" />
+                        Admin
+                      </>
+                    ) : (
+                      <>
+                        <User className="h-3 w-3 mr-1" />
+                        Student
+                      </>
+                    )}
+                  </span>
+                )}
+              </div>
               <Button variant="outline" size="sm" onClick={() => signOut()}>
                 <LogOut className="mr-2 h-4 w-4" /> Sign Out
               </Button>
@@ -42,22 +59,52 @@ const Home = () => {
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
             AI-powered course scheduling system that makes organizing academic timetables effortless for both students and administrators.
           </p>
-          <div className="flex justify-center gap-4">
-            <Button
-              size="lg"
-              className="text-lg"
-              onClick={() => navigate("/schedule")}
-            >
-              Get Started <ArrowRight className="ml-2" />
-            </Button>
-            <Button
-              size="lg"
-              variant="outline"
-              className="text-lg"
-              onClick={() => navigate("/admin")}
-            >
-              Admin Dashboard
-            </Button>
+          <div className="flex flex-wrap justify-center gap-4">
+            {role === 'admin' ? (
+              <>
+                <Button
+                  size="lg"
+                  className="text-lg"
+                  onClick={() => navigate("/admin")}
+                >
+                  Admin Dashboard <ArrowRight className="ml-2" />
+                </Button>
+                <Button
+                  size="lg"
+                  variant="outline"
+                  className="text-lg"
+                  onClick={() => navigate("/schedule")}
+                >
+                  View Schedule
+                </Button>
+              </>
+            ) : role === 'student' ? (
+              <Button
+                size="lg"
+                className="text-lg"
+                onClick={() => navigate("/schedule")}
+              >
+                View Schedule <ArrowRight className="ml-2" />
+              </Button>
+            ) : (
+              <>
+                <Button
+                  size="lg"
+                  className="text-lg"
+                  onClick={() => navigate("/auth")}
+                >
+                  Get Started <ArrowRight className="ml-2" />
+                </Button>
+                <Button
+                  size="lg"
+                  variant="outline"
+                  className="text-lg"
+                  onClick={() => navigate("/auth")}
+                >
+                  Sign Up
+                </Button>
+              </>
+            )}
           </div>
         </div>
 
@@ -100,13 +147,15 @@ const Home = () => {
           <p className="text-muted-foreground max-w-xl mx-auto">
             Join our platform today and experience the future of academic scheduling.
           </p>
-          <Button
-            size="lg"
-            className="text-lg"
-            onClick={() => navigate("/schedule")}
-          >
-            View Schedule <ArrowRight className="ml-2" />
-          </Button>
+          {!user && (
+            <Button
+              size="lg"
+              className="text-lg"
+              onClick={() => navigate("/auth")}
+            >
+              Sign Up Now <ArrowRight className="ml-2" />
+            </Button>
+          )}
         </div>
       </div>
     </div>

@@ -1,37 +1,21 @@
 
 import { Button } from "@/components/ui/button";
-import { ShieldX, Home } from "lucide-react";
+import { ShieldAlert, ArrowLeft } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
 
 const AccessDenied = () => {
   const navigate = useNavigate();
+  const { role } = useAuth();
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-background via-muted to-background p-4">
-      <div className="text-center space-y-6 max-w-md mx-auto">
-        <div className="flex justify-center">
-          <div className="w-24 h-24 bg-destructive/10 rounded-full flex items-center justify-center">
-            <ShieldX className="h-12 w-12 text-destructive" />
-          </div>
+    <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-background via-muted to-background p-4">
+      <div className="text-center max-w-md">
+        <div className="mx-auto bg-red-100 p-3 rounded-full w-16 h-16 flex items-center justify-center mb-6">
+          <ShieldAlert className="h-8 w-8 text-red-600" />
         </div>
         
-        <h1 className="text-3xl font-bold tracking-tight">Access Denied</h1>
+        <h1 className="text-3xl font-bold mb-2">Access Denied</h1>
         
-        <p className="text-muted-foreground">
-          You don't have permission to access this page. 
-          This area is restricted to administrators only.
-        </p>
-        
-        <Button 
-          onClick={() => navigate("/")} 
-          className="gap-2"
-        >
-          <Home className="h-4 w-4" />
-          Return to Home
-        </Button>
-      </div>
-    </div>
-  );
-};
-
-export default AccessDenied;
+        <p className="text-muted-foreground mb-6">
+          

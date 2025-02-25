@@ -2,17 +2,20 @@
 import { ReactNode } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { UserRole } from '@/lib/types';
 
 type ProtectedRouteProps = {
   children: ReactNode;
   redirectTo?: string;
+  allowedRoles?: UserRole[];
 };
 
 export default function ProtectedRoute({ 
   children, 
-  redirectTo = '/auth' 
+  redirectTo = '/auth',
+  allowedRoles
 }: ProtectedRouteProps) {
-  const { user, loading } = useAuth();
+  const { user, role, loading } = useAuth();
   
   if (loading) {
     return (
@@ -22,8 +25,14 @@ export default function ProtectedRoute({
     );
   }
   
+  // If not logged in, redirect to auth page
   if (!user) {
     return <Navigate to={redirectTo} replace />;
+  }
+
+  // If specific roles are required and user doesn't have one of them
+  if (allowedRoles && (!role || !allowedRoles.includes(role))) {
+    return <Navigate to="/access-denied" replace />;
   }
 
   return <>{children}</>;
