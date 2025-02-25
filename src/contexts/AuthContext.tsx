@@ -4,7 +4,7 @@ import { createContext, useContext } from 'react';
 // Simple context with minimal functionality
 type AuthContextType = {
   user: null;
-  loading: false;
+  loading: boolean; // Changed from literal 'false' to broader 'boolean' type
 };
 
 const AuthContext = createContext<AuthContextType>({
@@ -18,7 +18,7 @@ export const useAuth = () => {
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Simplified provider with no authentication
-  const value = {
+  const value: AuthContextType = {
     user: null,
     loading: false,
   };
