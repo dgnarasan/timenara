@@ -18,4 +18,18 @@ const AccessDenied = () => {
         <h1 className="text-3xl font-bold mb-2">Access Denied</h1>
         
         <p className="text-muted-foreground mb-6">
-          
+          {role === "student" 
+            ? "You don't have permission to access the admin area." 
+            : "You don't have permission to access this page."}
+        </p>
+        
+        <Button onClick={() => navigate("/")} variant="outline" className="gap-2">
+          <ArrowLeft size={16} />
+          Back to Home
+        </Button>
+      </div>
+    </div>
+  );
+};
+
+export default AccessDenied;
