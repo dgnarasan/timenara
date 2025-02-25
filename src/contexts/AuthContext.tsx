@@ -37,14 +37,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (error) {
         console.error('Error fetching user role:', error);
-        return 'student';
+        throw error;
       }
       
       console.log('Role data received:', data);
-      return data?.role || 'student';
+      
+      if (!data?.role) {
+        console.error('No role found for user');
+        throw new Error('No role found for user');
+      }
+      
+      return data.role;
     } catch (error) {
       console.error('Error in getUserRole:', error);
-      return 'student';
+      // Instead of silently falling back to student, show an error
+      toast({
+        title: "Error",
+        description: "Failed to fetch user role. Please try logging in again.",
+        variant: "destructive",
+      });
+      throw error;
     }
   };
 
@@ -53,10 +65,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const initializeAuth = async () => {
       try {
-        // Start with loading state
         setLoading(true);
-        
         console.log('Initializing auth state...');
+        
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
         
         if (sessionError) {
@@ -77,10 +88,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             setUser(userWithRole);
           } catch (roleError) {
             console.error('Failed to get user role:', roleError);
-            // Still set the user with default role
-            setUser({
-              ...session.user,
-              role: 'student'
+            // Don't set user if we can't get their role
+            setUser(null);
+            await supabase.auth.signOut();
+            toast({
+              title: "Error",
+              description: "Failed to load user role. Please try logging in again.",
+              variant: "destructive",
             });
           }
         } else if (mounted) {
@@ -92,10 +106,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (mounted) {
           toast({
             title: "Error",
-            description: "Failed to initialize session",
+            description: "Failed to initialize session. Please try logging in again.",
             variant: "destructive",
           });
           setUser(null);
+          await supabase.auth.signOut();
         }
       } finally {
         if (mounted) {
@@ -131,10 +146,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setUser(userWithRole);
         } catch (error) {
           console.error('Error updating user role:', error);
-          // Still set the user with default role
-          setUser({
-            ...session.user,
-            role: 'student'
+          // Don't set user if we can't get their role
+          setUser(null);
+          await supabase.auth.signOut();
+          toast({
+            title: "Error",
+            description: "Failed to load user role. Please try logging in again.",
+            variant: "destructive",
           });
         }
       } else if (mounted) {
@@ -167,7 +185,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.error('Error signing out:', error);
       toast({
         title: "Error",
-        description: "Failed to sign out",
+        description: "Failed to sign out. Please try again.",
         variant: "destructive",
       });
     } finally {
