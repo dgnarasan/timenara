@@ -9,6 +9,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import AdminDashboard from "@/pages/admin/Dashboard";
 import StudentSchedule from "@/pages/student/Schedule";
 import NotFound from "@/pages/NotFound";
+import Home from "@/pages/Home";
 import "./App.css";
 
 const queryClient = new QueryClient({
@@ -24,7 +25,7 @@ function AppContent() {
   return (
     <div className="min-h-screen">
       <Routes>
-        <Route path="/" element={<StudentSchedule />} />
+        <Route path="/" element={<Home />} />
         <Route path="/admin" element={<AdminDashboard />} />
         <Route path="/schedule" element={<StudentSchedule />} />
         <Route path="*" element={<NotFound />} />
