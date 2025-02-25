@@ -33,21 +33,19 @@ function AppContent() {
         <Route path="/auth" element={<Auth />} />
         <Route path="/access-denied" element={<AccessDenied />} />
         
-        {/* Admin routes */}
+        {/* Protected routes */}
         <Route 
           path="/admin" 
           element={
-            <ProtectedRoute allowedRoles={["admin"]}>
+            <ProtectedRoute>
               <AdminDashboard />
             </ProtectedRoute>
           } 
         />
-        
-        {/* Student routes */}
         <Route 
           path="/schedule" 
           element={
-            <ProtectedRoute allowedRoles={["student", "admin"]}>
+            <ProtectedRoute>
               <StudentSchedule />
             </ProtectedRoute>
           } 
