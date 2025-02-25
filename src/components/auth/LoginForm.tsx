@@ -43,14 +43,36 @@ const LoginForm = ({ setIsLoading }: LoginFormProps) => {
     }
   }, [form.watch("email"), form.watch("password"), loginError]);
 
+  // Safety timeout to prevent indefinite loading state
+  useEffect(() => {
+    let timeoutId: number | undefined;
+    
+    if (formLoading) {
+      timeoutId = window.setTimeout(() => {
+        console.log("Login timeout triggered - resetting loading state");
+        setFormLoading(false);
+        setIsLoading(false);
+        setLoginError("Login request timed out. Please try again.");
+      }, 15000); // 15 seconds timeout
+    }
+    
+    return () => {
+      if (timeoutId) {
+        window.clearTimeout(timeoutId);
+      }
+    };
+  }, [formLoading, setIsLoading]);
+
   const onSubmit = async (values: FormValues) => {
     try {
+      // Reset states
       setFormLoading(true);
       setIsLoading(true);
       setLoginError(null);
       
       console.log("Attempting to sign in with:", values.email);
       
+      // Sign in with Supabase
       const { data, error } = await supabase.auth.signInWithPassword({
         email: values.email,
         password: values.password,
@@ -61,22 +83,22 @@ const LoginForm = ({ setIsLoading }: LoginFormProps) => {
         throw error;
       }
 
-      console.log("Sign in successful:", data);
-      
-      // Check if we have a user in the response
-      if (!data.user) {
-        throw new Error("No user data returned after successful login");
+      if (!data || !data.user) {
+        console.error("No user data returned from Supabase");
+        throw new Error("Authentication failed. No user data returned.");
       }
-
+      
+      console.log("Sign in successful:", data.user.id);
+      
       toast({
         title: "Successfully logged in",
         description: "Welcome back to Scheduler!",
       });
       
-      // Add a small delay before redirecting to ensure auth state is updated
+      // Navigate after a short delay to ensure auth state is fully updated
       setTimeout(() => {
         navigate("/");
-      }, 500);
+      }, 1000);
       
     } catch (error: any) {
       console.error("Login error:", error);
@@ -88,6 +110,7 @@ const LoginForm = ({ setIsLoading }: LoginFormProps) => {
         variant: "destructive",
       });
     } finally {
+      // Ensure loading states are reset
       setFormLoading(false);
       setIsLoading(false);
     }
@@ -146,11 +169,14 @@ const LoginForm = ({ setIsLoading }: LoginFormProps) => {
           type="submit" 
           className="w-full" 
           disabled={formLoading}
-          onClick={() => {
+          onClick={(e) => {
             if (formLoading) {
-              // Allow force reset if stuck
+              e.preventDefault();
+              e.stopPropagation();
+              // Force reset if button is clicked while loading
               setFormLoading(false);
               setIsLoading(false);
+              setLoginError("Login process was interrupted. Please try again.");
             }
           }}
         >
