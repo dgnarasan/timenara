@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/toaster";
 import { Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
+import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import AdminDashboard from "@/pages/admin/Dashboard";
 import StudentSchedule from "@/pages/student/Schedule";
 import NotFound from "@/pages/NotFound";
@@ -27,12 +28,28 @@ function AppContent() {
   return (
     <div className="min-h-screen">
       <Routes>
-        {/* Public routes - all routes are now public */}
+        {/* Public routes */}
         <Route path="/" element={<Home />} />
         <Route path="/auth" element={<Auth />} />
         <Route path="/access-denied" element={<AccessDenied />} />
-        <Route path="/admin" element={<AdminDashboard />} />
-        <Route path="/schedule" element={<StudentSchedule />} />
+        
+        {/* Protected routes */}
+        <Route 
+          path="/admin" 
+          element={
+            <ProtectedRoute>
+              <AdminDashboard />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/schedule" 
+          element={
+            <ProtectedRoute>
+              <StudentSchedule />
+            </ProtectedRoute>
+          } 
+        />
         
         {/* Catch-all route */}
         <Route path="*" element={<NotFound />} />

@@ -1,17 +1,35 @@
 
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { CalendarDays, GraduationCap, Calendar, ArrowRight } from "lucide-react";
+import { CalendarDays, GraduationCap, Calendar, ArrowRight, LogIn, LogOut } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
 
 const Home = () => {
   const navigate = useNavigate();
+  const { user, signOut } = useAuth();
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-muted to-background">
-      {/* Header without auth buttons */}
+      {/* Header with auth buttons */}
       <header className="container mx-auto py-4 px-4 flex items-center justify-between">
         <div className="text-2xl font-bold">Scheduler</div>
+        <div>
+          {user ? (
+            <div className="flex items-center gap-4">
+              <span className="text-sm text-muted-foreground hidden md:inline-block">
+                Welcome, {user.email?.split('@')[0]}
+              </span>
+              <Button variant="outline" size="sm" onClick={() => signOut()}>
+                <LogOut className="mr-2 h-4 w-4" /> Sign Out
+              </Button>
+            </div>
+          ) : (
+            <Button variant="outline" size="sm" onClick={() => navigate('/auth')}>
+              <LogIn className="mr-2 h-4 w-4" /> Sign In
+            </Button>
+          )}
+        </div>
       </header>
 
       <div className="container mx-auto px-4 py-16 space-y-16">
