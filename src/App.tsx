@@ -12,7 +12,6 @@ import NotFound from "@/pages/NotFound";
 import Home from "@/pages/Home";
 import Auth from "@/pages/Auth";
 import AccessDenied from "@/pages/AccessDenied";
-import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import "./App.css";
 
 const queryClient = new QueryClient({
@@ -28,28 +27,12 @@ function AppContent() {
   return (
     <div className="min-h-screen">
       <Routes>
-        {/* Public routes */}
+        {/* Public routes - all routes are now public */}
         <Route path="/" element={<Home />} />
         <Route path="/auth" element={<Auth />} />
         <Route path="/access-denied" element={<AccessDenied />} />
-        
-        {/* Protected routes */}
-        <Route 
-          path="/admin" 
-          element={
-            <ProtectedRoute allowedRoles={['admin']}>
-              <AdminDashboard />
-            </ProtectedRoute>
-          } 
-        />
-        <Route 
-          path="/schedule" 
-          element={
-            <ProtectedRoute>
-              <StudentSchedule />
-            </ProtectedRoute>
-          }
-        />
+        <Route path="/admin" element={<AdminDashboard />} />
+        <Route path="/schedule" element={<StudentSchedule />} />
         
         {/* Catch-all route */}
         <Route path="*" element={<NotFound />} />
