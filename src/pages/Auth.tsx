@@ -10,7 +10,7 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { AtSign, KeyRound, LogIn, UserPlus } from "lucide-react";
+import { AtSign, KeyRound, LogIn, UserPlus, Eye, EyeOff } from "lucide-react";
 
 // Schemas for form validation
 const loginSchema = z.object({
@@ -33,6 +33,11 @@ type SignupFormValues = z.infer<typeof signupSchema>;
 const Auth = () => {
   const [activeTab, setActiveTab] = useState<string>("login");
   const { user, loading, signIn, signUp } = useAuth();
+  
+  // Password visibility states
+  const [showLoginPassword, setShowLoginPassword] = useState(false);
+  const [showSignupPassword, setShowSignupPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   
   // Login form
   const loginForm = useForm<LoginFormValues>({
@@ -114,7 +119,27 @@ const Auth = () => {
                         <FormControl>
                           <div className="relative">
                             <KeyRound className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                            <Input type="password" className="pl-10" {...field} />
+                            <Input 
+                              type={showLoginPassword ? "text" : "password"} 
+                              className="pl-10 pr-10" 
+                              {...field} 
+                            />
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="absolute right-0 top-0 h-10 w-10 px-3 py-2 text-muted-foreground"
+                              onClick={() => setShowLoginPassword(!showLoginPassword)}
+                            >
+                              {showLoginPassword ? (
+                                <EyeOff className="h-4 w-4" />
+                              ) : (
+                                <Eye className="h-4 w-4" />
+                              )}
+                              <span className="sr-only">
+                                {showLoginPassword ? "Hide password" : "Show password"}
+                              </span>
+                            </Button>
                           </div>
                         </FormControl>
                         <FormMessage />
@@ -168,7 +193,27 @@ const Auth = () => {
                         <FormControl>
                           <div className="relative">
                             <KeyRound className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                            <Input type="password" className="pl-10" {...field} />
+                            <Input 
+                              type={showSignupPassword ? "text" : "password"} 
+                              className="pl-10 pr-10" 
+                              {...field} 
+                            />
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="absolute right-0 top-0 h-10 w-10 px-3 py-2 text-muted-foreground"
+                              onClick={() => setShowSignupPassword(!showSignupPassword)}
+                            >
+                              {showSignupPassword ? (
+                                <EyeOff className="h-4 w-4" />
+                              ) : (
+                                <Eye className="h-4 w-4" />
+                              )}
+                              <span className="sr-only">
+                                {showSignupPassword ? "Hide password" : "Show password"}
+                              </span>
+                            </Button>
                           </div>
                         </FormControl>
                         <FormMessage />
@@ -185,7 +230,27 @@ const Auth = () => {
                         <FormControl>
                           <div className="relative">
                             <KeyRound className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                            <Input type="password" className="pl-10" {...field} />
+                            <Input 
+                              type={showConfirmPassword ? "text" : "password"} 
+                              className="pl-10 pr-10" 
+                              {...field} 
+                            />
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="absolute right-0 top-0 h-10 w-10 px-3 py-2 text-muted-foreground"
+                              onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                            >
+                              {showConfirmPassword ? (
+                                <EyeOff className="h-4 w-4" />
+                              ) : (
+                                <Eye className="h-4 w-4" />
+                              )}
+                              <span className="sr-only">
+                                {showConfirmPassword ? "Hide password" : "Show password"}
+                              </span>
+                            </Button>
                           </div>
                         </FormControl>
                         <FormMessage />
