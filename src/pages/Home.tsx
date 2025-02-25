@@ -1,14 +1,39 @@
 
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { CalendarDays, GraduationCap, Calendar, ArrowRight } from "lucide-react";
+import { CalendarDays, GraduationCap, Calendar, ArrowRight, LogIn, LogOut } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
 
 const Home = () => {
   const navigate = useNavigate();
+  const { user, signOut } = useAuth();
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-muted to-background">
+      {/* Header with auth buttons */}
+      <header className="container mx-auto py-4 px-4 flex items-center justify-between">
+        <div className="text-2xl font-bold">Scheduler</div>
+        <div>
+          {user ? (
+            <div className="flex items-center gap-4">
+              <span className="text-sm text-muted-foreground">
+                Welcome, {user.email}
+              </span>
+              <Button variant="outline" size="sm" onClick={signOut}>
+                <LogOut className="h-4 w-4 mr-2" />
+                Sign Out
+              </Button>
+            </div>
+          ) : (
+            <Button variant="outline" size="sm" onClick={() => navigate('/auth')}>
+              <LogIn className="h-4 w-4 mr-2" />
+              Sign In
+            </Button>
+          )}
+        </div>
+      </header>
+
       <div className="container mx-auto px-4 py-16 space-y-16">
         {/* Hero Section */}
         <div className="text-center space-y-6">
@@ -23,18 +48,20 @@ const Home = () => {
             <Button
               size="lg"
               className="text-lg"
-              onClick={() => navigate("/schedule")}
+              onClick={() => navigate(user ? "/schedule" : "/auth")}
             >
               Get Started <ArrowRight className="ml-2" />
             </Button>
-            <Button
-              size="lg"
-              variant="outline"
-              className="text-lg"
-              onClick={() => navigate("/admin")}
-            >
-              Admin Access
-            </Button>
+            {user && user.role === 'admin' && (
+              <Button
+                size="lg"
+                variant="outline"
+                className="text-lg"
+                onClick={() => navigate("/admin")}
+              >
+                Admin Dashboard
+              </Button>
+            )}
           </div>
         </div>
 
@@ -77,13 +104,23 @@ const Home = () => {
           <p className="text-muted-foreground max-w-xl mx-auto">
             Join our platform today and experience the future of academic scheduling.
           </p>
-          <Button
-            size="lg"
-            className="text-lg"
-            onClick={() => navigate("/schedule")}
-          >
-            Try it Now <ArrowRight className="ml-2" />
-          </Button>
+          {user ? (
+            <Button
+              size="lg"
+              className="text-lg"
+              onClick={() => navigate("/schedule")}
+            >
+              View Schedule <ArrowRight className="ml-2" />
+            </Button>
+          ) : (
+            <Button
+              size="lg"
+              className="text-lg"
+              onClick={() => navigate("/auth")}
+            >
+              Sign In or Register <ArrowRight className="ml-2" />
+            </Button>
+          )}
         </div>
       </div>
     </div>
