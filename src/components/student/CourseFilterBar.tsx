@@ -10,6 +10,7 @@ import {
 import { Course } from "@/lib/types";
 import { Button } from "../ui/button";
 import { Download, FileText } from "lucide-react";
+import { getStandardAcademicLevels } from "@/utils/scheduling/courseUtils";
 
 interface CourseFilterBarProps {
   courses: Course[];
@@ -26,9 +27,7 @@ export interface FilterOptions {
 
 const CourseFilterBar = ({ courses, onFilterChange, onExport }: CourseFilterBarProps) => {
   const uniqueLecturers = Array.from(new Set(courses.map((c) => c.lecturer))).sort();
-  const uniqueLevels = Array.from(
-    new Set(courses.filter((c) => c.academicLevel).map((c) => c.academicLevel!))
-  ).sort();
+  const standardLevels = getStandardAcademicLevels();
 
   const timeSlots = [
     "Morning (9:00 - 12:00)",
@@ -64,7 +63,7 @@ const CourseFilterBar = ({ courses, onFilterChange, onExport }: CourseFilterBarP
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Levels</SelectItem>
-            {uniqueLevels.map((level) => (
+            {standardLevels.map((level) => (
               <SelectItem key={level} value={level}>
                 {level}
               </SelectItem>

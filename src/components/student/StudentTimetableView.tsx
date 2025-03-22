@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Course, ScheduleItem } from "@/lib/types";
 import CourseFilterBar, { FilterOptions } from "./CourseFilterBar";
@@ -66,18 +65,29 @@ const StudentTimetableView = ({ schedule, viewMode = "timetable" }: StudentTimet
 
       const matchesLevel =
         filters.academicLevel === "" ||
-        item.academicLevel === filters.academicLevel;
+        matchesAcademicLevel(item.code, filters.academicLevel);
 
       const matchesLecturer =
         filters.lecturer === "" || item.lecturer === filters.lecturer;
 
-      const matchesTimeSlot = filters.timeSlot === "" || matchesTimeRange(item, filters.timeSlot);
+      const matchesTimeSlot = 
+        filters.timeSlot === "" || matchesTimeRange(item, filters.timeSlot);
 
       return matchesSearch && matchesLevel && matchesLecturer && matchesTimeSlot;
     });
 
     setFilteredSchedule(filtered);
   }, [schedule, filters]);
+
+  const matchesAcademicLevel = (courseCode: string, levelFilter: string): boolean => {
+    const match = courseCode.match(/\d/);
+    if (!match) return false;
+    
+    const firstDigit = match[0];
+    const courseLevel = `${firstDigit}00 Level`;
+    
+    return courseLevel === levelFilter;
+  };
 
   const matchesTimeRange = (item: ScheduleItem, timeSlot: string) => {
     const startHour = parseInt(item.timeSlot.startTime.split(":")[0]);

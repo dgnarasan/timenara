@@ -1,3 +1,4 @@
+
 import { Course } from "@/lib/types";
 
 export const isFoundationalCourse = (courseCode: string): boolean => {
@@ -22,4 +23,8 @@ export const getAcademicLevels = (courses: Course[]): number => {
   );
   
   return levelSet.size;
+};
+
+export const getStandardAcademicLevels = (): string[] => {
+  return ["100 Level", "200 Level", "300 Level", "400 Level"];
 };
