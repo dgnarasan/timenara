@@ -1,10 +1,9 @@
 
-import { BrowserRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ThemeProvider } from "next-themes";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/toaster";
-import { Routes, Route, useLocation } from "react-router-dom";
+import { Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import { Suspense, lazy } from "react";
@@ -40,54 +39,44 @@ const queryClient = new QueryClient({
   },
 });
 
-function AppContent() {
-  const location = useLocation();
-  
-  return (
-    <div className="min-h-screen">
-      <Suspense fallback={<LoadingFallback />}>
-        <Routes>
-          {/* Public routes */}
-          <Route path="/" element={<Home />} />
-          <Route path="/auth" element={<Auth />} />
-          <Route path="/access-denied" element={<AccessDenied />} />
-          
-          {/* Protected routes */}
-          <Route 
-            path="/admin" 
-            element={
-              <ProtectedRoute requireAdmin={true}>
-                <AdminDashboard />
-              </ProtectedRoute>
-            } 
-          />
-          <Route 
-            path="/schedule" 
-            element={
-              <ProtectedRoute>
-                <StudentSchedule />
-              </ProtectedRoute>
-            } 
-          />
-          
-          {/* Catch-all route */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </Suspense>
-      <Toaster />
-    </div>
-  );
-}
-
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider defaultTheme="system" enableSystem>
         <TooltipProvider>
           <AuthProvider>
-            <BrowserRouter>
-              <AppContent />
-            </BrowserRouter>
+            <div className="min-h-screen">
+              <Suspense fallback={<LoadingFallback />}>
+                <Routes>
+                  {/* Public routes */}
+                  <Route path="/" element={<Home />} />
+                  <Route path="/auth" element={<Auth />} />
+                  <Route path="/access-denied" element={<AccessDenied />} />
+                  
+                  {/* Protected routes */}
+                  <Route 
+                    path="/admin" 
+                    element={
+                      <ProtectedRoute requireAdmin={true}>
+                        <AdminDashboard />
+                      </ProtectedRoute>
+                    } 
+                  />
+                  <Route 
+                    path="/schedule" 
+                    element={
+                      <ProtectedRoute>
+                        <StudentSchedule />
+                      </ProtectedRoute>
+                    } 
+                  />
+                  
+                  {/* Catch-all route */}
+                  <Route path="*" element={<NotFound />} />
+                </Routes>
+              </Suspense>
+              <Toaster />
+            </div>
           </AuthProvider>
         </TooltipProvider>
       </ThemeProvider>

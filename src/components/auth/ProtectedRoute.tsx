@@ -16,6 +16,7 @@ export default function ProtectedRoute({
 }: ProtectedRouteProps) {
   const { user, loading, userRole } = useAuth();
   
+  // Show loading state while checking authentication
   if (loading) {
     return (
       <div className="flex items-center justify-center h-screen">
@@ -24,13 +25,18 @@ export default function ProtectedRoute({
     );
   }
   
+  // Redirect to auth page if user is not logged in
   if (!user) {
+    console.log("No user found, redirecting to auth page");
     return <Navigate to={redirectTo} replace />;
   }
 
+  // Redirect to access denied page if admin access is required but user is not an admin
   if (requireAdmin && userRole !== 'admin') {
+    console.log("User is not an admin, redirecting to access denied page");
     return <Navigate to="/access-denied" replace />;
   }
 
+  // If all checks pass, render the protected content
   return <>{children}</>;
 }

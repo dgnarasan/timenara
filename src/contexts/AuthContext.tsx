@@ -35,27 +35,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const { toast } = useToast();
 
   useEffect(() => {
-    // Get initial session
-    const getInitialSession = async () => {
-      const { data: { session }, error } = await supabase.auth.getSession();
-      
-      if (error) {
-        console.error('Error fetching session:', error);
-      }
-      
-      setSession(session);
-      setUser(session?.user ?? null);
-      
-      if (session?.user) {
-        fetchUserProfile(session.user.id);
-      } else {
-        setLoading(false);
-      }
-    };
-
-    getInitialSession();
-
-    // Set up auth state listener
+    // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       setSession(session);
       setUser(session?.user ?? null);
@@ -68,6 +48,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setLoading(false);
       }
     });
+
+    // THEN check for existing session
+    const getInitialSession = async () => {
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          console.error('Error fetching session:', error);
+        }
+        
+        setSession(session);
+        setUser(session?.user ?? null);
+        
+        if (session?.user) {
+          await fetchUserProfile(session.user.id);
+        } else {
+          setLoading(false);
+        }
+      } catch (error) {
+        console.error('Error in getInitialSession:', error);
+        setLoading(false);
+      }
+    };
+
+    getInitialSession();
 
     return () => {
       subscription.unsubscribe();
@@ -100,6 +105,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       
       if (error) {
+        console.error('Sign in error:', error.message);
         toast({
           title: "Sign in failed",
           description: error.message,
@@ -133,6 +139,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           .rpc('validate_admin_code', { code_to_check: accessCode, college_to_check: college });
 
         if (validationError || !isValid) {
+          console.error('Access code validation error:', validationError);
           toast({
             title: "Invalid access code",
             description: "The access code you entered is not valid for this college.",
@@ -146,6 +153,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const { data, error } = await supabase.auth.signUp({ email, password });
       
       if (error) {
+        console.error('Sign up error:', error.message);
         toast({
           title: "Sign up failed",
           description: error.message,
@@ -164,8 +172,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         const { error: updateError } = await supabase
           .from('profiles')
-          .update(updates)
-          .eq('id', data.user.id);
+          .upsert(updates);
 
         if (updateError) {
           console.error('Error updating user profile:', updateError);
