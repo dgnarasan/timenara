@@ -37,18 +37,18 @@ const GenerateScheduleDialog = ({ courses, onScheduleGenerated }: GenerateSchedu
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [selectedDepartment, setSelectedDepartment] = useState<Department | ''>('');
+  const [selectedDepartment, setSelectedDepartment] = useState<Department | 'all'>('all');
   const { toast } = useToast();
 
-  const filteredCourses = selectedDepartment
-    ? courses.filter(course => course.department === selectedDepartment)
-    : courses;
+  const filteredCourses = selectedDepartment === 'all'
+    ? courses
+    : courses.filter(course => course.department === selectedDepartment);
 
   const handleGenerateAI = async () => {
     if (filteredCourses.length === 0) {
       toast({
         title: "No Courses Found",
-        description: selectedDepartment 
+        description: selectedDepartment !== 'all'
           ? `No courses found for ${selectedDepartment} department` 
           : "Please add courses before generating a schedule",
         variant: "destructive",
@@ -92,7 +92,7 @@ const GenerateScheduleDialog = ({ courses, onScheduleGenerated }: GenerateSchedu
         toast({
           title: "Schedule Generated",
           description: `Successfully scheduled ${newSchedule.length} courses${
-            selectedDepartment ? ` for ${selectedDepartment}` : ''
+            selectedDepartment !== 'all' ? ` for ${selectedDepartment}` : ''
           }${conflicts.length > 0 ? ' with some conflicts' : ''}`,
         });
       } else {
@@ -137,13 +137,13 @@ const GenerateScheduleDialog = ({ courses, onScheduleGenerated }: GenerateSchedu
             <h4 className="text-sm font-medium">Department</h4>
             <Select
               value={selectedDepartment}
-              onValueChange={(value: Department) => setSelectedDepartment(value)}
+              onValueChange={(value: Department | 'all') => setSelectedDepartment(value)}
             >
               <SelectTrigger className="w-full">
                 <SelectValue placeholder="Select a department" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Departments</SelectItem>
+                <SelectItem value="all">All Departments</SelectItem>
                 {departments.map((dept) => (
                   <SelectItem key={dept} value={dept}>
                     {dept}
@@ -152,7 +152,7 @@ const GenerateScheduleDialog = ({ courses, onScheduleGenerated }: GenerateSchedu
               </SelectContent>
             </Select>
             <p className="text-sm text-muted-foreground">
-              {selectedDepartment
+              {selectedDepartment !== 'all'
                 ? `${filteredCourses.length} courses in ${selectedDepartment}`
                 : `${filteredCourses.length} courses across all departments`}
             </p>
