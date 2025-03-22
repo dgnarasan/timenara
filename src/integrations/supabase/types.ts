@@ -11,6 +11,7 @@ export type Database = {
     Tables: {
       courses: {
         Row: {
+          academic_level: string | null
           class_size: number
           code: string
           constraints: string[] | null
@@ -22,6 +23,7 @@ export type Database = {
           preferred_slots: Json | null
         }
         Insert: {
+          academic_level?: string | null
           class_size: number
           code: string
           constraints?: string[] | null
@@ -33,6 +35,7 @@ export type Database = {
           preferred_slots?: Json | null
         }
         Update: {
+          academic_level?: string | null
           class_size?: number
           code?: string
           constraints?: string[] | null
@@ -105,10 +108,39 @@ export type Database = {
     }
     Enums: {
       department:
+        | "Architecture"
+        | "Estate Management"
+        | "Accounting"
+        | "Banking and Finance"
+        | "Business Administration"
+        | "Criminology and Security Studies"
+        | "Economics"
+        | "International Relations"
+        | "Mass Communication"
+        | "Peace Studies and Conflict Resolution"
+        | "Political Science"
+        | "Public Administration"
+        | "Psychology"
+        | "Taxation"
+        | "Biochemistry"
         | "Computer Science"
         | "Cyber Security"
-        | "Information Technology"
+        | "Environmental Management and Toxicology"
+        | "Industrial Chemistry"
+        | "Information Systems"
+        | "Microbiology and Industrial Biotechnology"
         | "Software Engineering"
+        | "Maternal and Child Health Nursing"
+        | "Community and Public Health Nursing"
+        | "Adult Health/Medical and Surgical Nursing"
+        | "Mental Health and Psychiatric Nursing"
+        | "Nursing Management and Education"
+        | "Human Physiology"
+        | "Human Anatomy"
+        | "Education/Christian Religious Studies"
+        | "Guidance & Counselling"
+        | "Early Childhood Education"
+        | "Educational Management"
       user_role: "student" | "admin"
     }
     CompositeTypes: {
