@@ -9,11 +9,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Course, collegeStructure } from "@/lib/types";
+import { Course, collegeStructure, College } from "@/lib/types";
 import { Button } from "../ui/button";
 import { Download, FileText } from "lucide-react";
 import { getStandardAcademicLevels } from "@/utils/scheduling/courseUtils";
 import { useState, useEffect } from "react";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface CourseFilterBarProps {
   courses: Course[];
@@ -31,8 +32,10 @@ export interface FilterOptions {
 }
 
 const CourseFilterBar = ({ courses, onFilterChange, onExport }: CourseFilterBarProps) => {
+  const { userRole, userCollege } = useAuth();
   const [selectedCollege, setSelectedCollege] = useState<string>("");
   const [availableDepartments, setAvailableDepartments] = useState<string[]>([]);
+  const [availableColleges, setAvailableColleges] = useState<typeof collegeStructure>([]);
   const [filters, setFilters] = useState<FilterOptions>({
     search: "",
     academicLevel: "",
@@ -49,6 +52,25 @@ const CourseFilterBar = ({ courses, onFilterChange, onExport }: CourseFilterBarP
     "Morning (9:00 - 12:00)",
     "Afternoon (13:00 - 17:00)",
   ];
+
+  // Set up available colleges based on user role
+  useEffect(() => {
+    if (userRole === 'admin' && userCollege) {
+      // Admin can only see their assigned college
+      const adminCollege = collegeStructure.filter(college => college.college === userCollege);
+      setAvailableColleges(adminCollege);
+      
+      // Pre-select the admin's college and set departments
+      setSelectedCollege(userCollege);
+      handleFilterChange("college", userCollege);
+      
+      const college = collegeStructure.find(c => c.college === userCollege);
+      setAvailableDepartments(college ? college.departments : []);
+    } else {
+      // Students can see all colleges
+      setAvailableColleges(collegeStructure);
+    }
+  }, [userRole, userCollege]);
 
   // Update available departments when college selection changes
   useEffect(() => {
@@ -148,13 +170,16 @@ const CourseFilterBar = ({ courses, onFilterChange, onExport }: CourseFilterBarP
         <Select
           value={filters.college || "all"}
           onValueChange={(value) => handleFilterChange("college", value)}
+          disabled={userRole === 'admin'} // Disable for admin users
         >
           <SelectTrigger>
             <SelectValue placeholder="College" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Colleges</SelectItem>
-            {collegeStructure.map((college) => (
+            {userRole !== 'admin' && (
+              <SelectItem value="all">All Colleges</SelectItem>
+            )}
+            {availableColleges.map((college) => (
               <SelectItem key={college.college} value={college.college}>
                 {college.college.replace(/\s*\([^)]*\)/g, '')}
               </SelectItem>

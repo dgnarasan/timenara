@@ -10,7 +10,10 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { AtSign, KeyRound, LogIn, UserPlus, Eye, EyeOff } from "lucide-react";
+import { AtSign, KeyRound, LogIn, UserPlus, Eye, EyeOff, UserCog, User } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { College, collegeStructure } from "@/lib/types";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
 // Schemas for form validation
 const loginSchema = z.object({
@@ -22,9 +25,21 @@ const signupSchema = z.object({
   email: z.string().email("Please enter a valid email"),
   password: z.string().min(6, "Password must be at least 6 characters"),
   confirmPassword: z.string().min(6, "Password must be at least 6 characters"),
+  role: z.enum(["student", "admin"]),
+  college: z.string().optional(),
+  accessCode: z.string().optional(),
 }).refine((data) => data.password === data.confirmPassword, {
   message: "Passwords don't match",
   path: ["confirmPassword"],
+}).refine(data => {
+  // If role is admin, college and accessCode are required
+  if (data.role === "admin") {
+    return !!data.college && !!data.accessCode;
+  }
+  return true;
+}, {
+  message: "College and access code are required for admin accounts",
+  path: ["accessCode"],
 });
 
 type LoginFormValues = z.infer<typeof loginSchema>;
@@ -38,6 +53,9 @@ const Auth = () => {
   const [showLoginPassword, setShowLoginPassword] = useState(false);
   const [showSignupPassword, setShowSignupPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  
+  // Role selection state
+  const [selectedRole, setSelectedRole] = useState<"student" | "admin">("student");
   
   // Login form
   const loginForm = useForm<LoginFormValues>({
@@ -55,6 +73,9 @@ const Auth = () => {
       email: "",
       password: "",
       confirmPassword: "",
+      role: "student",
+      college: "",
+      accessCode: "",
     },
   });
 
@@ -63,7 +84,18 @@ const Auth = () => {
   };
 
   const onSignupSubmit = async (values: SignupFormValues) => {
-    await signUp(values.email, values.password);
+    await signUp(
+      values.email, 
+      values.password, 
+      values.role, 
+      values.college as College, 
+      values.accessCode
+    );
+  };
+
+  const handleRoleChange = (value: "student" | "admin") => {
+    setSelectedRole(value);
+    signupForm.setValue("role", value);
   };
 
   // Redirect if already logged in
@@ -257,6 +289,87 @@ const Auth = () => {
                       </FormItem>
                     )}
                   />
+                  
+                  <FormField
+                    control={signupForm.control}
+                    name="role"
+                    render={({ field }) => (
+                      <FormItem className="space-y-1">
+                        <FormLabel>Account Type</FormLabel>
+                        <FormControl>
+                          <RadioGroup
+                            onValueChange={(value) => handleRoleChange(value as "student" | "admin")}
+                            defaultValue={field.value}
+                            className="flex flex-col sm:flex-row space-y-1 sm:space-y-0 sm:space-x-4"
+                          >
+                            <FormItem className="flex items-center space-x-2 space-y-0">
+                              <FormControl>
+                                <RadioGroupItem value="student" />
+                              </FormControl>
+                              <FormLabel className="font-normal cursor-pointer flex items-center">
+                                <User className="mr-1 h-4 w-4" /> Student
+                              </FormLabel>
+                            </FormItem>
+                            <FormItem className="flex items-center space-x-2 space-y-0">
+                              <FormControl>
+                                <RadioGroupItem value="admin" />
+                              </FormControl>
+                              <FormLabel className="font-normal cursor-pointer flex items-center">
+                                <UserCog className="mr-1 h-4 w-4" /> College Admin
+                              </FormLabel>
+                            </FormItem>
+                          </RadioGroup>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  {selectedRole === "admin" && (
+                    <>
+                      <FormField
+                        control={signupForm.control}
+                        name="college"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Select College</FormLabel>
+                            <Select
+                              onValueChange={field.onChange}
+                              defaultValue={field.value}
+                            >
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select your college" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                {collegeStructure.map((item) => (
+                                  <SelectItem key={item.college} value={item.college}>
+                                    {item.college.replace(/\s*\([^)]*\)/g, '')}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={signupForm.control}
+                        name="accessCode"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Access Code</FormLabel>
+                            <FormControl>
+                              <Input placeholder="Enter admin access code" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </>
+                  )}
                   
                   <Button type="submit" className="w-full" disabled={signupForm.formState.isSubmitting}>
                     {signupForm.formState.isSubmitting ? (

@@ -1,6 +1,6 @@
 
-import { useState } from "react";
-import { Course, ScheduleItem } from "@/lib/types";
+import { useState, useEffect } from "react";
+import { Course, ScheduleItem, collegeStructure } from "@/lib/types";
 import { useCourses } from "@/hooks/useCourses";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
@@ -15,6 +15,7 @@ import { LogOut, Calendar, Home } from "lucide-react";
 
 const AdminDashboard = () => {
   const [schedule, setSchedule] = useState<ScheduleItem[]>([]);
+  const [filteredCourses, setFilteredCourses] = useState<Course[]>([]);
   const {
     courses,
     isLoading,
@@ -24,8 +25,68 @@ const AdminDashboard = () => {
     handleClearAllCourses,
   } = useCourses();
   const { toast } = useToast();
-  const { signOut } = useAuth();
+  const { signOut, userCollege } = useAuth();
   const navigate = useNavigate();
+
+  // Filter courses based on admin's college
+  useEffect(() => {
+    if (userCollege) {
+      const collegeDepartments = collegeStructure.find(c => c.college === userCollege)?.departments || [];
+      const filtered = courses.filter(course => collegeDepartments.includes(course.department));
+      setFilteredCourses(filtered);
+    } else {
+      setFilteredCourses(courses);
+    }
+  }, [courses, userCollege]);
+
+  // Handle adding a course, ensuring it belongs to admin's college
+  const handleAdminAddCourse = (course: Omit<Course, "id">) => {
+    if (userCollege) {
+      const collegeDepartments = collegeStructure.find(c => c.college === userCollege)?.departments || [];
+      
+      if (!collegeDepartments.includes(course.department)) {
+        toast({
+          title: "Access Denied",
+          description: "You can only add courses for your assigned college.",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+    
+    handleAddCourse(course);
+  };
+
+  // Handle adding multiple courses
+  const handleAdminAddCourses = (coursesToAdd: Omit<Course, "id">[]) => {
+    if (userCollege) {
+      const collegeDepartments = collegeStructure.find(c => c.college === userCollege)?.departments || [];
+      
+      // Filter out courses not in admin's college
+      const validCourses = coursesToAdd.filter(course => collegeDepartments.includes(course.department));
+      
+      if (validCourses.length < coursesToAdd.length) {
+        toast({
+          title: "Notice",
+          description: `${coursesToAdd.length - validCourses.length} courses were skipped as they don't belong to your college.`,
+          variant: "default",
+        });
+      }
+      
+      if (validCourses.length === 0) {
+        toast({
+          title: "No courses added",
+          description: "None of the provided courses belong to your college.",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      handleAddCourses(validCourses);
+    } else {
+      handleAddCourses(coursesToAdd);
+    }
+  };
 
   const handleEditCourse = (course: Course) => {
     toast({
@@ -41,7 +102,7 @@ const AdminDashboard = () => {
           <div>
             <h1 className="text-3xl font-bold tracking-tight">Admin Dashboard</h1>
             <p className="text-muted-foreground mt-1">
-              Manage and generate your department's course schedule
+              {userCollege ? `Manage timetables for ${userCollege.replace(/\s*\([^)]*\)/g, '')}` : 'Manage and generate your department\'s course schedule'}
             </p>
           </div>
           <div className="flex flex-col sm:flex-row gap-3">
@@ -73,16 +134,16 @@ const AdminDashboard = () => {
               Sign Out
             </Button>
             <GenerateScheduleDialog 
-              courses={courses}
+              courses={filteredCourses}
               onScheduleGenerated={setSchedule}
             />
           </div>
         </div>
 
         <StatsCards
-          totalCourses={courses.length}
-          academicLevels={getAcademicLevels(courses)}
-          activeInstructors={getActiveInstructors(courses)}
+          totalCourses={filteredCourses.length}
+          academicLevels={getAcademicLevels(filteredCourses)}
+          activeInstructors={getActiveInstructors(filteredCourses)}
         />
       </div>
 
@@ -96,9 +157,9 @@ const AdminDashboard = () => {
         <div className="space-y-8">
           <div className="bg-card rounded-lg p-6 shadow-sm">
             <CourseManagementSection
-              courses={courses}
-              onAddCourse={handleAddCourse}
-              onCoursesExtracted={handleAddCourses}
+              courses={filteredCourses}
+              onAddCourse={handleAdminAddCourse}
+              onCoursesExtracted={handleAdminAddCourses}
               onEditCourse={handleEditCourse}
               onDeleteCourse={handleDeleteCourse}
               onClearAllCourses={handleClearAllCourses}

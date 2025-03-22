@@ -9,6 +9,33 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      admin_access_codes: {
+        Row: {
+          code: string
+          college: string
+          created_at: string
+          id: string
+          used: boolean
+          used_by: string | null
+        }
+        Insert: {
+          code: string
+          college: string
+          created_at?: string
+          id?: string
+          used?: boolean
+          used_by?: string | null
+        }
+        Update: {
+          code?: string
+          college?: string
+          created_at?: string
+          id?: string
+          used?: boolean
+          used_by?: string | null
+        }
+        Relationships: []
+      }
       courses: {
         Row: {
           academic_level: string | null
@@ -50,6 +77,7 @@ export type Database = {
       }
       profiles: {
         Row: {
+          college: string | null
           created_at: string
           email: string
           id: string
@@ -57,6 +85,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          college?: string | null
           created_at?: string
           email: string
           id: string
@@ -64,6 +93,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          college?: string | null
           created_at?: string
           email?: string
           id?: string
@@ -104,6 +134,20 @@ export type Database = {
       get_user_role: {
         Args: Record<PropertyKey, never>
         Returns: Database["public"]["Enums"]["user_role"]
+      }
+      use_admin_code: {
+        Args: {
+          code_to_use: string
+          user_id: string
+        }
+        Returns: boolean
+      }
+      validate_admin_code: {
+        Args: {
+          code_to_check: string
+          college_to_check: string
+        }
+        Returns: boolean
       }
     }
     Enums: {
