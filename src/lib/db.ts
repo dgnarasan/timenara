@@ -2,6 +2,10 @@
 import { supabase } from "@/integrations/supabase/client";
 import { Course, DBCourse, Venue, DBVenue, TimeSlot, Department } from "./types";
 import { PostgrestResponse } from "@supabase/supabase-js";
+import { Database } from "@/integrations/supabase/types";
+
+// Type to match the Supabase database schema
+type SupabaseDepartment = Database["public"]["Enums"]["department"];
 
 export const mapDBCourseToClient = (dbCourse: DBCourse): Course => ({
   id: dbCourse.id,
@@ -10,6 +14,7 @@ export const mapDBCourseToClient = (dbCourse: DBCourse): Course => ({
   lecturer: dbCourse.lecturer,
   classSize: dbCourse.class_size,
   department: dbCourse.department,
+  academicLevel: dbCourse.academic_level,
   preferredSlots: dbCourse.preferred_slots || undefined,
   constraints: dbCourse.constraints || undefined,
 });
@@ -32,6 +37,7 @@ export const fetchCourses = async (): Promise<Course[]> => {
 };
 
 export const addCourse = async (course: Omit<Course, "id">): Promise<Course> => {
+  // Cast department to the type expected by Supabase
   const { data, error } = await supabase
     .from('courses')
     .insert({
@@ -39,7 +45,8 @@ export const addCourse = async (course: Omit<Course, "id">): Promise<Course> => 
       name: course.name,
       lecturer: course.lecturer,
       class_size: course.classSize,
-      department: course.department,
+      department: course.department as unknown as SupabaseDepartment,
+      academic_level: course.academicLevel,
       preferred_slots: course.preferredSlots ? JSON.stringify(course.preferredSlots) : null,
       constraints: course.constraints || null,
     })
@@ -55,6 +62,7 @@ export const addCourse = async (course: Omit<Course, "id">): Promise<Course> => 
 };
 
 export const addCourses = async (courses: Omit<Course, "id">[]): Promise<Course[]> => {
+  // Cast department to the type expected by Supabase for each course
   const { data, error } = await supabase
     .from('courses')
     .insert(
@@ -63,7 +71,8 @@ export const addCourses = async (courses: Omit<Course, "id">[]): Promise<Course[
         name: course.name,
         lecturer: course.lecturer,
         class_size: course.classSize,
-        department: course.department,
+        department: course.department as unknown as SupabaseDepartment,
+        academic_level: course.academicLevel,
         preferred_slots: course.preferredSlots ? JSON.stringify(course.preferredSlots) : null,
         constraints: course.constraints || null,
       }))
