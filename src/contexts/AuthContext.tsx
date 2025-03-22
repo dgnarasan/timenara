@@ -90,6 +90,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (profileError) {
         console.error('Error fetching user profile:', profileError);
       } else if (profileData) {
+        console.log('Fetched user profile:', profileData);
         setUserRole(profileData.role);
         setUserCollege(profileData.college as College);
       }
@@ -166,10 +167,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // Update the user's profile with role and college (if admin)
         const updates = {
           id: data.user.id,
-          email: email, // Add the email field here to fix the error
+          email: email,
           role: role,
           college: role === 'admin' ? college : null
         };
+
+        console.log('Creating user profile with data:', updates);
 
         const { error: updateError } = await supabase
           .from('profiles')
