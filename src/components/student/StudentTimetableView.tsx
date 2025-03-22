@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Course, ScheduleItem } from "@/lib/types";
 import CourseFilterBar, { FilterOptions } from "./CourseFilterBar";
@@ -11,9 +12,10 @@ import { Button } from "../ui/button";
 
 interface StudentTimetableViewProps {
   schedule: ScheduleItem[];
+  viewMode?: "timetable" | "list";
 }
 
-const StudentTimetableView = ({ schedule }: StudentTimetableViewProps) => {
+const StudentTimetableView = ({ schedule, viewMode = "timetable" }: StudentTimetableViewProps) => {
   const { toast } = useToast();
   const [filteredSchedule, setFilteredSchedule] = useState<ScheduleItem[]>(schedule);
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
