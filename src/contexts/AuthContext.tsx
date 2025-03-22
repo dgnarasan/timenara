@@ -169,14 +169,37 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           id: data.user.id,
           email: email,
           role: role,
-          college: role === 'admin' ? college : null
+          college: role === 'admin' ? college : null,
+          updated_at: new Date().toISOString()
         };
 
         console.log('Creating user profile with data:', updates);
 
-        const { error: updateError } = await supabase
+        // First try to get the existing profile
+        const { data: existingProfile } = await supabase
           .from('profiles')
-          .upsert(updates);
+          .select('*')
+          .eq('id', data.user.id)
+          .single();
+
+        let updateError;
+        
+        if (existingProfile) {
+          // Update existing profile
+          const { error } = await supabase
+            .from('profiles')
+            .update(updates)
+            .eq('id', data.user.id);
+          
+          updateError = error;
+        } else {
+          // Insert new profile
+          const { error } = await supabase
+            .from('profiles')
+            .insert(updates);
+          
+          updateError = error;
+        }
 
         if (updateError) {
           console.error('Error updating user profile:', updateError);
