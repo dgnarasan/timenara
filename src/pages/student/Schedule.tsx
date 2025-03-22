@@ -1,48 +1,50 @@
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { ScheduleItem } from "@/lib/types";
 import { useAuth } from "@/contexts/AuthContext";
 import StudentTimetableView from "@/components/student/StudentTimetableView";
 import { Button } from "@/components/ui/button";
-import { LayoutDashboard, LogOut, Home } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
+import { 
+  LayoutDashboard, 
+  LogOut, 
+  Home, 
+  Calendar, 
+  List,
+  Grid 
+} from "lucide-react";
 
 const Schedule = () => {
   const [schedule, setSchedule] = useState<ScheduleItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [viewMode, setViewMode] = useState<"timetable" | "list">("timetable");
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
 
-  useEffect(() => {
-    const fetchSchedule = async () => {
-      try {
-        // TODO: Replace with actual API call
-        const response = await fetch('/api/schedule');
-        const data = await response.json();
-        setSchedule(data.schedule);
-      } catch (error) {
-        console.error('Failed to fetch schedule:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchSchedule();
+  // Use useCallback to memoize the fetchSchedule function
+  const fetchSchedule = useCallback(async () => {
+    try {
+      // Artificial delay for demonstration
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // Simulated data fetch
+      const response = await fetch('/api/schedule');
+      const data = await response.json();
+      setSchedule(data.schedule);
+    } catch (error) {
+      console.error('Failed to fetch schedule:', error);
+    } finally {
+      setIsLoading(false);
+    }
   }, []);
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center space-y-4">
-          <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto"></div>
-          <p className="text-muted-foreground">Loading schedule...</p>
-        </div>
-      </div>
-    );
-  }
+  useEffect(() => {
+    fetchSchedule();
+  }, [fetchSchedule]);
 
   return (
-    <div className="container mx-auto py-8 px-4">
+    <div className="container mx-auto py-8 px-4 fade-in">
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
           <div>
@@ -51,7 +53,29 @@ const Schedule = () => {
               View and filter your course schedule
             </p>
           </div>
+          
           <div className="flex flex-col sm:flex-row gap-3 mt-4 sm:mt-0">
+            <div className="bg-muted/30 p-1 rounded-lg flex">
+              <Button 
+                variant={viewMode === "timetable" ? "default" : "ghost"} 
+                size="sm" 
+                className="gap-2"
+                onClick={() => setViewMode("timetable")}
+              >
+                <Grid className="h-4 w-4" />
+                Grid
+              </Button>
+              <Button 
+                variant={viewMode === "list" ? "default" : "ghost"} 
+                size="sm" 
+                className="gap-2"
+                onClick={() => setViewMode("list")}
+              >
+                <List className="h-4 w-4" />
+                List
+              </Button>
+            </div>
+            
             <Button 
               variant="outline" 
               size="sm" 
@@ -82,7 +106,22 @@ const Schedule = () => {
           </div>
         </div>
 
-        <StudentTimetableView schedule={schedule} />
+        {isLoading ? (
+          <div className="space-y-4">
+            <div className="flex items-center space-x-4">
+              <Skeleton className="h-10 w-[100px]" />
+              <Skeleton className="h-10 w-[150px]" />
+            </div>
+            <Skeleton className="h-[400px] w-full" />
+          </div>
+        ) : (
+          <div className="bg-card rounded-lg p-4 shadow-sm transition-all hover:shadow-md border">
+            <StudentTimetableView 
+              schedule={schedule} 
+              viewMode={viewMode}
+            />
+          </div>
+        )}
       </div>
     </div>
   );
