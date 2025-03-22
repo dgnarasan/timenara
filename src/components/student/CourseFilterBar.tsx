@@ -13,6 +13,7 @@ import { Course, collegeStructure } from "@/lib/types";
 import { Button } from "../ui/button";
 import { Download, FileText } from "lucide-react";
 import { getStandardAcademicLevels } from "@/utils/scheduling/courseUtils";
+import { useState, useEffect } from "react";
 
 interface CourseFilterBarProps {
   courses: Course[];
@@ -30,6 +31,17 @@ export interface FilterOptions {
 }
 
 const CourseFilterBar = ({ courses, onFilterChange, onExport }: CourseFilterBarProps) => {
+  const [selectedCollege, setSelectedCollege] = useState<string>("");
+  const [availableDepartments, setAvailableDepartments] = useState<string[]>([]);
+  const [filters, setFilters] = useState<FilterOptions>({
+    search: "",
+    academicLevel: "",
+    lecturer: "",
+    timeSlot: "",
+    college: "",
+    department: "",
+  });
+  
   const uniqueLecturers = Array.from(new Set(courses.map((c) => c.lecturer))).sort();
   const standardLevels = getStandardAcademicLevels();
 
@@ -38,18 +50,36 @@ const CourseFilterBar = ({ courses, onFilterChange, onExport }: CourseFilterBarP
     "Afternoon (13:00 - 17:00)",
   ];
 
+  // Update available departments when college selection changes
+  useEffect(() => {
+    if (selectedCollege === "" || selectedCollege === "all") {
+      // If no college is selected or "All Colleges" is selected, show all departments
+      setAvailableDepartments(collegeStructure.flatMap(college => college.departments));
+    } else {
+      // Find the college in the structure and get its departments
+      const college = collegeStructure.find(c => c.college === selectedCollege);
+      setAvailableDepartments(college ? college.departments : []);
+    }
+    
+    // Reset department filter if college changes
+    if (filters.college !== selectedCollege) {
+      handleFilterChange("department", "");
+    }
+  }, [selectedCollege]);
+
   const handleFilterChange = (key: keyof FilterOptions, value: string) => {
-    onFilterChange({
-      ...{
-        search: "",
-        academicLevel: "",
-        lecturer: "",
-        timeSlot: "",
-        college: "",
-        department: "",
-      },
+    // If changing college, update the selected college state
+    if (key === "college") {
+      setSelectedCollege(value === "all" ? "" : value);
+    }
+    
+    const newFilters = {
+      ...filters,
       [key]: value === "all" ? "" : value,
-    });
+    };
+    
+    setFilters(newFilters);
+    onFilterChange(newFilters);
   };
 
   return (
@@ -59,9 +89,11 @@ const CourseFilterBar = ({ courses, onFilterChange, onExport }: CourseFilterBarP
           placeholder="Search courses..."
           className="w-full"
           onChange={(e) => handleFilterChange("search", e.target.value)}
+          value={filters.search}
         />
         
         <Select
+          value={filters.academicLevel || "all"}
           onValueChange={(value) => handleFilterChange("academicLevel", value)}
         >
           <SelectTrigger>
@@ -78,6 +110,7 @@ const CourseFilterBar = ({ courses, onFilterChange, onExport }: CourseFilterBarP
         </Select>
 
         <Select
+          value={filters.lecturer || "all"}
           onValueChange={(value) => handleFilterChange("lecturer", value)}
         >
           <SelectTrigger>
@@ -96,6 +129,7 @@ const CourseFilterBar = ({ courses, onFilterChange, onExport }: CourseFilterBarP
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Select
+          value={filters.timeSlot || "all"}
           onValueChange={(value) => handleFilterChange("timeSlot", value)}
         >
           <SelectTrigger>
@@ -112,6 +146,7 @@ const CourseFilterBar = ({ courses, onFilterChange, onExport }: CourseFilterBarP
         </Select>
 
         <Select
+          value={filters.college || "all"}
           onValueChange={(value) => handleFilterChange("college", value)}
         >
           <SelectTrigger>
@@ -128,23 +163,35 @@ const CourseFilterBar = ({ courses, onFilterChange, onExport }: CourseFilterBarP
         </Select>
 
         <Select
+          value={filters.department || "all"}
           onValueChange={(value) => handleFilterChange("department", value)}
+          disabled={availableDepartments.length === 0}
         >
           <SelectTrigger>
             <SelectValue placeholder="Department" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Departments</SelectItem>
-            {collegeStructure.map((collegeItem) => (
-              <SelectGroup key={collegeItem.college}>
-                <SelectLabel>{collegeItem.college.replace(/\s*\([^)]*\)/g, '')}</SelectLabel>
-                {collegeItem.departments.map((dept) => (
-                  <SelectItem key={dept} value={dept}>
-                    {dept}
-                  </SelectItem>
-                ))}
-              </SelectGroup>
-            ))}
+            {selectedCollege && selectedCollege !== "all" ? (
+              // Show only departments from selected college
+              availableDepartments.map((dept) => (
+                <SelectItem key={dept} value={dept}>
+                  {dept}
+                </SelectItem>
+              ))
+            ) : (
+              // Show all departments grouped by college when no specific college is selected
+              collegeStructure.map((collegeItem) => (
+                <SelectGroup key={collegeItem.college}>
+                  <SelectLabel>{collegeItem.college.replace(/\s*\([^)]*\)/g, '')}</SelectLabel>
+                  {collegeItem.departments.map((dept) => (
+                    <SelectItem key={dept} value={dept}>
+                      {dept}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              ))
+            )}
           </SelectContent>
         </Select>
       </div>
