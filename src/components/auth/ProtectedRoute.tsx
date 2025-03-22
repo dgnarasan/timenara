@@ -1,6 +1,6 @@
 
 import { ReactNode, useEffect } from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 
 type ProtectedRouteProps = {
@@ -15,6 +15,7 @@ export default function ProtectedRoute({
   redirectTo = '/auth' 
 }: ProtectedRouteProps) {
   const { user, loading, userRole } = useAuth();
+  const location = useLocation();
   
   // Show loading state while checking authentication
   if (loading) {
@@ -28,7 +29,7 @@ export default function ProtectedRoute({
   // Redirect to auth page if user is not logged in
   if (!user) {
     console.log("No user found, redirecting to auth page");
-    return <Navigate to={redirectTo} replace />;
+    return <Navigate to={redirectTo} state={{ from: location }} replace />;
   }
 
   // Redirect to access denied page if admin access is required but user is not an admin
