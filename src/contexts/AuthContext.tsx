@@ -166,6 +166,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // Update the user's profile with role and college (if admin)
         const updates = {
           id: data.user.id,
+          email: email, // Add the email field here to fix the error
           role: role,
           college: role === 'admin' ? college : null
         };
