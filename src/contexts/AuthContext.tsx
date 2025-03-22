@@ -37,6 +37,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      console.log("Auth state changed:", _event, session?.user?.email);
       setSession(session);
       setUser(session?.user ?? null);
       
@@ -62,6 +63,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(session?.user ?? null);
         
         if (session?.user) {
+          console.log("Found existing session for user:", session.user.email);
           await fetchUserProfile(session.user.id);
         } else {
           setLoading(false);
@@ -81,9 +83,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const fetchUserProfile = async (userId: string) => {
     try {
+      console.log("Fetching profile for user ID:", userId);
       const { data: profileData, error: profileError } = await supabase
         .from('profiles')
-        .select('role, college')
+        .select('role, college, email')
         .eq('id', userId)
         .single();
 
@@ -93,6 +96,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.log('Fetched user profile:', profileData);
         setUserRole(profileData.role);
         setUserCollege(profileData.college as College);
+      } else {
+        console.log('No profile found for user ID:', userId);
       }
     } catch (error) {
       console.error('Error in fetchUserProfile:', error);
@@ -134,13 +139,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signUp = async (email: string, password: string, role: 'student' | 'admin', college?: College, accessCode?: string) => {
     try {
+      console.log("Sign up attempt:", { email, role, college, hasAccessCode: !!accessCode });
+      
       // If role is admin, validate the access code first
       if (role === 'admin' && college && accessCode) {
+        console.log("Validating admin access code for college:", college);
         const { data: isValid, error: validationError } = await supabase
           .rpc('validate_admin_code', { code_to_check: accessCode, college_to_check: college });
 
         if (validationError || !isValid) {
-          console.error('Access code validation error:', validationError);
+          console.error('Access code validation error:', validationError || "Code is invalid");
           toast({
             title: "Invalid access code",
             description: "The access code you entered is not valid for this college.",
@@ -148,6 +156,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           });
           return { error: new Error("Invalid access code") };
         }
+        
+        console.log("Access code validated successfully");
       }
 
       // Create the user account
@@ -185,6 +195,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         let updateError;
         
         if (existingProfile) {
+          console.log("Existing profile found, updating...");
           // Update existing profile
           const { error } = await supabase
             .from('profiles')
@@ -193,6 +204,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           
           updateError = error;
         } else {
+          console.log("No existing profile, inserting new one...");
           // Insert new profile
           const { error } = await supabase
             .from('profiles')
@@ -212,6 +224,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         // If admin role, mark the access code as used
         if (role === 'admin' && college && accessCode) {
+          console.log("Marking access code as used");
           const { error: codeError } = await supabase
             .rpc('use_admin_code', { code_to_use: accessCode, user_id: data.user.id });
 

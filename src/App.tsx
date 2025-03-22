@@ -71,6 +71,16 @@ function App() {
                     } 
                   />
                   
+                  {/* Add a direct route to admin dashboard for testing */}
+                  <Route 
+                    path="/admin" 
+                    element={
+                      <ProtectedRoute requireAdmin={true}>
+                        <AdminDashboard />
+                      </ProtectedRoute>
+                    } 
+                  />
+                  
                   {/* Catch-all route */}
                   <Route path="*" element={<NotFound />} />
                 </Routes>

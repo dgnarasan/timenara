@@ -17,6 +17,15 @@ export default function ProtectedRoute({
   const { user, loading, userRole } = useAuth();
   const location = useLocation();
   
+  useEffect(() => {
+    // Debug information to help troubleshoot authorization issues
+    if (requireAdmin) {
+      console.log("Protected route requires admin access");
+      console.log("Current user role:", userRole);
+      console.log("Is admin check result:", userRole === 'admin');
+    }
+  }, [requireAdmin, userRole]);
+  
   // Show loading state while checking authentication
   if (loading) {
     return (
@@ -35,6 +44,7 @@ export default function ProtectedRoute({
   // Redirect to access denied page if admin access is required but user is not an admin
   if (requireAdmin && userRole !== 'admin') {
     console.log("User is not an admin, redirecting to access denied page");
+    console.log("User role:", userRole);
     return <Navigate to="/access-denied" replace />;
   }
 
