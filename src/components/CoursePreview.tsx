@@ -1,5 +1,5 @@
 
-import { Course } from "@/lib/types";
+import { Course, collegeStructure } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Check, X, Edit2, AlertTriangle } from "lucide-react";
@@ -9,6 +9,7 @@ import {
   SelectContent,
   SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
@@ -73,6 +74,7 @@ const CoursePreview = ({ courses: initialCourses, onConfirm, onEdit, onRemove, o
                 <div className="text-sm text-muted-foreground">
                   <p>Lecturer: {course.lecturer || 'Not specified'}</p>
                   <p>Class Size: {course.classSize}</p>
+                  <p>Department: {course.department}</p>
                 </div>
                 <div className="mt-2">
                   <Select onValueChange={(value) => updateCourseLevel(index, value)}>

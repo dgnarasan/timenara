@@ -1,5 +1,6 @@
+
 import { useState, useEffect } from "react";
-import { Course, ScheduleItem } from "@/lib/types";
+import { Course, ScheduleItem, collegeStructure } from "@/lib/types";
 import CourseFilterBar, { FilterOptions } from "./CourseFilterBar";
 import Timetable from "../Timetable";
 import { useToast } from "@/hooks/use-toast";
@@ -23,6 +24,8 @@ const StudentTimetableView = ({ schedule, viewMode = "timetable" }: StudentTimet
     academicLevel: "",
     lecturer: "",
     timeSlot: "",
+    college: "",
+    department: "",
   });
 
   useEffect(() => {
@@ -72,8 +75,16 @@ const StudentTimetableView = ({ schedule, viewMode = "timetable" }: StudentTimet
 
       const matchesTimeSlot = 
         filters.timeSlot === "" || matchesTimeRange(item, filters.timeSlot);
+        
+      const matchesCollege = 
+        filters.college === "" || 
+        collegeStructure.find(c => c.college === filters.college)?.departments.includes(item.department);
+        
+      const matchesDepartment = 
+        filters.department === "" || item.department === filters.department;
 
-      return matchesSearch && matchesLevel && matchesLecturer && matchesTimeSlot;
+      return matchesSearch && matchesLevel && matchesLecturer && 
+             matchesTimeSlot && matchesCollege && matchesDepartment;
     });
 
     setFilteredSchedule(filtered);
@@ -122,6 +133,7 @@ const StudentTimetableView = ({ schedule, viewMode = "timetable" }: StudentTimet
       "Course Code": item.code,
       "Course Name": item.name,
       "Lecturer": item.lecturer,
+      "Department": item.department,
       "Day": item.timeSlot.day,
       "Time": `${item.timeSlot.startTime} - ${item.timeSlot.endTime}`,
       "Venue": item.venue.name,
@@ -145,13 +157,14 @@ const StudentTimetableView = ({ schedule, viewMode = "timetable" }: StudentTimet
       item.code,
       item.name,
       item.lecturer,
+      item.department,
       item.timeSlot.day,
       `${item.timeSlot.startTime} - ${item.timeSlot.endTime}`,
       item.venue.name,
     ]);
 
     doc.autoTable({
-      head: [["Code", "Course", "Lecturer", "Day", "Time", "Venue"]],
+      head: [["Code", "Course", "Lecturer", "Department", "Day", "Time", "Venue"]],
       body: tableData,
       startY: 20,
       theme: "grid",
@@ -178,13 +191,14 @@ const StudentTimetableView = ({ schedule, viewMode = "timetable" }: StudentTimet
         </div>
         <Button
           variant="outline"
-          onClick={() => setFilters(prev => ({
-            ...prev,
+          onClick={() => setFilters({
             search: "",
             academicLevel: "",
             lecturer: "",
             timeSlot: "",
-          }))}
+            college: "",
+            department: "",
+          })}
           size="sm"
         >
           Clear Filters

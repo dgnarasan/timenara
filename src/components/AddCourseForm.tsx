@@ -1,12 +1,14 @@
 
 import { useState } from "react";
-import { Course } from "@/lib/types";
+import { Course, Department, collegeStructure } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
@@ -15,12 +17,8 @@ interface AddCourseFormProps {
   onSubmit: (course: Omit<Course, "id">) => void;
 }
 
-const departments = [
-  "Computer Science",
-  "Cyber Security",
-  "Information Technology",
-  "Software Engineering",
-] as const;
+// Get all departments from collegeStructure
+const departments = collegeStructure.flatMap(college => college.departments);
 
 const AddCourseForm = ({ onSubmit }: AddCourseFormProps) => {
   const [code, setCode] = useState("");
@@ -133,10 +131,15 @@ const AddCourseForm = ({ onSubmit }: AddCourseFormProps) => {
               <SelectValue placeholder="Select department" />
             </SelectTrigger>
             <SelectContent>
-              {departments.map((dept) => (
-                <SelectItem key={dept} value={dept}>
-                  {dept}
-                </SelectItem>
+              {collegeStructure.map((collegeItem) => (
+                <SelectGroup key={collegeItem.college}>
+                  <SelectLabel>{collegeItem.college}</SelectLabel>
+                  {collegeItem.departments.map((dept) => (
+                    <SelectItem key={dept} value={dept}>
+                      {dept}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
               ))}
             </SelectContent>
           </Select>

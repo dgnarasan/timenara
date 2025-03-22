@@ -1,7 +1,7 @@
 
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { Course } from "@/lib/types";
+import { Course, collegeStructure } from "@/lib/types";
 import { Download, FileSpreadsheet, Upload } from "lucide-react";
 import { useState } from "react";
 import * as XLSX from "xlsx";
@@ -14,6 +14,9 @@ interface CourseTemplateUploadProps {
 const CourseTemplateUpload = ({ courses, onCoursesExtracted }: CourseTemplateUploadProps) => {
   const { toast } = useToast();
   const [showTemplateUpload, setShowTemplateUpload] = useState(false);
+
+  // Get all departments from collegeStructure
+  const allDepartments = collegeStructure.flatMap(college => college.departments);
 
   const downloadTemplate = () => {
     const template = [
@@ -117,7 +120,7 @@ const CourseTemplateUpload = ({ courses, onCoursesExtracted }: CourseTemplateUpl
         return null;
       }
 
-      if (!['Computer Science', 'Cyber Security', 'Information Technology', 'Software Engineering'].includes(department)) {
+      if (!allDepartments.includes(department)) {
         validationErrors.push(`Row ${index + 2}: Invalid department`);
         return null;
       }

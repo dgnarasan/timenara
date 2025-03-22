@@ -1,5 +1,5 @@
 
-import { Course, Department, ScheduleItem } from "@/lib/types";
+import { Course, Department, ScheduleItem, collegeStructure } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -13,7 +13,9 @@ import {
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
@@ -26,12 +28,8 @@ interface GenerateScheduleDialogProps {
   onScheduleGenerated: (schedule: ScheduleItem[]) => void;
 }
 
-const departments: Department[] = [
-  'Computer Science',
-  'Cyber Security',
-  'Information Technology',
-  'Software Engineering'
-];
+// Get all departments from collegeStructure
+const departments: Department[] = collegeStructure.flatMap(college => college.departments);
 
 const GenerateScheduleDialog = ({ courses, onScheduleGenerated }: GenerateScheduleDialogProps) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -144,10 +142,15 @@ const GenerateScheduleDialog = ({ courses, onScheduleGenerated }: GenerateSchedu
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Departments</SelectItem>
-                {departments.map((dept) => (
-                  <SelectItem key={dept} value={dept}>
-                    {dept}
-                  </SelectItem>
+                {collegeStructure.map((collegeItem) => (
+                  <SelectGroup key={collegeItem.college}>
+                    <SelectLabel>{collegeItem.college}</SelectLabel>
+                    {collegeItem.departments.map((dept) => (
+                      <SelectItem key={dept} value={dept}>
+                        {dept}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
                 ))}
               </SelectContent>
             </Select>
