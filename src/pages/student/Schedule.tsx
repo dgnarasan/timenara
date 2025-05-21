@@ -1,5 +1,5 @@
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { ScheduleItem } from "@/lib/types";
 import { useAuth } from "@/contexts/AuthContext";
@@ -22,26 +22,60 @@ const Schedule = () => {
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
 
-  // Use useCallback to memoize the fetchSchedule function
-  const fetchSchedule = useCallback(async () => {
-    try {
-      // Artificial delay for demonstration
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      // Simulated data fetch
-      const response = await fetch('/api/schedule');
-      const data = await response.json();
-      setSchedule(data.schedule);
-    } catch (error) {
-      console.error('Failed to fetch schedule:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
+  // Load mock schedule data for demonstration
   useEffect(() => {
-    fetchSchedule();
-  }, [fetchSchedule]);
+    const loadScheduleData = async () => {
+      try {
+        // Simulate API call with a short timeout
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        // Mock data for demonstration
+        const mockSchedule: ScheduleItem[] = [
+          {
+            id: "c1",
+            code: "CS101",
+            name: "Introduction to Computer Science",
+            lecturer: "Dr. Smith",
+            classSize: 45,
+            department: "Computer Science",
+            academicLevel: "100",
+            venue: { id: "v1", name: "Room 101", capacity: 50, availability: [] },
+            timeSlot: { day: "Monday", startTime: "9:00", endTime: "10:00" }
+          },
+          {
+            id: "c2",
+            code: "MTH201",
+            name: "Linear Algebra",
+            lecturer: "Prof. Johnson",
+            classSize: 40,
+            department: "Mathematics",
+            academicLevel: "200",
+            venue: { id: "v2", name: "Room 102", capacity: 50, availability: [] },
+            timeSlot: { day: "Tuesday", startTime: "11:00", endTime: "12:00" }
+          },
+          {
+            id: "c3",
+            code: "ENG112",
+            name: "Technical Writing",
+            lecturer: "Dr. Williams",
+            classSize: 30,
+            department: "English",
+            academicLevel: "100",
+            venue: { id: "v3", name: "Lecture Hall 1", capacity: 100, availability: [] },
+            timeSlot: { day: "Wednesday", startTime: "14:00", endTime: "15:00" }
+          }
+        ];
+        
+        setSchedule(mockSchedule);
+      } catch (error) {
+        console.error('Failed to fetch schedule:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadScheduleData();
+  }, []);
 
   return (
     <div className="container mx-auto py-8 px-4 fade-in">
