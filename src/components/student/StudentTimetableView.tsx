@@ -7,7 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
-import { Star } from "lucide-react";
+import { Star, Calendar } from "lucide-react"; // Added Calendar import from lucide-react
 import { Button } from "../ui/button";
 
 interface StudentTimetableViewProps {

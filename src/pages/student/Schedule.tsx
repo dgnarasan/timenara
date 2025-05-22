@@ -48,7 +48,7 @@ const Schedule = () => {
             name: "Linear Algebra",
             lecturer: "Prof. Johnson",
             classSize: 40,
-            department: "Mathematics",
+            department: "Information Systems", // Changed from "Mathematics" to a valid Department type
             academicLevel: "200",
             venue: { id: "v2", name: "Room 102", capacity: 50, availability: [] },
             timeSlot: { day: "Tuesday", startTime: "11:00", endTime: "12:00" }
@@ -59,7 +59,7 @@ const Schedule = () => {
             name: "Technical Writing",
             lecturer: "Dr. Williams",
             classSize: 30,
-            department: "English",
+            department: "Education/Christian Religious Studies", // Changed from "English" to a valid Department type
             academicLevel: "100",
             venue: { id: "v3", name: "Lecture Hall 1", capacity: 100, availability: [] },
             timeSlot: { day: "Wednesday", startTime: "14:00", endTime: "15:00" }
