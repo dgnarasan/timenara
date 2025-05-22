@@ -48,7 +48,7 @@ const Schedule = () => {
             name: "Linear Algebra",
             lecturer: "Prof. Johnson",
             classSize: 40,
-            department: "Information Systems", // Changed from "Mathematics" to a valid Department type
+            department: "Information Systems",
             academicLevel: "200",
             venue: { id: "v2", name: "Room 102", capacity: 50, availability: [] },
             timeSlot: { day: "Tuesday", startTime: "11:00", endTime: "12:00" }
@@ -59,7 +59,7 @@ const Schedule = () => {
             name: "Technical Writing",
             lecturer: "Dr. Williams",
             classSize: 30,
-            department: "Education/Christian Religious Studies", // Changed from "English" to a valid Department type
+            department: "Education/Christian Religious Studies", 
             academicLevel: "100",
             venue: { id: "v3", name: "Lecture Hall 1", capacity: 100, availability: [] },
             timeSlot: { day: "Wednesday", startTime: "14:00", endTime: "15:00" }
@@ -76,6 +76,25 @@ const Schedule = () => {
 
     loadScheduleData();
   }, []);
+
+  const handleSignOut = async () => {
+    try {
+      // Clean up any auth-related local storage items before signing out
+      Object.keys(localStorage).forEach((key) => {
+        if (key.startsWith('supabase.auth.') || key.includes('sb-')) {
+          localStorage.removeItem(key);
+        }
+      });
+      
+      // Call the signOut function from AuthContext
+      await signOut();
+      
+      // Force a page reload to ensure clean state
+      window.location.href = '/auth';
+    } catch (error) {
+      console.error('Error during sign out:', error);
+    }
+  };
 
   return (
     <div className="container mx-auto py-8 px-4 fade-in">
@@ -132,7 +151,7 @@ const Schedule = () => {
               variant="outline" 
               size="sm" 
               className="gap-2"
-              onClick={() => signOut()}
+              onClick={handleSignOut}
             >
               <LogOut className="h-4 w-4" />
               Sign Out
