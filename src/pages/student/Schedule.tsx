@@ -14,6 +14,8 @@ import {
   List,
   Grid 
 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 const Schedule = () => {
   const [schedule, setSchedule] = useState<ScheduleItem[]>([]);
@@ -21,6 +23,7 @@ const Schedule = () => {
   const [viewMode, setViewMode] = useState<"timetable" | "list">("timetable");
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
+  const { toast } = useToast();
 
   // Load mock schedule data for demonstration
   useEffect(() => {
@@ -79,20 +82,38 @@ const Schedule = () => {
 
   const handleSignOut = async () => {
     try {
-      // Clean up any auth-related local storage items before signing out
+      // Clean up any auth-related local storage items manually
       Object.keys(localStorage).forEach((key) => {
         if (key.startsWith('supabase.auth.') || key.includes('sb-')) {
           localStorage.removeItem(key);
         }
       });
       
-      // Call the signOut function from AuthContext
+      // Direct call to Supabase signOut instead of relying only on the context
+      await supabase.auth.signOut();
+      
+      // Also call the context's signOut for state management
       await signOut();
       
-      // Force a page reload to ensure clean state
-      window.location.href = '/auth';
+      toast({
+        title: "Signed out successfully",
+        description: "You have been signed out of your account.",
+      });
+      
+      // Navigate to auth page using navigate for a cleaner transition
+      navigate('/auth');
+      
+      // As a fallback, force reload after a short delay if navigation doesn't work
+      setTimeout(() => {
+        window.location.href = '/auth';
+      }, 500);
     } catch (error) {
       console.error('Error during sign out:', error);
+      toast({
+        title: "Sign out failed",
+        description: "There was an error signing out. Please try again.",
+        variant: "destructive",
+      });
     }
   };
 
