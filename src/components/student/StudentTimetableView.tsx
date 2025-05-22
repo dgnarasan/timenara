@@ -7,7 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
-import { Star, Calendar } from "lucide-react"; // Added Calendar import from lucide-react
+import { Star } from "lucide-react";
 import { Button } from "../ui/button";
 
 interface StudentTimetableViewProps {
@@ -28,25 +28,15 @@ const StudentTimetableView = ({ schedule, viewMode = "timetable" }: StudentTimet
     department: "",
   });
 
-  // Load favorites from localStorage
   useEffect(() => {
-    try {
-      const savedFavorites = localStorage.getItem('favoriteCourses');
-      if (savedFavorites) {
-        setFavorites(new Set(JSON.parse(savedFavorites)));
-      }
-    } catch (error) {
-      console.error("Error loading favorites from localStorage:", error);
+    const savedFavorites = localStorage.getItem('favoriteCourses');
+    if (savedFavorites) {
+      setFavorites(new Set(JSON.parse(savedFavorites)));
     }
   }, []);
 
-  // Save favorites to localStorage when they change
   useEffect(() => {
-    try {
-      localStorage.setItem('favoriteCourses', JSON.stringify(Array.from(favorites)));
-    } catch (error) {
-      console.error("Error saving favorites to localStorage:", error);
-    }
+    localStorage.setItem('favoriteCourses', JSON.stringify(Array.from(favorites)));
   }, [favorites]);
 
   const toggleFavorite = (courseId: string) => {
@@ -69,13 +59,7 @@ const StudentTimetableView = ({ schedule, viewMode = "timetable" }: StudentTimet
     });
   };
 
-  // Update filtered schedule when schedule or filters change
   useEffect(() => {
-    if (!schedule || schedule.length === 0) {
-      setFilteredSchedule([]);
-      return;
-    }
-
     const filtered = schedule.filter((item) => {
       const matchesSearch =
         filters.search === "" ||
@@ -94,7 +78,7 @@ const StudentTimetableView = ({ schedule, viewMode = "timetable" }: StudentTimet
         
       const matchesCollege = 
         filters.college === "" || 
-        (collegeStructure.find(c => c.college === filters.college)?.departments.includes(item.department) || false);
+        collegeStructure.find(c => c.college === filters.college)?.departments.includes(item.department);
         
       const matchesDepartment = 
         filters.department === "" || item.department === filters.department;
@@ -195,19 +179,6 @@ const StudentTimetableView = ({ schedule, viewMode = "timetable" }: StudentTimet
       description: "Your schedule has been exported to PDF format.",
     });
   };
-
-  // Fallback empty state
-  if (!schedule || schedule.length === 0) {
-    return (
-      <div className="text-center py-12 text-muted-foreground">
-        <Calendar className="h-12 w-12 mx-auto mb-4 opacity-20" />
-        <p className="text-base">No courses scheduled yet.</p>
-        <p className="text-sm mt-2 text-muted-foreground/80">
-          Contact your administrator if you believe this is an error.
-        </p>
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-6">

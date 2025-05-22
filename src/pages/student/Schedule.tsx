@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { ScheduleItem } from "@/lib/types";
 import { useAuth } from "@/contexts/AuthContext";
@@ -14,8 +14,6 @@ import {
   List,
   Grid 
 } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/hooks/use-toast";
 
 const Schedule = () => {
   const [schedule, setSchedule] = useState<ScheduleItem[]>([]);
@@ -23,99 +21,27 @@ const Schedule = () => {
   const [viewMode, setViewMode] = useState<"timetable" | "list">("timetable");
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
-  const { toast } = useToast();
 
-  // Load mock schedule data for demonstration
-  useEffect(() => {
-    const loadScheduleData = async () => {
-      try {
-        // Simulate API call with a short timeout
-        await new Promise(resolve => setTimeout(resolve, 500));
-        
-        // Mock data for demonstration
-        const mockSchedule: ScheduleItem[] = [
-          {
-            id: "c1",
-            code: "CS101",
-            name: "Introduction to Computer Science",
-            lecturer: "Dr. Smith",
-            classSize: 45,
-            department: "Computer Science",
-            academicLevel: "100",
-            venue: { id: "v1", name: "Room 101", capacity: 50, availability: [] },
-            timeSlot: { day: "Monday", startTime: "9:00", endTime: "10:00" }
-          },
-          {
-            id: "c2",
-            code: "MTH201",
-            name: "Linear Algebra",
-            lecturer: "Prof. Johnson",
-            classSize: 40,
-            department: "Information Systems",
-            academicLevel: "200",
-            venue: { id: "v2", name: "Room 102", capacity: 50, availability: [] },
-            timeSlot: { day: "Tuesday", startTime: "11:00", endTime: "12:00" }
-          },
-          {
-            id: "c3",
-            code: "ENG112",
-            name: "Technical Writing",
-            lecturer: "Dr. Williams",
-            classSize: 30,
-            department: "Education/Christian Religious Studies", 
-            academicLevel: "100",
-            venue: { id: "v3", name: "Lecture Hall 1", capacity: 100, availability: [] },
-            timeSlot: { day: "Wednesday", startTime: "14:00", endTime: "15:00" }
-          }
-        ];
-        
-        setSchedule(mockSchedule);
-      } catch (error) {
-        console.error('Failed to fetch schedule:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    loadScheduleData();
+  // Use useCallback to memoize the fetchSchedule function
+  const fetchSchedule = useCallback(async () => {
+    try {
+      // Artificial delay for demonstration
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // Simulated data fetch
+      const response = await fetch('/api/schedule');
+      const data = await response.json();
+      setSchedule(data.schedule);
+    } catch (error) {
+      console.error('Failed to fetch schedule:', error);
+    } finally {
+      setIsLoading(false);
+    }
   }, []);
 
-  const handleSignOut = async () => {
-    try {
-      // Clean up any auth-related local storage items manually
-      Object.keys(localStorage).forEach((key) => {
-        if (key.startsWith('supabase.auth.') || key.includes('sb-')) {
-          localStorage.removeItem(key);
-        }
-      });
-      
-      // Direct call to Supabase signOut instead of relying only on the context
-      await supabase.auth.signOut();
-      
-      // Also call the context's signOut for state management
-      await signOut();
-      
-      toast({
-        title: "Signed out successfully",
-        description: "You have been signed out of your account.",
-      });
-      
-      // Navigate to auth page using navigate for a cleaner transition
-      navigate('/auth');
-      
-      // As a fallback, force reload after a short delay if navigation doesn't work
-      setTimeout(() => {
-        window.location.href = '/auth';
-      }, 500);
-    } catch (error) {
-      console.error('Error during sign out:', error);
-      toast({
-        title: "Sign out failed",
-        description: "There was an error signing out. Please try again.",
-        variant: "destructive",
-      });
-    }
-  };
+  useEffect(() => {
+    fetchSchedule();
+  }, [fetchSchedule]);
 
   return (
     <div className="container mx-auto py-8 px-4 fade-in">
@@ -172,7 +98,7 @@ const Schedule = () => {
               variant="outline" 
               size="sm" 
               className="gap-2"
-              onClick={handleSignOut}
+              onClick={() => signOut()}
             >
               <LogOut className="h-4 w-4" />
               Sign Out
