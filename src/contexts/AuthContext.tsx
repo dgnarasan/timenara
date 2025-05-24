@@ -1,9 +1,9 @@
-
 import { createContext, useContext, useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Session, User } from '@supabase/supabase-js';
 import { College } from '@/lib/types';
+import { cleanupAuthState } from '@/utils/authCleanup';
 
 type AuthContextType = {
   user: User | null;
@@ -35,49 +35,92 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const { toast } = useToast();
 
   useEffect(() => {
-    // Set up auth state listener FIRST
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      console.log("Auth state changed:", _event, session?.user?.email);
-      setSession(session);
-      setUser(session?.user ?? null);
-      
-      if (session?.user) {
-        await fetchUserProfile(session.user.id);
-      } else {
-        setUserRole(null);
-        setUserCollege(null);
-        setLoading(false);
-      }
-    });
+    let isMounted = true;
 
-    // THEN check for existing session
-    const getInitialSession = async () => {
+    const initializeAuth = async () => {
       try {
+        console.log("Initializing authentication...");
+
+        // Set up auth state listener FIRST
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+          console.log("Auth state changed:", event, session?.user?.email);
+          
+          if (!isMounted) return;
+
+          if (event === 'SIGNED_OUT' || event === 'TOKEN_REFRESHED' && !session) {
+            console.log("User signed out or token refresh failed");
+            setSession(null);
+            setUser(null);
+            setUserRole(null);
+            setUserCollege(null);
+            setLoading(false);
+            return;
+          }
+
+          setSession(session);
+          setUser(session?.user ?? null);
+          
+          if (session?.user && event === 'SIGNED_IN') {
+            console.log("User signed in, fetching profile...");
+            // Defer profile fetching to prevent deadlocks
+            setTimeout(() => {
+              if (isMounted) {
+                fetchUserProfile(session.user.id);
+              }
+            }, 100);
+          } else if (!session?.user) {
+            setUserRole(null);
+            setUserCollege(null);
+            setLoading(false);
+          }
+        });
+
+        // THEN check for existing session
         const { data: { session }, error } = await supabase.auth.getSession();
         
         if (error) {
           console.error('Error fetching session:', error);
+          if (error.message.includes('refresh_token_not_found') || error.message.includes('Invalid Refresh Token')) {
+            console.log("Cleaning up stale auth tokens...");
+            cleanupAuthState();
+            // Force a complete sign out
+            try {
+              await supabase.auth.signOut({ scope: 'global' });
+            } catch (signOutError) {
+              console.error('Error during cleanup sign out:', signOutError);
+            }
+          }
+          setLoading(false);
+          return;
         }
         
+        if (!isMounted) return;
+
+        console.log("Initial session check:", session?.user?.email || "No session");
         setSession(session);
         setUser(session?.user ?? null);
         
         if (session?.user) {
-          console.log("Found existing session for user:", session.user.email);
           await fetchUserProfile(session.user.id);
         } else {
           setLoading(false);
         }
+
+        return () => {
+          subscription.unsubscribe();
+        };
       } catch (error) {
-        console.error('Error in getInitialSession:', error);
-        setLoading(false);
+        console.error('Error in auth initialization:', error);
+        if (isMounted) {
+          setLoading(false);
+        }
       }
     };
 
-    getInitialSession();
+    initializeAuth();
 
     return () => {
-      subscription.unsubscribe();
+      isMounted = false;
     };
   }, []);
 
@@ -92,15 +135,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (profileError) {
         console.error('Error fetching user profile:', profileError);
+        // If profile doesn't exist, user might be newly created
+        setUserRole('student'); // Default role
+        setUserCollege(null);
       } else if (profileData) {
         console.log('Fetched user profile:', profileData);
         setUserRole(profileData.role);
         setUserCollege(profileData.college as College);
-      } else {
-        console.log('No profile found for user ID:', userId);
       }
     } catch (error) {
       console.error('Error in fetchUserProfile:', error);
+      setUserRole('student'); // Default role on error
+      setUserCollege(null);
     } finally {
       setLoading(false);
     }
@@ -108,7 +154,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signIn = async (email: string, password: string) => {
     try {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      console.log("Starting sign in process for:", email);
+      
+      // Clean up any existing auth state first
+      cleanupAuthState();
+      
+      // Attempt global sign out first to clear any stale sessions
+      try {
+        await supabase.auth.signOut({ scope: 'global' });
+      } catch (err) {
+        console.log("No existing session to sign out from");
+      }
+
+      setLoading(true);
+      
+      const { data, error } = await supabase.auth.signInWithPassword({ 
+        email, 
+        password 
+      });
       
       if (error) {
         console.error('Sign in error:', error.message);
@@ -117,17 +180,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           description: error.message,
           variant: "destructive",
         });
+        setLoading(false);
         return { error };
       }
       
-      toast({
-        title: "Signed in successfully",
-        description: "Welcome back!",
-      });
+      if (data.user) {
+        console.log("Sign in successful, redirecting...");
+        toast({
+          title: "Signed in successfully",
+          description: "Welcome back!",
+        });
+        
+        // Force page reload for clean state
+        setTimeout(() => {
+          window.location.href = '/';
+        }, 500);
+      }
       
       return { error: null };
     } catch (error) {
       console.error('Sign in error:', error);
+      setLoading(false);
       toast({
         title: "Something went wrong",
         description: "Please try again later",
@@ -253,10 +326,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = async () => {
     try {
-      await supabase.auth.signOut();
+      console.log("Starting sign out process...");
+      
+      // Clean up auth state first
+      cleanupAuthState();
+      
+      // Attempt global sign out
+      try {
+        await supabase.auth.signOut({ scope: 'global' });
+      } catch (err) {
+        console.error('Error during sign out:', err);
+      }
+      
+      // Clear local state
+      setUser(null);
+      setSession(null);
+      setUserRole(null);
+      setUserCollege(null);
+      
       toast({
         title: "Signed out successfully",
       });
+      
+      // Force page reload for clean state
+      window.location.href = '/auth';
     } catch (error) {
       console.error('Sign out error:', error);
       toast({
