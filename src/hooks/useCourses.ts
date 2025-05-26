@@ -18,6 +18,7 @@ export const useCourses = () => {
       const loadedCourses = await fetchCourses();
       setCourses(loadedCourses);
     } catch (error) {
+      console.error("Error loading courses:", error);
       toast({
         title: "Error Loading Courses",
         description: error instanceof Error ? error.message : "Failed to load courses",
@@ -37,6 +38,7 @@ export const useCourses = () => {
         description: "Successfully added new course",
       });
     } catch (error) {
+      console.error("Error adding course:", error);
       toast({
         title: "Error Adding Course",
         description: error instanceof Error ? error.message : "Failed to add course",
@@ -55,6 +57,7 @@ export const useCourses = () => {
       });
       return true;
     } catch (error) {
+      console.error("Error adding courses:", error);
       toast({
         title: "Error Adding Courses",
         description: error instanceof Error ? error.message : "Failed to add courses",
@@ -73,6 +76,7 @@ export const useCourses = () => {
         description: "The course has been removed successfully.",
       });
     } catch (error) {
+      console.error("Error deleting course:", error);
       toast({
         title: "Error Deleting Course",
         description: error instanceof Error ? error.message : "Failed to delete course",
@@ -83,13 +87,16 @@ export const useCourses = () => {
 
   const handleClearAllCourses = async () => {
     try {
+      console.log("Clearing all courses...");
       await deleteAllCourses();
       setCourses([]);
       toast({
         title: "All Courses Deleted",
         description: "All courses have been removed successfully.",
       });
+      console.log("All courses cleared successfully");
     } catch (error) {
+      console.error("Error deleting all courses:", error);
       toast({
         title: "Error Deleting Courses",
         description: error instanceof Error ? error.message : "Failed to delete courses",

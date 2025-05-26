@@ -96,7 +96,7 @@ export const deleteAllCourses = async (): Promise<void> => {
   const { error } = await supabase
     .from('courses')
     .delete()
-    .neq('id', 'none'); // Delete all rows
+    .gte('created_at', '1970-01-01'); // Delete all rows by using a condition that matches all
 
   if (error) throw error;
 };
