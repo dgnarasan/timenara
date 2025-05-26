@@ -13,7 +13,30 @@ interface TimetableProps {
 
 const Timetable = ({ schedule, favorites = new Set(), onToggleFavorite }: TimetableProps) => {
   const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
-  const timeSlots = Array.from({ length: 9 }, (_, i) => `${i + 9}:00`);
+  // Updated to match Caleb University's 8:00 AM - 4:00 PM schedule
+  const timeSlots = Array.from({ length: 8 }, (_, i) => `${i + 8}:00`);
+
+  // Group shared courses to avoid duplicates
+  const groupedSchedule = React.useMemo(() => {
+    const grouped = new Map<string, ScheduleItem>();
+    
+    schedule.forEach(item => {
+      const baseKey = `${item.code}-${item.lecturer}-${item.timeSlot.day}-${item.timeSlot.startTime}`;
+      const key = item.group ? `${baseKey}-${item.group}` : baseKey;
+      
+      if (!grouped.has(key)) {
+        grouped.set(key, {
+          ...item,
+          // For shared departments, show primary department but mark as shared
+          department: item.sharedDepartments && item.sharedDepartments.length > 1 
+            ? `${item.department} (+${item.sharedDepartments.length - 1} more)` as any
+            : item.department
+        });
+      }
+    });
+    
+    return Array.from(grouped.values());
+  }, [schedule]);
 
   // Generate consistent colors for departments
   const getDepartmentColor = (department: string) => {
@@ -37,7 +60,7 @@ const Timetable = ({ schedule, favorites = new Set(), onToggleFavorite }: Timeta
   };
 
   const getScheduledItemsForSlot = (day: string, startTime: string) => {
-    return schedule.filter(
+    return groupedSchedule.filter(
       (item) =>
         item.timeSlot.day === day &&
         item.timeSlot.startTime === startTime
@@ -46,11 +69,17 @@ const Timetable = ({ schedule, favorites = new Set(), onToggleFavorite }: Timeta
 
   const getCourseLevel = (courseCode: string) => {
     const match = courseCode.match(/\d/);
-    return match ? `${match[0]}00` : "N/A";
+    return match ? `${match[0]}00L` : "N/A";
+  };
+
+  const formatCourseCode = (item: ScheduleItem) => {
+    return item.group ? `${item.code} (${item.group})` : item.code;
   };
 
   // Get unique departments for legend
-  const departments = Array.from(new Set(schedule.map(item => item.department)));
+  const departments = Array.from(new Set(groupedSchedule.map(item => 
+    item.department.split(' (+')[0] // Remove the shared indicator for legend
+  )));
 
   return (
     <div className="w-full space-y-4 animate-fade-in">
@@ -73,7 +102,7 @@ const Timetable = ({ schedule, favorites = new Set(), onToggleFavorite }: Timeta
       )}
 
       <div className="overflow-x-auto">
-        <div className="min-w-[900px]">
+        <div className="min-w-[1000px]">
           <table className="w-full border-collapse bg-white rounded-lg shadow-sm overflow-hidden">
             <thead>
               <tr className="bg-muted/50">
@@ -88,9 +117,7 @@ const Timetable = ({ schedule, favorites = new Set(), onToggleFavorite }: Timeta
                     <div className="space-y-1">
                       <div className="text-sm font-bold">{day.toUpperCase()}</div>
                       <div className="text-xs opacity-60">
-                        {getScheduledItemsForSlot(day, "").length > 0 && 
-                          `${schedule.filter(item => item.timeSlot.day === day).length} classes`
-                        }
+                        {groupedSchedule.filter(item => item.timeSlot.day === day).length} classes
                       </div>
                     </div>
                   </th>
@@ -100,7 +127,7 @@ const Timetable = ({ schedule, favorites = new Set(), onToggleFavorite }: Timeta
             <tbody>
               {timeSlots.map((time, timeIndex) => (
                 <tr key={time} className={timeIndex % 2 === 0 ? "bg-background" : "bg-muted/20"}>
-                  <td className="p-3 border-r border-border/40 text-sm font-medium text-muted-foreground bg-muted/30">
+                  <td className="p-2 border-r border-border/40 text-sm font-medium text-muted-foreground bg-muted/30">
                     <div className="text-center">
                       <div className="font-bold">{time}</div>
                       <div className="text-xs opacity-60">
@@ -115,74 +142,87 @@ const Timetable = ({ schedule, favorites = new Set(), onToggleFavorite }: Timeta
                     return (
                       <td
                         key={`${day}-${time}`}
-                        className="p-2 border-r border-border/20 align-top min-h-[80px]"
+                        className="p-1 border-r border-border/20 align-top min-h-[100px]"
                       >
                         <div className={`space-y-1 ${hasMultipleCourses ? 'grid gap-1' : ''}`}>
                           {scheduledItems.map((item, index) => {
-                            const colors = getDepartmentColor(item.department);
+                            const colors = getDepartmentColor(item.department.split(' (+')[0]);
                             const isCompact = hasMultipleCourses;
                             
                             return (
                               <Card
-                                key={item.id}
+                                key={`${item.id}-${index}`}
                                 className={`
                                   ${colors.bg} ${colors.border} border-l-4 
                                   ${colors.accent.replace('bg-', 'border-l-')}
                                   hover:shadow-md transition-all duration-200 
-                                  ${isCompact ? 'p-2' : 'p-3'}
-                                  relative group
+                                  p-2 relative group
                                 `}
                               >
-                                <div className="flex items-start justify-between gap-2">
+                                <div className="flex items-start justify-between gap-1">
                                   <div className="flex-1 min-w-0">
-                                    <div className="flex items-center gap-2 mb-1">
+                                    {/* Course Code with Group */}
+                                    <div className="flex items-center gap-1 mb-1">
                                       <div className={`text-xs font-bold ${colors.text} truncate`}>
-                                        {item.code}
+                                        {formatCourseCode(item)}
                                       </div>
-                                      <div className="text-xs bg-white/60 px-1.5 py-0.5 rounded text-muted-foreground">
-                                        L{getCourseLevel(item.code)}
+                                      <div className="text-xs bg-white/60 px-1 py-0.5 rounded text-muted-foreground">
+                                        {getCourseLevel(item.code)}
                                       </div>
                                     </div>
                                     
+                                    {/* Course Name */}
                                     {!isCompact && (
                                       <div className="text-xs text-muted-foreground mb-2 line-clamp-2">
                                         {item.name}
                                       </div>
                                     )}
 
-                                    <div className="space-y-1">
-                                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                                        <Users className="h-3 w-3" />
-                                        <span className="truncate">{item.lecturer}</span>
+                                    {/* Lecturer Name - Always visible */}
+                                    <div className="flex items-center gap-1 text-xs text-muted-foreground mb-1">
+                                      <Users className="h-3 w-3 flex-shrink-0" />
+                                      <span className="truncate font-medium">
+                                        {item.lecturer || 'TBD'}
+                                      </span>
+                                    </div>
+                                    
+                                    {/* Venue - Always visible */}
+                                    <div className="flex items-center gap-1 text-xs text-muted-foreground mb-1">
+                                      <MapPin className="h-3 w-3 flex-shrink-0" />
+                                      <span className="truncate font-medium">
+                                        {item.venue?.name || item.venue || 'TBD'}
+                                      </span>
+                                    </div>
+
+                                    {/* Time and Class Size */}
+                                    <div className="flex items-center justify-between text-xs">
+                                      <div className="flex items-center gap-1 text-muted-foreground">
+                                        <Clock className="h-3 w-3" />
+                                        <span>
+                                          {item.timeSlot.startTime} - {item.timeSlot.endTime}
+                                        </span>
                                       </div>
                                       
-                                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                                        <MapPin className="h-3 w-3" />
-                                        <span className="truncate">{item.venue?.name || 'TBD'}</span>
-                                      </div>
-
-                                      <div className="flex items-center justify-between">
-                                        <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                                          <Clock className="h-3 w-3" />
-                                          <span>
-                                            {item.timeSlot.startTime} - {item.timeSlot.endTime}
-                                          </span>
+                                      {item.classSize && (
+                                        <div className="text-xs bg-white/80 px-1.5 py-0.5 rounded text-muted-foreground">
+                                          {item.classSize}
                                         </div>
-                                        
-                                        {item.classSize && (
-                                          <div className="text-xs bg-white/80 px-1.5 py-0.5 rounded text-muted-foreground">
-                                            {item.classSize}
-                                          </div>
-                                        )}
-                                      </div>
+                                      )}
                                     </div>
+
+                                    {/* Shared Department Indicator */}
+                                    {item.sharedDepartments && item.sharedDepartments.length > 1 && (
+                                      <div className="text-xs text-blue-600 font-medium mt-1">
+                                        Shared Course
+                                      </div>
+                                    )}
                                   </div>
                                   
                                   {onToggleFavorite && (
                                     <Button
                                       variant="ghost"
                                       size="icon"
-                                      className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                                      className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
                                       onClick={() => onToggleFavorite(item.id)}
                                     >
                                       <Star
@@ -219,10 +259,10 @@ const Timetable = ({ schedule, favorites = new Set(), onToggleFavorite }: Timeta
         </div>
       </div>
 
-      {/* Schedule Statistics */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
+      {/* Enhanced Schedule Statistics */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mt-4">
         <div className="bg-card rounded-lg p-3 text-center border">
-          <div className="text-2xl font-bold text-primary">{schedule.length}</div>
+          <div className="text-2xl font-bold text-primary">{groupedSchedule.length}</div>
           <div className="text-xs text-muted-foreground">Total Classes</div>
         </div>
         <div className="bg-card rounded-lg p-3 text-center border">
@@ -231,13 +271,19 @@ const Timetable = ({ schedule, favorites = new Set(), onToggleFavorite }: Timeta
         </div>
         <div className="bg-card rounded-lg p-3 text-center border">
           <div className="text-2xl font-bold text-primary">
-            {new Set(schedule.map(item => item.lecturer)).size}
+            {new Set(groupedSchedule.map(item => item.lecturer)).size}
           </div>
           <div className="text-xs text-muted-foreground">Instructors</div>
         </div>
         <div className="bg-card rounded-lg p-3 text-center border">
           <div className="text-2xl font-bold text-primary">
-            {Math.round((schedule.length / (days.length * timeSlots.length)) * 100)}%
+            {groupedSchedule.filter(item => item.sharedDepartments && item.sharedDepartments.length > 1).length}
+          </div>
+          <div className="text-xs text-muted-foreground">Shared Courses</div>
+        </div>
+        <div className="bg-card rounded-lg p-3 text-center border">
+          <div className="text-2xl font-bold text-primary">
+            {Math.round((groupedSchedule.length / (days.length * timeSlots.length)) * 100)}%
           </div>
           <div className="text-xs text-muted-foreground">Utilization</div>
         </div>

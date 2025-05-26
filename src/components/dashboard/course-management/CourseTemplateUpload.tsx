@@ -1,7 +1,7 @@
 
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { Course, collegeStructure } from "@/lib/types";
+import { Course, collegeStructure, CALEB_VENUES } from "@/lib/types";
 import { Download, FileSpreadsheet, Upload } from "lucide-react";
 import { useState } from "react";
 import * as XLSX from "xlsx";
@@ -19,42 +19,88 @@ const CourseTemplateUpload = ({ courses, onCoursesExtracted }: CourseTemplateUpl
   const allDepartments = collegeStructure.flatMap(college => college.departments);
 
   const downloadTemplate = () => {
-    // Create template with headers and sample data
+    // Create template with new enhanced headers and sample data
     const template = [
-      ["Course Code*", "Course Name*", "Lecturer Name*", "Class Size*", "Department*"],
-      ["CS101", "Introduction to Computer Science", "Dr. John Doe", "30", "Computer Science"],
-      ["MATH201", "Calculus II", "Dr. Jane Smith", "25", "Computer Science"],
-      ["ENG103", "Technical Writing", "Prof. Alice Brown", "40", "Computer Science"],
+      [
+        "Course Code*", "Course Name*", "Lecturer Name*", "Level*", 
+        "Group", "SharedDepartments", "Venue", "Expected Class Size*",
+        "Preferred Days", "Preferred Time Slot", "Department*"
+      ],
+      [
+        "GST101", "Use of English", "Dr. John Doe", "100L", 
+        "", "Computer Science, Cyber Security", "L101", "120",
+        "Monday, Wednesday", "9:00-11:00", "Computer Science"
+      ],
+      [
+        "CSC202", "Computer Programming II", "Dr. Jane Smith", "200L", 
+        "A", "", "LAB PG", "40",
+        "", "", "Computer Science"
+      ],
+      [
+        "CSC202", "Computer Programming II", "Dr. Jane Smith", "200L", 
+        "B", "", "LAB PG", "40",
+        "", "", "Computer Science"
+      ],
     ];
 
-    // Add a separate sheet with valid departments
+    // Add separate sheets for reference data
     const departmentsList = [
       ["Valid Departments"],
       ...allDepartments.map(dept => [dept])
     ];
 
+    const venuesList = [
+      ["Caleb University Venue Codes"],
+      ...CALEB_VENUES.map(venue => [venue])
+    ];
+
+    const levelsList = [
+      ["Academic Levels"],
+      ["100L"], ["200L"], ["300L"], ["400L"]
+    ];
+
+    const groupsList = [
+      ["Group Options"],
+      ["A"], ["B"], ["C"], ["D"]
+    ];
+
     const ws = XLSX.utils.aoa_to_sheet(template);
     const deptWs = XLSX.utils.aoa_to_sheet(departmentsList);
+    const venueWs = XLSX.utils.aoa_to_sheet(venuesList);
+    const levelWs = XLSX.utils.aoa_to_sheet(levelsList);
+    const groupWs = XLSX.utils.aoa_to_sheet(groupsList);
     
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Course Template");
     XLSX.utils.book_append_sheet(wb, deptWs, "Valid Departments");
+    XLSX.utils.book_append_sheet(wb, venueWs, "Venue Codes");
+    XLSX.utils.book_append_sheet(wb, levelWs, "Academic Levels");
+    XLSX.utils.book_append_sheet(wb, groupWs, "Group Options");
     
     // Set column widths for better readability
     ws["!cols"] = [
       { width: 15 }, // Course Code
       { width: 40 }, // Course Name
       { width: 25 }, // Lecturer Name
-      { width: 15 }, // Class Size
+      { width: 10 }, // Level
+      { width: 8 },  // Group
+      { width: 30 }, // SharedDepartments
+      { width: 15 }, // Venue
+      { width: 15 }, // Expected Class Size
+      { width: 20 }, // Preferred Days
+      { width: 20 }, // Preferred Time Slot
       { width: 30 }  // Department
     ];
     
     deptWs["!cols"] = [{ width: 40 }];
+    venueWs["!cols"] = [{ width: 30 }];
+    levelWs["!cols"] = [{ width: 20 }];
+    groupWs["!cols"] = [{ width: 15 }];
     
-    XLSX.writeFile(wb, "course_template.xlsx");
+    XLSX.writeFile(wb, "caleb_course_template.xlsx");
     toast({
-      title: "Template Downloaded",
-      description: "Template includes a 'Valid Departments' sheet for reference. Fill in the template and upload it back to add courses.",
+      title: "Enhanced Template Downloaded",
+      description: "Template includes new fields for groups, shared departments, and Caleb venue codes. Fill in the template and upload it back.",
     });
   };
 
@@ -73,17 +119,21 @@ const CourseTemplateUpload = ({ courses, onCoursesExtracted }: CourseTemplateUpl
       }
 
       const headers = rows[0];
-      const expectedHeaders = ["Course Code*", "Course Name*", "Lecturer Name*", "Class Size*", "Department*"];
+      const expectedHeaders = [
+        "Course Code*", "Course Name*", "Lecturer Name*", "Level*", 
+        "Group", "SharedDepartments", "Venue", "Expected Class Size*",
+        "Preferred Days", "Preferred Time Slot", "Department*"
+      ];
       
-      // Check if headers match (case-insensitive and flexible)
+      // Flexible header matching
       const headerMatches = expectedHeaders.every((expectedHeader, index) => {
         const actualHeader = headers[index]?.toString().toLowerCase().trim();
-        const expectedLower = expectedHeader.toLowerCase();
-        return actualHeader === expectedLower || actualHeader === expectedLower.replace('*', '');
+        const expectedLower = expectedHeader.toLowerCase().replace('*', '');
+        return actualHeader === expectedLower || actualHeader === expectedHeader.toLowerCase();
       });
 
       if (!headerMatches) {
-        throw new Error("Invalid template format. Please download and use the provided template. Expected headers: " + expectedHeaders.join(", "));
+        throw new Error("Invalid template format. Please download and use the provided template with all required fields.");
       }
 
       const newCourses = validateAndProcessCourses(rows);
@@ -92,15 +142,19 @@ const CourseTemplateUpload = ({ courses, onCoursesExtracted }: CourseTemplateUpl
         throw new Error("No valid courses found in the template. Please check your data and try again.");
       }
       
+      // Check for duplicates considering group field
       const duplicates = newCourses.filter(newCourse => 
         courses.some(existingCourse => 
           existingCourse.code.toLowerCase() === newCourse.code.toLowerCase() && 
-          existingCourse.lecturer.toLowerCase() === newCourse.lecturer.toLowerCase()
+          existingCourse.lecturer.toLowerCase() === newCourse.lecturer.toLowerCase() &&
+          (existingCourse.group || '') === (newCourse.group || '')
         )
       );
 
       if (duplicates.length > 0) {
-        const duplicateInfo = duplicates.map(d => `${d.code} (${d.lecturer})`).join(", ");
+        const duplicateInfo = duplicates.map(d => 
+          `${d.code}${d.group ? ` (${d.group})` : ''} (${d.lecturer})`
+        ).join(", ");
         toast({
           title: "Duplicate Courses Found",
           description: `The following courses already exist: ${duplicateInfo}`,
@@ -113,7 +167,7 @@ const CourseTemplateUpload = ({ courses, onCoursesExtracted }: CourseTemplateUpl
       setShowTemplateUpload(false);
       toast({
         title: "Success",
-        description: `${newCourses.length} courses added successfully`,
+        description: `${newCourses.length} courses added successfully with enhanced fields`,
       });
     } catch (error) {
       console.error("Template processing error:", error);
@@ -133,7 +187,7 @@ const CourseTemplateUpload = ({ courses, onCoursesExtracted }: CourseTemplateUpl
       .map((row, index) => {
         const rowNumber = index + 2; // +2 because we skipped header and arrays are 0-indexed
         
-        if (row.length < 5) {
+        if (row.length < 11) {
           validationErrors.push(`Row ${rowNumber}: Missing required fields`);
           return null;
         }
@@ -141,12 +195,20 @@ const CourseTemplateUpload = ({ courses, onCoursesExtracted }: CourseTemplateUpl
         const code = row[0]?.toString().trim().toUpperCase();
         const name = row[1]?.toString().trim();
         const lecturer = row[2]?.toString().trim();
-        const classSize = parseInt(row[3]?.toString()) || 0;
-        const departmentInput = row[4]?.toString().trim();
+        const level = row[3]?.toString().trim();
+        const group = row[4]?.toString().trim() || undefined;
+        const sharedDepartments = row[5]?.toString().trim() ? 
+          row[5].toString().split(',').map(d => d.trim()).filter(d => d) : undefined;
+        const venue = row[6]?.toString().trim() || undefined;
+        const classSize = parseInt(row[7]?.toString()) || 0;
+        const preferredDays = row[8]?.toString().trim() ? 
+          row[8].toString().split(',').map(d => d.trim()).filter(d => d) : undefined;
+        const preferredTimeSlot = row[9]?.toString().trim() || undefined;
+        const departmentInput = row[10]?.toString().trim();
 
         // Validate course code
         if (!code || !/^[A-Z]{2,4}\d{3,4}$/.test(code)) {
-          validationErrors.push(`Row ${rowNumber}: Invalid course code format. Expected format: 2-4 letters followed by 3-4 digits (e.g., CS101, MATH2001)`);
+          validationErrors.push(`Row ${rowNumber}: Invalid course code format. Expected format: 2-4 letters followed by 3-4 digits (e.g., GST101, CSC202)`);
           return null;
         }
 
@@ -162,6 +224,12 @@ const CourseTemplateUpload = ({ courses, onCoursesExtracted }: CourseTemplateUpl
           return null;
         }
 
+        // Validate level
+        if (!level || !['100L', '200L', '300L', '400L'].includes(level.toUpperCase())) {
+          validationErrors.push(`Row ${rowNumber}: Level must be one of: 100L, 200L, 300L, 400L`);
+          return null;
+        }
+
         // Validate class size
         if (classSize <= 0 || classSize > 1000) {
           validationErrors.push(`Row ${rowNumber}: Class size must be between 1 and 1000`);
@@ -173,19 +241,16 @@ const CourseTemplateUpload = ({ courses, onCoursesExtracted }: CourseTemplateUpl
           dept.toLowerCase() === departmentInput.toLowerCase()
         );
 
-        // If no exact match, try partial matching for common abbreviations
         if (!matchedDepartment) {
           matchedDepartment = allDepartments.find(dept => {
             const deptLower = dept.toLowerCase();
             const inputLower = departmentInput.toLowerCase();
-            
-            // Check if input is contained in department name or vice versa
             return deptLower.includes(inputLower) || inputLower.includes(deptLower);
           });
         }
 
         if (!matchedDepartment) {
-          validationErrors.push(`Row ${rowNumber}: Invalid department "${departmentInput}". Please check the "Valid Departments" sheet in the template for accepted values.`);
+          validationErrors.push(`Row ${rowNumber}: Invalid department "${departmentInput}". Please check the "Valid Departments" sheet.`);
           return null;
         }
 
@@ -194,7 +259,13 @@ const CourseTemplateUpload = ({ courses, onCoursesExtracted }: CourseTemplateUpl
           name, 
           lecturer, 
           classSize, 
-          department: matchedDepartment as Course["department"]
+          department: matchedDepartment as Course["department"],
+          academicLevel: level.toUpperCase(),
+          group,
+          sharedDepartments,
+          venue,
+          preferredDays,
+          preferredTimeSlot
         };
       }).filter((course): course is Omit<Course, "id"> => course !== null);
 
@@ -209,9 +280,9 @@ const CourseTemplateUpload = ({ courses, onCoursesExtracted }: CourseTemplateUpl
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div className="space-y-1">
-          <h4 className="text-sm font-medium">Course Template</h4>
+          <h4 className="text-sm font-medium">Enhanced Course Template</h4>
           <p className="text-xs text-muted-foreground">
-            Download the template, fill it with your courses, and upload it back. The template includes a list of valid departments.
+            Download the enhanced template with new fields for groups, shared departments, and Caleb venue codes.
           </p>
         </div>
         <div className="flex gap-2">
@@ -239,9 +310,9 @@ const CourseTemplateUpload = ({ courses, onCoursesExtracted }: CourseTemplateUpl
           <div className="flex items-center justify-center">
             <label className="flex flex-col items-center gap-2 cursor-pointer">
               <FileSpreadsheet className="h-8 w-8 text-muted-foreground" />
-              <span className="text-sm font-medium">Choose Template File</span>
+              <span className="text-sm font-medium">Choose Enhanced Template File</span>
               <span className="text-xs text-muted-foreground">
-                XLSX or CSV format
+                XLSX format with new fields
               </span>
               <input
                 type="file"
@@ -252,7 +323,7 @@ const CourseTemplateUpload = ({ courses, onCoursesExtracted }: CourseTemplateUpl
             </label>
           </div>
           <div className="mt-3 text-xs text-muted-foreground text-center">
-            <p>Make sure to use the exact department names from the "Valid Departments" sheet</p>
+            <p>Enhanced template supports groups, shared departments, and Caleb venue codes</p>
           </div>
         </div>
       )}

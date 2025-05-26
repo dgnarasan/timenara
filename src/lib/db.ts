@@ -14,6 +14,11 @@ export const mapDBCourseToClient = (dbCourse: DBCourse): Course => ({
   academicLevel: dbCourse.academic_level,
   preferredSlots: dbCourse.preferred_slots || undefined,
   constraints: dbCourse.constraints || undefined,
+  group: dbCourse.group,
+  sharedDepartments: dbCourse.shared_departments,
+  venue: dbCourse.venue,
+  preferredDays: dbCourse.preferred_days,
+  preferredTimeSlot: dbCourse.preferred_time_slot,
 });
 
 export const mapDBVenueToClient = (dbVenue: DBVenue): Venue => ({
@@ -45,6 +50,11 @@ export const addCourse = async (course: Omit<Course, "id">): Promise<Course> => 
       academic_level: course.academicLevel,
       preferred_slots: course.preferredSlots ? JSON.stringify(course.preferredSlots) : null,
       constraints: course.constraints || null,
+      group: course.group || null,
+      shared_departments: course.sharedDepartments || null,
+      venue: course.venue || null,
+      preferred_days: course.preferredDays || null,
+      preferred_time_slot: course.preferredTimeSlot || null,
     })
     .select()
     .single();
@@ -70,6 +80,11 @@ export const addCourses = async (courses: Omit<Course, "id">[]): Promise<Course[
         academic_level: course.academicLevel,
         preferred_slots: course.preferredSlots ? JSON.stringify(course.preferredSlots) : null,
         constraints: course.constraints || null,
+        group: course.group || null,
+        shared_departments: course.sharedDepartments || null,
+        venue: course.venue || null,
+        preferred_days: course.preferredDays || null,
+        preferred_time_slot: course.preferredTimeSlot || null,
       }))
     )
     .select();
@@ -89,14 +104,20 @@ export const deleteCourse = async (courseId: string): Promise<void> => {
     .delete()
     .eq('id', courseId);
 
-  if (error) throw error;
+  if (error) {
+    console.error('Delete course error:', error);
+    throw new Error(`Failed to delete course: ${error.message}`);
+  }
 };
 
 export const deleteAllCourses = async (): Promise<void> => {
   const { error } = await supabase
     .from('courses')
     .delete()
-    .neq('id', 'none'); // Delete all rows
+    .gte('created_at', '1970-01-01'); // Delete all rows using a condition that matches all
 
-  if (error) throw error;
+  if (error) {
+    console.error('Delete all courses error:', error);
+    throw new Error(`Failed to delete all courses: ${error.message}`);
+  }
 };
