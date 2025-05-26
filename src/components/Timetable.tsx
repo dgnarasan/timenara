@@ -3,7 +3,7 @@ import React from "react";
 import { ScheduleItem } from "@/lib/types";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Star } from "lucide-react";
+import { Star, Users, MapPin, Clock } from "lucide-react";
 
 interface TimetableProps {
   schedule: ScheduleItem[];
@@ -13,7 +13,28 @@ interface TimetableProps {
 
 const Timetable = ({ schedule, favorites = new Set(), onToggleFavorite }: TimetableProps) => {
   const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
-  const timeSlots = Array.from({ length: 8 }, (_, i) => `${i + 9}:00`);
+  const timeSlots = Array.from({ length: 9 }, (_, i) => `${i + 9}:00`);
+
+  // Generate consistent colors for departments
+  const getDepartmentColor = (department: string) => {
+    const colors = [
+      { bg: "bg-blue-50", border: "border-blue-200", text: "text-blue-800", accent: "bg-blue-500" },
+      { bg: "bg-emerald-50", border: "border-emerald-200", text: "text-emerald-800", accent: "bg-emerald-500" },
+      { bg: "bg-purple-50", border: "border-purple-200", text: "text-purple-800", accent: "bg-purple-500" },
+      { bg: "bg-orange-50", border: "border-orange-200", text: "text-orange-800", accent: "bg-orange-500" },
+      { bg: "bg-pink-50", border: "border-pink-200", text: "text-pink-800", accent: "bg-pink-500" },
+      { bg: "bg-indigo-50", border: "border-indigo-200", text: "text-indigo-800", accent: "bg-indigo-500" },
+      { bg: "bg-cyan-50", border: "border-cyan-200", text: "text-cyan-800", accent: "bg-cyan-500" },
+      { bg: "bg-teal-50", border: "border-teal-200", text: "text-teal-800", accent: "bg-teal-500" },
+    ];
+    
+    const hash = department.split('').reduce((a, b) => {
+      a = ((a << 5) - a) + b.charCodeAt(0);
+      return a & a;
+    }, 0);
+    
+    return colors[Math.abs(hash) % colors.length];
+  };
 
   const getScheduledItemsForSlot = (day: string, startTime: string) => {
     return schedule.filter(
@@ -23,88 +44,203 @@ const Timetable = ({ schedule, favorites = new Set(), onToggleFavorite }: Timeta
     );
   };
 
-  return (
-    <div className="w-full overflow-x-auto animate-fade-in">
-      <div className="min-w-[800px]">
-        <table className="w-full border-collapse">
-          <thead>
-            <tr>
-              <th className="p-4 text-left font-medium text-muted-foreground border-b">
-                TIME
-              </th>
-              {days.map((day) => (
-                <th
-                  key={day}
-                  className="p-4 text-left font-medium text-muted-foreground border-b"
-                >
-                  {day.toUpperCase()}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {timeSlots.map((time) => (
-              <tr key={time}>
-                <td className="p-4 border-b border-border/40 text-sm text-muted-foreground">
-                  {time}
-                </td>
-                {days.map((day) => {
-                  const scheduledItems = getScheduledItemsForSlot(day, time);
+  const getCourseLevel = (courseCode: string) => {
+    const match = courseCode.match(/\d/);
+    return match ? `${match[0]}00` : "N/A";
+  };
 
-                  return (
-                    <td
-                      key={`${day}-${time}`}
-                      className="p-2 border-b border-border/40"
-                    >
-                      {scheduledItems.map((item) => (
-                        <Card
-                          key={item.id}
-                          className="p-3 hover:shadow-md transition-shadow duration-200"
-                        >
-                          <div className="flex items-start justify-between">
-                            <div>
-                              <div className="text-sm font-medium">{item.code}</div>
-                              <div className="text-xs text-muted-foreground mt-1">
-                                {item.name}
-                              </div>
-                              <div className="text-xs text-muted-foreground">
-                                {item.lecturer}
-                              </div>
-                              <div className="text-xs text-muted-foreground mt-1">
-                                {item.timeSlot.startTime} - {item.timeSlot.endTime}
-                              </div>
-                            </div>
-                            {onToggleFavorite && (
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8"
-                                onClick={() => onToggleFavorite(item.id)}
-                              >
-                                <Star
-                                  className={`h-4 w-4 ${
-                                    favorites.has(item.id)
-                                      ? "fill-yellow-400 text-yellow-400"
-                                      : "text-muted-foreground"
-                                  }`}
-                                />
-                                <span className="sr-only">
-                                  {favorites.has(item.id)
-                                    ? "Remove from favorites"
-                                    : "Add to favorites"}
-                                </span>
-                              </Button>
-                            )}
-                          </div>
-                        </Card>
-                      ))}
-                    </td>
-                  );
-                })}
+  // Get unique departments for legend
+  const departments = Array.from(new Set(schedule.map(item => item.department)));
+
+  return (
+    <div className="w-full space-y-4 animate-fade-in">
+      {/* Department Legend */}
+      {departments.length > 1 && (
+        <div className="bg-muted/30 rounded-lg p-4">
+          <h4 className="text-sm font-medium text-muted-foreground mb-3">Department Color Guide</h4>
+          <div className="flex flex-wrap gap-3">
+            {departments.map((dept) => {
+              const colors = getDepartmentColor(dept);
+              return (
+                <div key={dept} className="flex items-center gap-2">
+                  <div className={`w-3 h-3 rounded-full ${colors.accent}`} />
+                  <span className="text-sm font-medium">{dept}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      <div className="overflow-x-auto">
+        <div className="min-w-[900px]">
+          <table className="w-full border-collapse bg-white rounded-lg shadow-sm overflow-hidden">
+            <thead>
+              <tr className="bg-muted/50">
+                <th className="p-3 text-left font-semibold text-muted-foreground border-b-2 border-border w-20">
+                  TIME
+                </th>
+                {days.map((day) => (
+                  <th
+                    key={day}
+                    className="p-3 text-center font-semibold text-muted-foreground border-b-2 border-border"
+                  >
+                    <div className="space-y-1">
+                      <div className="text-sm font-bold">{day.toUpperCase()}</div>
+                      <div className="text-xs opacity-60">
+                        {getScheduledItemsForSlot(day, "").length > 0 && 
+                          `${schedule.filter(item => item.timeSlot.day === day).length} classes`
+                        }
+                      </div>
+                    </div>
+                  </th>
+                ))}
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {timeSlots.map((time, timeIndex) => (
+                <tr key={time} className={timeIndex % 2 === 0 ? "bg-background" : "bg-muted/20"}>
+                  <td className="p-3 border-r border-border/40 text-sm font-medium text-muted-foreground bg-muted/30">
+                    <div className="text-center">
+                      <div className="font-bold">{time}</div>
+                      <div className="text-xs opacity-60">
+                        {`${parseInt(time.split(':')[0]) + 1}:00`}
+                      </div>
+                    </div>
+                  </td>
+                  {days.map((day) => {
+                    const scheduledItems = getScheduledItemsForSlot(day, time);
+                    const hasMultipleCourses = scheduledItems.length > 1;
+
+                    return (
+                      <td
+                        key={`${day}-${time}`}
+                        className="p-2 border-r border-border/20 align-top min-h-[80px]"
+                      >
+                        <div className={`space-y-1 ${hasMultipleCourses ? 'grid gap-1' : ''}`}>
+                          {scheduledItems.map((item, index) => {
+                            const colors = getDepartmentColor(item.department);
+                            const isCompact = hasMultipleCourses;
+                            
+                            return (
+                              <Card
+                                key={item.id}
+                                className={`
+                                  ${colors.bg} ${colors.border} border-l-4 
+                                  ${colors.accent.replace('bg-', 'border-l-')}
+                                  hover:shadow-md transition-all duration-200 
+                                  ${isCompact ? 'p-2' : 'p-3'}
+                                  relative group
+                                `}
+                              >
+                                <div className="flex items-start justify-between gap-2">
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-2 mb-1">
+                                      <div className={`text-xs font-bold ${colors.text} truncate`}>
+                                        {item.code}
+                                      </div>
+                                      <div className="text-xs bg-white/60 px-1.5 py-0.5 rounded text-muted-foreground">
+                                        L{getCourseLevel(item.code)}
+                                      </div>
+                                    </div>
+                                    
+                                    {!isCompact && (
+                                      <div className="text-xs text-muted-foreground mb-2 line-clamp-2">
+                                        {item.name}
+                                      </div>
+                                    )}
+
+                                    <div className="space-y-1">
+                                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                        <Users className="h-3 w-3" />
+                                        <span className="truncate">{item.lecturer}</span>
+                                      </div>
+                                      
+                                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                        <MapPin className="h-3 w-3" />
+                                        <span className="truncate">{item.venue?.name || 'TBD'}</span>
+                                      </div>
+
+                                      <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                          <Clock className="h-3 w-3" />
+                                          <span>
+                                            {item.timeSlot.startTime} - {item.timeSlot.endTime}
+                                          </span>
+                                        </div>
+                                        
+                                        {item.classSize && (
+                                          <div className="text-xs bg-white/80 px-1.5 py-0.5 rounded text-muted-foreground">
+                                            {item.classSize}
+                                          </div>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </div>
+                                  
+                                  {onToggleFavorite && (
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                                      onClick={() => onToggleFavorite(item.id)}
+                                    >
+                                      <Star
+                                        className={`h-3 w-3 ${
+                                          favorites.has(item.id)
+                                            ? "fill-yellow-400 text-yellow-400"
+                                            : "text-muted-foreground"
+                                        }`}
+                                      />
+                                      <span className="sr-only">
+                                        {favorites.has(item.id)
+                                          ? "Remove from favorites"
+                                          : "Add to favorites"}
+                                      </span>
+                                    </Button>
+                                  )}
+                                </div>
+
+                                {/* Department indicator for multi-department view */}
+                                {departments.length > 1 && (
+                                  <div className={`absolute top-1 right-1 w-2 h-2 rounded-full ${colors.accent}`} />
+                                )}
+                              </Card>
+                            );
+                          })}
+                        </div>
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Schedule Statistics */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
+        <div className="bg-card rounded-lg p-3 text-center border">
+          <div className="text-2xl font-bold text-primary">{schedule.length}</div>
+          <div className="text-xs text-muted-foreground">Total Classes</div>
+        </div>
+        <div className="bg-card rounded-lg p-3 text-center border">
+          <div className="text-2xl font-bold text-primary">{departments.length}</div>
+          <div className="text-xs text-muted-foreground">Departments</div>
+        </div>
+        <div className="bg-card rounded-lg p-3 text-center border">
+          <div className="text-2xl font-bold text-primary">
+            {new Set(schedule.map(item => item.lecturer)).size}
+          </div>
+          <div className="text-xs text-muted-foreground">Instructors</div>
+        </div>
+        <div className="bg-card rounded-lg p-3 text-center border">
+          <div className="text-2xl font-bold text-primary">
+            {Math.round((schedule.length / (days.length * timeSlots.length)) * 100)}%
+          </div>
+          <div className="text-xs text-muted-foreground">Utilization</div>
+        </div>
       </div>
     </div>
   );
