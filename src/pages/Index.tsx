@@ -1,6 +1,7 @@
+
 import { useState, useEffect } from "react";
 import { Course, ScheduleItem, Venue, TimeSlot } from "@/lib/types";
-import { fetchCourses, addCourse, addCourses } from "@/lib/db";
+import { useCourses } from "@/hooks/useCourses";
 import CourseCard from "@/components/CourseCard";
 import AddCourseForm from "@/components/AddCourseForm";
 import PDFUploader from "@/components/PDFUploader";
@@ -11,29 +12,16 @@ import { useToast } from "@/hooks/use-toast";
 import { FileText, Users, GraduationCap, BookOpen } from "lucide-react";
 
 const Index = () => {
-  const [courses, setCourses] = useState<Course[]>([]);
   const [schedule, setSchedule] = useState<ScheduleItem[]>([]);
   const { toast } = useToast();
-  const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    const loadCourses = async () => {
-      try {
-        const loadedCourses = await fetchCourses();
-        setCourses(loadedCourses);
-      } catch (error) {
-        toast({
-          title: "Error Loading Courses",
-          description: error instanceof Error ? error.message : "Failed to load courses",
-          variant: "destructive",
-        });
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    loadCourses();
-  }, [toast]);
+  const { 
+    courses, 
+    isLoading, 
+    handleAddCourse, 
+    handleAddCourses, 
+    handleDeleteCourse, 
+    handleClearAllCourses 
+  } = useCourses();
 
   const isFoundationalCourse = (courseCode: string): boolean => {
     return /^[A-Z]{2}10[0-9]/.test(courseCode);
@@ -235,35 +223,12 @@ const Index = () => {
     });
   };
 
-  const handleAddCourse = async (newCourse: Omit<Course, "id">) => {
-    try {
-      const course = await addCourse(newCourse);
-      setCourses((prev) => [...prev, course]);
-      toast({
-        title: "Course Added",
-        description: "Successfully added new course",
-      });
-    } catch (error) {
-      toast({
-        title: "Error Adding Course",
-        description: error instanceof Error ? error.message : "Failed to add course",
-        variant: "destructive",
-      });
-    }
-  };
-
   const handleCoursesExtracted = async (extractedCourses: Omit<Course, "id">[]) => {
-    try {
-      const newCourses = await addCourses(extractedCourses);
-      setCourses((prev) => [...prev, ...newCourses]);
-      toast({
-        title: "Courses Added",
-        description: `Successfully added ${newCourses.length} courses from PDF`,
-      });
-    } catch (error) {
+    const success = await handleAddCourses(extractedCourses);
+    if (!success) {
       toast({
         title: "Error Adding Courses",
-        description: error instanceof Error ? error.message : "Failed to add courses",
+        description: "Failed to add courses from PDF",
         variant: "destructive",
       });
     }
@@ -277,6 +242,17 @@ const Index = () => {
     return new Set(courses.map(course => course.code.substring(0, 4))).size;
   };
 
+  if (isLoading) {
+    return (
+      <div className="container mx-auto py-8 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+          <p className="mt-2 text-muted-foreground">Loading courses...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="container mx-auto py-8 space-y-8">
       <div className="space-y-4">
@@ -287,8 +263,8 @@ const Index = () => {
               Manage and view your department's course schedule
             </p>
           </div>
-          <Button>
-            Generate with AI
+          <Button onClick={generateSchedule}>
+            Generate Schedule
           </Button>
         </div>
 
@@ -365,13 +341,27 @@ const Index = () => {
 
             {courses.length > 0 && (
               <div className="space-y-4">
-                <h3 className="text-lg font-medium">Current Courses</h3>
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-medium">Current Courses</h3>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => {
+                      if (window.confirm("Are you sure you want to remove all courses?")) {
+                        handleClearAllCourses();
+                      }
+                    }}
+                  >
+                    Clear All
+                  </Button>
+                </div>
                 <div className="grid gap-4">
                   {courses.map((course) => (
                     <CourseCard
                       key={course.id}
                       course={course}
                       onEdit={handleEditCourse}
+                      onDelete={() => handleDeleteCourse(course.id)}
                     />
                   ))}
                 </div>
