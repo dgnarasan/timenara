@@ -1,15 +1,15 @@
 import { useState, useEffect } from "react";
 import { Course, ScheduleItem, collegeStructure } from "@/lib/types";
-import CourseFilterBar, { FilterOptions } from "./CourseFilterBar";
-import CollegeTimetableFilter from "./CollegeTimetableFilter";
+import { FilterOptions } from "./CourseFilterBar";
 import Timetable from "../Timetable";
 import { useToast } from "@/hooks/use-toast";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
-import { Star, Grid, List as ListIcon, Filter } from "lucide-react";
 import { Button } from "../ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
+import FilterModeToggle from "./filters/FilterModeToggle";
+import StudentTimetableFilters from "./filters/StudentTimetableFilters";
+import { useFavoritesManager } from "./favorites/FavoritesManager";
 
 interface StudentTimetableViewProps {
   schedule: ScheduleItem[];
@@ -18,9 +18,9 @@ interface StudentTimetableViewProps {
 
 const StudentTimetableView = ({ schedule, viewMode = "timetable" }: StudentTimetableViewProps) => {
   const { toast } = useToast();
+  const { favorites, toggleFavorite } = useFavoritesManager();
   const [filteredSchedule, setFilteredSchedule] = useState<ScheduleItem[]>(schedule);
   const [collegeFilteredSchedule, setCollegeFilteredSchedule] = useState<ScheduleItem[]>(schedule);
-  const [favorites, setFavorites] = useState<Set<string>>(new Set());
   const [filterMode, setFilterMode] = useState<"advanced" | "college">("college");
   const [filters, setFilters] = useState<FilterOptions>({
     search: "",
@@ -35,37 +35,6 @@ const StudentTimetableView = ({ schedule, viewMode = "timetable" }: StudentTimet
     if (typeof venue === 'string') return venue || 'TBD';
     if (venue && typeof venue === 'object') return venue.name || 'TBD';
     return 'TBD';
-  };
-
-  useEffect(() => {
-    const savedFavorites = localStorage.getItem('favoriteCourses');
-    if (savedFavorites) {
-      setFavorites(new Set(JSON.parse(savedFavorites)));
-    }
-  }, []);
-
-  useEffect(() => {
-    localStorage.setItem('favoriteCourses', JSON.stringify(Array.from(favorites)));
-  }, [favorites]);
-
-  const toggleFavorite = (courseId: string) => {
-    setFavorites(prev => {
-      const newFavorites = new Set(prev);
-      if (newFavorites.has(courseId)) {
-        newFavorites.delete(courseId);
-        toast({
-          title: "Course Removed",
-          description: "Course removed from favorites",
-        });
-      } else {
-        newFavorites.add(courseId);
-        toast({
-          title: "Course Added",
-          description: "Course added to favorites",
-        });
-      }
-      return newFavorites;
-    });
   };
 
   // Advanced filtering logic
@@ -236,49 +205,21 @@ const StudentTimetableView = ({ schedule, viewMode = "timetable" }: StudentTimet
             {favorites.size} courses favorited • {filteredSchedule.length} courses shown
           </p>
         </div>
-        <div className="flex gap-2">
-          <Button
-            variant={filterMode === "college" ? "default" : "outline"}
-            onClick={() => setFilterMode("college")}
-            size="sm"
-            className="gap-2"
-          >
-            <Grid className="h-4 w-4" />
-            College View
-          </Button>
-          <Button
-            variant={filterMode === "advanced" ? "default" : "outline"}
-            onClick={() => setFilterMode("advanced")}
-            size="sm"
-            className="gap-2"
-          >
-            <Filter className="h-4 w-4" />
-            Advanced Filter
-          </Button>
-        </div>
+        <FilterModeToggle
+          filterMode={filterMode}
+          onModeChange={setFilterMode}
+        />
       </div>
 
-      <Tabs value={filterMode} onValueChange={(value) => setFilterMode(value as "advanced" | "college")}>
-        <TabsList>
-          <TabsTrigger value="college">College Filter</TabsTrigger>
-          <TabsTrigger value="advanced">Advanced Filter</TabsTrigger>
-        </TabsList>
-        
-        <TabsContent value="college" className="space-y-4">
-          <CollegeTimetableFilter
-            schedule={schedule}
-            onFilteredScheduleChange={setCollegeFilteredSchedule}
-          />
-        </TabsContent>
-        
-        <TabsContent value="advanced" className="space-y-4">
-          <CourseFilterBar
-            courses={scheduleCourses}
-            onFilterChange={setFilters}
-            onExport={handleExport}
-          />
-        </TabsContent>
-      </Tabs>
+      <StudentTimetableFilters
+        filterMode={filterMode}
+        schedule={schedule}
+        scheduleCourses={scheduleCourses}
+        onFilterModeChange={setFilterMode}
+        onFilterChange={setFilters}
+        onCollegeFilteredScheduleChange={setCollegeFilteredSchedule}
+        onExport={handleExport}
+      />
 
       <div className="flex justify-end">
         <Button
