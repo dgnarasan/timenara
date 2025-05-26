@@ -39,6 +39,11 @@ const Index = () => {
     return /^[A-Z]{2}10[0-9]/.test(courseCode);
   };
 
+  const getVenueId = (venue: Venue | string): string => {
+    if (typeof venue === 'string') return venue;
+    return venue?.id || 'unknown';
+  };
+
   const hasConsecutiveClasses = (
     lecturer: string,
     timeSlot: TimeSlot,
@@ -71,7 +76,7 @@ const Index = () => {
       (item) =>
         item.timeSlot.day === timeSlot.day &&
         item.timeSlot.startTime === timeSlot.startTime &&
-        (item.venue.id === venue.id || item.lecturer === lecturer)
+        (getVenueId(item.venue) === venue.id || item.lecturer === lecturer)
     );
   };
 
