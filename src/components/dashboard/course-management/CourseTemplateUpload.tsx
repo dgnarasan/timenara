@@ -1,3 +1,4 @@
+
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { Course, collegeStructure, CALEB_VENUES } from "@/lib/types";
@@ -13,6 +14,7 @@ interface CourseTemplateUploadProps {
 const CourseTemplateUpload = ({ courses, onCoursesExtracted }: CourseTemplateUploadProps) => {
   const { toast } = useToast();
   const [showTemplateUpload, setShowTemplateUpload] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
 
   // Get all departments from collegeStructure
   const allDepartments = collegeStructure.flatMap(college => college.departments);
@@ -42,7 +44,6 @@ const CourseTemplateUpload = ({ courses, onCoursesExtracted }: CourseTemplateUpl
       ],
     ];
 
-    // Add separate sheets for reference data
     const departmentsList = [
       ["Valid Departments"],
       ...allDepartments.map(dept => [dept])
@@ -76,7 +77,6 @@ const CourseTemplateUpload = ({ courses, onCoursesExtracted }: CourseTemplateUpl
     XLSX.utils.book_append_sheet(wb, levelWs, "Academic Levels");
     XLSX.utils.book_append_sheet(wb, groupWs, "Group Options");
     
-    // Set column widths for better readability
     ws["!cols"] = [
       { width: 15 }, { width: 40 }, { width: 25 }, { width: 10 }, { width: 8 },
       { width: 30 }, { width: 15 }, { width: 15 }, { width: 20 }, { width: 20 }, { width: 30 }
@@ -98,7 +98,11 @@ const CourseTemplateUpload = ({ courses, onCoursesExtracted }: CourseTemplateUpl
     const file = event.target.files?.[0];
     if (!file) return;
 
+    setIsProcessing(true);
+
     try {
+      console.log("Starting template upload process for file:", file.name);
+      
       const data = await file.arrayBuffer();
       const workbook = XLSX.read(data);
       const worksheet = workbook.Sheets[workbook.SheetNames[0]];
@@ -113,15 +117,26 @@ const CourseTemplateUpload = ({ courses, onCoursesExtracted }: CourseTemplateUpl
       const headers = rows[0];
       console.log("Headers found:", headers);
       
-      const hasRequiredFields = ['Course Code', 'Course Name', 'Level', 'Expected Class Size', 'Department']
-        .every(required => headers.some(header => 
-          header?.toString().toLowerCase().includes(required.toLowerCase())
-        ));
+      // More flexible header validation
+      const requiredFieldsFound = {
+        courseCode: headers.some(h => h?.toString().toLowerCase().includes('course') && h?.toString().toLowerCase().includes('code')),
+        courseName: headers.some(h => h?.toString().toLowerCase().includes('course') && h?.toString().toLowerCase().includes('name')),
+        level: headers.some(h => h?.toString().toLowerCase().includes('level')),
+        classSize: headers.some(h => h?.toString().toLowerCase().includes('class') && h?.toString().toLowerCase().includes('size')),
+        department: headers.some(h => h?.toString().toLowerCase().includes('department'))
+      };
 
-      if (!hasRequiredFields) {
-        throw new Error("Missing required fields. Please ensure Course Code, Course Name, Level, Expected Class Size, and Department are present.");
+      console.log("Required fields check:", requiredFieldsFound);
+
+      const missingFields = Object.entries(requiredFieldsFound)
+        .filter(([_, found]) => !found)
+        .map(([field, _]) => field);
+
+      if (missingFields.length > 0) {
+        throw new Error(`Missing required fields: ${missingFields.join(', ')}. Please ensure your template has all required columns.`);
       }
 
+      console.log("Starting course validation...");
       const newCourses = validateAndProcessCourses(rows);
       
       if (newCourses.length === 0) {
@@ -129,27 +144,39 @@ const CourseTemplateUpload = ({ courses, onCoursesExtracted }: CourseTemplateUpl
       }
       
       console.log("Successfully processed courses:", newCourses);
-      console.log("Existing courses:", courses);
+      console.log("Existing courses for duplicate check:", courses.length);
       
-      // Check for duplicates considering group field
-      const duplicates = newCourses.filter(newCourse => 
-        courses.some(existingCourse => 
-          existingCourse.code.toLowerCase() === newCourse.code.toLowerCase() && 
-          (existingCourse.lecturer || 'TBD').toLowerCase() === (newCourse.lecturer || 'TBD').toLowerCase() &&
-          (existingCourse.group || '') === (newCourse.group || '')
-        )
-      );
+      // Improved duplicate checking
+      const duplicates = newCourses.filter(newCourse => {
+        const isDuplicate = courses.some(existingCourse => {
+          const codeMatch = existingCourse.code.toLowerCase() === newCourse.code.toLowerCase();
+          const lecturerMatch = (existingCourse.lecturer || 'TBD').toLowerCase() === (newCourse.lecturer || 'TBD').toLowerCase();
+          const groupMatch = (existingCourse.group || '') === (newCourse.group || '');
+          
+          console.log(`Checking duplicate for ${newCourse.code}:`, {
+            codeMatch,
+            lecturerMatch,
+            groupMatch,
+            existingCourse: existingCourse.code,
+            newCourse: newCourse.code
+          });
+          
+          return codeMatch && lecturerMatch && groupMatch;
+        });
+        
+        return isDuplicate;
+      });
 
       if (duplicates.length > 0) {
         const duplicateInfo = duplicates.map(d => 
           `${d.code}${d.group ? ` (${d.group})` : ''} (${d.lecturer || 'TBD'})`
         ).join(", ");
+        console.log("Duplicates found:", duplicateInfo);
         toast({
           title: "Duplicate Courses Found",
           description: `The following courses already exist: ${duplicateInfo}`,
           variant: "destructive",
         });
-        event.target.value = "";
         return;
       }
 
@@ -162,33 +189,52 @@ const CourseTemplateUpload = ({ courses, onCoursesExtracted }: CourseTemplateUpl
       
       if (success) {
         setShowTemplateUpload(false);
-        // Success toast is handled by the parent component (useCourses hook)
+        toast({
+          title: "Courses Added Successfully",
+          description: `Successfully added ${newCourses.length} courses from template.`,
+        });
+      } else {
+        throw new Error("Failed to add courses to the database.");
       }
-      // Error toast is also handled by the parent component if success is false
       
     } catch (error) {
       console.error("Template processing error:", error);
+      
+      let errorMessage = "Failed to process template.";
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+      
       toast({
         title: "Error Processing Template",
-        description: error instanceof Error ? error.message : "Failed to process template",
+        description: errorMessage,
         variant: "destructive",
       });
+    } finally {
+      setIsProcessing(false);
+      // Clear the input regardless of success or failure
+      event.target.value = "";
     }
-    
-    // Clear the input regardless of success or failure
-    event.target.value = "";
   };
 
   const validateAndProcessCourses = (rows: string[][]): Omit<Course, "id">[] => {
     const validationErrors: string[] = [];
-    const processedCourses = rows.slice(1)
-      .filter(row => row.some(cell => cell?.toString().trim())) // Skip empty rows
-      .map((row, index) => {
-        const rowNumber = index + 2; // +2 because we skipped header and arrays are 0-indexed
-        
+    const processedCourses: Omit<Course, "id">[] = [];
+
+    // Skip header row and filter out empty rows
+    const dataRows = rows.slice(1).filter(row => 
+      row && row.length > 0 && row.some(cell => cell?.toString().trim())
+    );
+
+    console.log(`Processing ${dataRows.length} data rows`);
+
+    dataRows.forEach((row, index) => {
+      const rowNumber = index + 2; // +2 because we skipped header and arrays are 0-indexed
+      
+      try {
         console.log(`Processing row ${rowNumber}:`, row);
         
-        // Safely access row elements with fallback defaults - handle both string and number values
+        // Safely access row elements with fallback defaults
         const code = (row[0] || '').toString().trim().toUpperCase();
         const name = (row[1] || '').toString().trim();
         const lecturer = (row[2] || '').toString().trim() || 'TBD';
@@ -197,7 +243,8 @@ const CourseTemplateUpload = ({ courses, onCoursesExtracted }: CourseTemplateUpl
         const sharedDepartments = (row[5] || '').toString().trim() ? 
           row[5].toString().split(',').map(d => d.trim()).filter(d => d) : undefined;
         const venue = (row[6] || '').toString().trim() || undefined;
-        const classSize = parseInt((row[7] || '0').toString()) || 0;
+        const classSizeStr = (row[7] || '0').toString().trim();
+        const classSize = parseInt(classSizeStr) || 0;
         const preferredDays = (row[8] || '').toString().trim() ? 
           row[8].toString().split(',').map(d => d.trim()).filter(d => d) : undefined;
         const preferredTimeSlot = (row[9] || '').toString().trim() || undefined;
@@ -207,23 +254,34 @@ const CourseTemplateUpload = ({ courses, onCoursesExtracted }: CourseTemplateUpl
           code, name, lecturer, level, group, classSize, departmentInput
         });
 
-        // Validate course code - allow more flexible format
-        if (!code || !/^[A-Z]{2,4}\d{3,4}$/.test(code)) {
+        // Validate course code
+        if (!code) {
+          validationErrors.push(`Row ${rowNumber}: Course code is required`);
+          return;
+        }
+
+        if (!/^[A-Z]{2,4}\d{3,4}$/.test(code)) {
           validationErrors.push(`Row ${rowNumber}: Invalid course code format "${code}". Expected format: 2-4 letters followed by 3-4 digits (e.g., GST101, CSC202)`);
-          return null;
+          return;
         }
 
         // Validate course name
         if (!name || name.length < 3) {
           validationErrors.push(`Row ${rowNumber}: Course name "${name}" must be at least 3 characters long`);
-          return null;
+          return;
         }
 
-        // Validate level - be more flexible with level format
+        // Validate level
+        if (!level) {
+          validationErrors.push(`Row ${rowNumber}: Academic level is required`);
+          return;
+        }
+
         const normalizedLevel = level.toUpperCase();
-        if (!normalizedLevel || !['100L', '200L', '300L', '400L', '100', '200', '300', '400'].includes(normalizedLevel)) {
+        const validLevels = ['100L', '200L', '300L', '400L', '100', '200', '300', '400'];
+        if (!validLevels.includes(normalizedLevel)) {
           validationErrors.push(`Row ${rowNumber}: Level "${level}" must be one of: 100L, 200L, 300L, 400L`);
-          return null;
+          return;
         }
 
         // Ensure level has L suffix
@@ -231,11 +289,16 @@ const CourseTemplateUpload = ({ courses, onCoursesExtracted }: CourseTemplateUpl
 
         // Validate class size
         if (classSize <= 0 || classSize > 1000) {
-          validationErrors.push(`Row ${rowNumber}: Class size "${classSize}" must be between 1 and 1000`);
-          return null;
+          validationErrors.push(`Row ${rowNumber}: Class size "${classSizeStr}" must be a number between 1 and 1000`);
+          return;
         }
 
-        // More flexible department validation
+        // Validate department
+        if (!departmentInput) {
+          validationErrors.push(`Row ${rowNumber}: Department is required`);
+          return;
+        }
+
         let matchedDepartment = allDepartments.find(dept => 
           dept.toLowerCase() === departmentInput.toLowerCase()
         );
@@ -250,8 +313,8 @@ const CourseTemplateUpload = ({ courses, onCoursesExtracted }: CourseTemplateUpl
         }
 
         if (!matchedDepartment) {
-          validationErrors.push(`Row ${rowNumber}: Invalid department "${departmentInput}". Available departments: ${allDepartments.slice(0, 5).join(', ')}...`);
-          return null;
+          validationErrors.push(`Row ${rowNumber}: Invalid department "${departmentInput}". Available departments include: ${allDepartments.slice(0, 5).join(', ')}...`);
+          return;
         }
 
         const course: Omit<Course, "id"> = { 
@@ -269,14 +332,20 @@ const CourseTemplateUpload = ({ courses, onCoursesExtracted }: CourseTemplateUpl
         };
 
         console.log(`Row ${rowNumber} successfully processed:`, course);
-        return course;
-      }).filter((course): course is Omit<Course, "id"> => course !== null);
+        processedCourses.push(course);
+        
+      } catch (error) {
+        console.error(`Error processing row ${rowNumber}:`, error);
+        validationErrors.push(`Row ${rowNumber}: Unexpected error processing row - ${error instanceof Error ? error.message : 'Unknown error'}`);
+      }
+    });
 
     if (validationErrors.length > 0) {
       console.error("Validation errors:", validationErrors);
-      throw new Error("Validation errors found:\n" + validationErrors.join("\n"));
+      throw new Error("Validation errors found:\n" + validationErrors.slice(0, 5).join("\n") + (validationErrors.length > 5 ? "\n... and more" : ""));
     }
 
+    console.log(`Successfully validated ${processedCourses.length} courses`);
     return processedCourses;
   };
 
@@ -302,6 +371,7 @@ const CourseTemplateUpload = ({ courses, onCoursesExtracted }: CourseTemplateUpl
             variant="outline"
             size="sm"
             onClick={() => setShowTemplateUpload(true)}
+            disabled={isProcessing}
           >
             <Upload className="h-4 w-4 mr-2" />
             Upload
@@ -314,7 +384,9 @@ const CourseTemplateUpload = ({ courses, onCoursesExtracted }: CourseTemplateUpl
           <div className="flex items-center justify-center">
             <label className="flex flex-col items-center gap-2 cursor-pointer">
               <FileSpreadsheet className="h-8 w-8 text-muted-foreground" />
-              <span className="text-sm font-medium">Choose Enhanced Template File</span>
+              <span className="text-sm font-medium">
+                {isProcessing ? "Processing..." : "Choose Enhanced Template File"}
+              </span>
               <span className="text-xs text-muted-foreground">
                 XLSX format with optional new fields
               </span>
@@ -323,6 +395,7 @@ const CourseTemplateUpload = ({ courses, onCoursesExtracted }: CourseTemplateUpl
                 accept=".xlsx,.csv"
                 className="hidden"
                 onChange={handleTemplateUpload}
+                disabled={isProcessing}
               />
             </label>
           </div>
