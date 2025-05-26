@@ -1,4 +1,3 @@
-
 export interface Course {
   id: string;
   code: string;
@@ -76,7 +75,20 @@ export interface TimeSlot {
   endTime: string;
 }
 
-export interface ScheduleItem extends Course {
+export interface ScheduleItem {
+  id: string;
+  code: string;
+  name: string;
+  lecturer: string;
+  classSize: number;
+  department: Department;
+  academicLevel?: string;
+  preferredSlots?: TimeSlot[];
+  constraints?: string[];
+  group?: string;
+  sharedDepartments?: string[];
+  preferredDays?: string[];
+  preferredTimeSlot?: string;
   venue: Venue;
   timeSlot: TimeSlot;
 }

@@ -190,7 +190,7 @@ const Timetable = ({ schedule, favorites = new Set(), onToggleFavorite }: Timeta
                                     <div className="flex items-center gap-1 text-xs text-muted-foreground mb-1">
                                       <MapPin className="h-3 w-3 flex-shrink-0" />
                                       <span className="truncate font-medium">
-                                        {item.venue?.name || item.venue || 'TBD'}
+                                        {item.venue?.name || 'TBD'}
                                       </span>
                                     </div>
 

@@ -204,6 +204,24 @@ const StudentTimetableView = ({ schedule, viewMode = "timetable" }: StudentTimet
     }
   };
 
+  // Convert ScheduleItem to Course for the filter bar
+  const scheduleCourses: Course[] = filteredSchedule.map(item => ({
+    id: item.id,
+    code: item.code,
+    name: item.name,
+    lecturer: item.lecturer,
+    classSize: item.classSize,
+    department: item.department,
+    academicLevel: item.academicLevel,
+    preferredSlots: item.preferredSlots,
+    constraints: item.constraints,
+    group: item.group,
+    sharedDepartments: item.sharedDepartments,
+    venue: typeof item.venue === 'string' ? item.venue : item.venue?.name,
+    preferredDays: item.preferredDays,
+    preferredTimeSlot: item.preferredTimeSlot,
+  }));
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -250,7 +268,7 @@ const StudentTimetableView = ({ schedule, viewMode = "timetable" }: StudentTimet
         
         <TabsContent value="advanced" className="space-y-4">
           <CourseFilterBar
-            courses={schedule}
+            courses={scheduleCourses}
             onFilterChange={setFilters}
             onExport={handleExport}
           />

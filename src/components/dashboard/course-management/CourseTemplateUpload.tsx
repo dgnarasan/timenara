@@ -254,7 +254,7 @@ const CourseTemplateUpload = ({ courses, onCoursesExtracted }: CourseTemplateUpl
           return null;
         }
 
-        return { 
+        const course: Omit<Course, "id"> = { 
           code, 
           name, 
           lecturer, 
@@ -267,6 +267,8 @@ const CourseTemplateUpload = ({ courses, onCoursesExtracted }: CourseTemplateUpl
           preferredDays,
           preferredTimeSlot
         };
+
+        return course;
       }).filter((course): course is Omit<Course, "id"> => course !== null);
 
     if (validationErrors.length > 0) {

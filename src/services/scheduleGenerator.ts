@@ -140,8 +140,25 @@ const detectScheduleConflicts = (schedule: ScheduleItem[]): ScheduleConflict[] =
   lecturerMap.forEach((items, key) => {
     if (items.length > 1) {
       items.forEach(item => {
+        const course: Course = {
+          id: item.id,
+          code: item.code,
+          name: item.name,
+          lecturer: item.lecturer,
+          classSize: item.classSize,
+          department: item.department,
+          academicLevel: item.academicLevel,
+          preferredSlots: item.preferredSlots,
+          constraints: item.constraints,
+          group: item.group,
+          sharedDepartments: item.sharedDepartments,
+          venue: typeof item.venue === 'string' ? item.venue : item.venue?.name,
+          preferredDays: item.preferredDays,
+          preferredTimeSlot: item.preferredTimeSlot,
+        };
+
         conflicts.push({
-          course: item,
+          course,
           reason: `Lecturer ${item.lecturer} has overlapping classes on ${item.timeSlot.day} at ${item.timeSlot.startTime}`,
           conflictType: 'lecturer',
           suggestion: 'Reschedule one of the conflicting classes'
@@ -153,7 +170,8 @@ const detectScheduleConflicts = (schedule: ScheduleItem[]): ScheduleConflict[] =
   // Check for venue conflicts
   const venueMap = new Map<string, ScheduleItem[]>();
   schedule.forEach(item => {
-    const key = `${item.venue.name}-${item.timeSlot.day}-${item.timeSlot.startTime}`;
+    const venueName = typeof item.venue === 'string' ? item.venue : item.venue?.name || 'TBD';
+    const key = `${venueName}-${item.timeSlot.day}-${item.timeSlot.startTime}`;
     if (!venueMap.has(key)) {
       venueMap.set(key, []);
     }
@@ -163,9 +181,27 @@ const detectScheduleConflicts = (schedule: ScheduleItem[]): ScheduleConflict[] =
   venueMap.forEach((items, key) => {
     if (items.length > 1) {
       items.forEach(item => {
+        const venueName = typeof item.venue === 'string' ? item.venue : item.venue?.name || 'TBD';
+        const course: Course = {
+          id: item.id,
+          code: item.code,
+          name: item.name,
+          lecturer: item.lecturer,
+          classSize: item.classSize,
+          department: item.department,
+          academicLevel: item.academicLevel,
+          preferredSlots: item.preferredSlots,
+          constraints: item.constraints,
+          group: item.group,
+          sharedDepartments: item.sharedDepartments,
+          venue: venueName,
+          preferredDays: item.preferredDays,
+          preferredTimeSlot: item.preferredTimeSlot,
+        };
+
         conflicts.push({
-          course: item,
-          reason: `Venue ${item.venue.name} is double-booked on ${item.timeSlot.day} at ${item.timeSlot.startTime}`,
+          course,
+          reason: `Venue ${venueName} is double-booked on ${item.timeSlot.day} at ${item.timeSlot.startTime}`,
           conflictType: 'venue',
           suggestion: 'Assign alternative venue or reschedule'
         });
