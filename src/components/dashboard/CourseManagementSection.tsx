@@ -7,7 +7,7 @@ import CurrentCoursesList from "./course-management/CurrentCoursesList";
 interface CourseManagementSectionProps {
   courses: Course[];
   onAddCourse: (course: Omit<Course, "id">) => void;
-  onCoursesExtracted: (courses: Omit<Course, "id">[]) => Promise<boolean>;
+  onCoursesExtracted: (courses: Omit<Course, "id">[]) => void;
   onEditCourse: (course: Course) => void;
   onDeleteCourse?: (courseId: string) => void;
   onClearAllCourses?: () => void;

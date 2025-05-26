@@ -1,3 +1,4 @@
+
 export interface Course {
   id: string;
   code: string;
@@ -8,11 +9,6 @@ export interface Course {
   academicLevel?: string;
   preferredSlots?: TimeSlot[];
   constraints?: string[];
-  group?: string; // Group A, B, C for split classes
-  sharedDepartments?: string[]; // List of departments sharing this course
-  venue?: string; // Manual venue assignment
-  preferredDays?: string[]; // Preferred days
-  preferredTimeSlot?: string; // Preferred time slot
 }
 
 export type College = 
@@ -75,21 +71,8 @@ export interface TimeSlot {
   endTime: string;
 }
 
-export interface ScheduleItem {
-  id: string;
-  code: string;
-  name: string;
-  lecturer: string;
-  classSize: number;
-  department: Department;
-  academicLevel?: string;
-  preferredSlots?: TimeSlot[];
-  constraints?: string[];
-  group?: string;
-  sharedDepartments?: string[];
-  preferredDays?: string[];
-  preferredTimeSlot?: string;
-  venue: Venue | string;
+export interface ScheduleItem extends Course {
+  venue: Venue;
   timeSlot: TimeSlot;
 }
 
@@ -104,11 +87,6 @@ export type DBCourse = {
   preferred_slots: TimeSlot[] | null;
   constraints: string[] | null;
   created_at: string;
-  group?: string;
-  shared_departments?: string[];
-  venue?: string;
-  preferred_days?: string[];
-  preferred_time_slot?: string;
 };
 
 export type DBVenue = {
@@ -175,12 +153,4 @@ export const collegeStructure: CollegeWithDepartments[] = [
       'Early Childhood Education', 'Educational Management'
     ]
   }
-];
-
-// Real Caleb University venue codes
-export const CALEB_VENUES = [
-  'L101', 'L201', 'L301', 'R101', 'R201', 'R301',
-  'BIO LAB 1', 'BIO LAB 2', 'CHM LAB 1', 'CHM LAB 2',
-  'LAB PG', 'PHY LAB', 'Mass Comm AUD', 'Multipurpose H',
-  'UNIV AUD', 'B029', 'BO29'
 ];

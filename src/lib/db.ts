@@ -14,11 +14,6 @@ export const mapDBCourseToClient = (dbCourse: DBCourse): Course => ({
   academicLevel: dbCourse.academic_level,
   preferredSlots: dbCourse.preferred_slots || undefined,
   constraints: dbCourse.constraints || undefined,
-  group: dbCourse.group,
-  sharedDepartments: dbCourse.shared_departments,
-  venue: dbCourse.venue,
-  preferredDays: dbCourse.preferred_days,
-  preferredTimeSlot: dbCourse.preferred_time_slot,
 });
 
 export const mapDBVenueToClient = (dbVenue: DBVenue): Venue => ({
@@ -29,171 +24,63 @@ export const mapDBVenueToClient = (dbVenue: DBVenue): Venue => ({
 });
 
 export const fetchCourses = async (): Promise<Course[]> => {
-  console.log("Fetching courses from database...");
-  
   const { data, error } = await supabase
     .from('courses')
     .select('*')
     .order('created_at', { ascending: true });
 
-  if (error) {
-    console.error("Error fetching courses:", error);
-    throw error;
-  }
-  
-  console.log("Fetched courses from DB:", data?.length || 0);
+  if (error) throw error;
   return (data as unknown as DBCourse[]).map(mapDBCourseToClient);
 };
 
 export const addCourse = async (course: Omit<Course, "id">): Promise<Course> => {
-  console.log("Adding single course to database:", course.code);
-  
-  const insertData: any = {
-    code: course.code,
-    name: course.name,
-    lecturer: course.lecturer,
-    class_size: course.classSize,
-    department: course.department,
-    academic_level: course.academicLevel || null,
-    preferred_slots: course.preferredSlots ? JSON.stringify(course.preferredSlots) : null,
-    constraints: course.constraints || null,
-  };
-
-  // Only add new fields if they exist in the course object
-  if (course.group !== undefined) {
-    insertData.group = course.group;
-  }
-  if (course.sharedDepartments !== undefined) {
-    insertData.shared_departments = course.sharedDepartments;
-  }
-  if (course.venue !== undefined) {
-    insertData.venue = course.venue;
-  }
-  if (course.preferredDays !== undefined) {
-    insertData.preferred_days = course.preferredDays;
-  }
-  if (course.preferredTimeSlot !== undefined) {
-    insertData.preferred_time_slot = course.preferredTimeSlot;
-  }
-
   const { data, error } = await supabase
     .from('courses')
-    .insert(insertData)
+    .insert({
+      code: course.code,
+      name: course.name,
+      lecturer: course.lecturer,
+      class_size: course.classSize,
+      department: course.department,
+      academic_level: course.academicLevel,
+      preferred_slots: course.preferredSlots ? JSON.stringify(course.preferredSlots) : null,
+      constraints: course.constraints || null,
+    })
     .select()
     .single();
 
-  if (error) {
-    console.error("Error adding course:", error);
-    throw error;
-  }
-  
+  if (error) throw error;
   const dbCourse = data as unknown as DBCourse;
   if (dbCourse.preferred_slots) {
     dbCourse.preferred_slots = JSON.parse(dbCourse.preferred_slots as unknown as string);
   }
-  console.log("Successfully added course:", dbCourse.code);
   return mapDBCourseToClient(dbCourse);
 };
 
 export const addCourses = async (courses: Omit<Course, "id">[]): Promise<Course[]> => {
-  console.log("=== STARTING addCourses FUNCTION ===");
-  console.log("Adding multiple courses to database:", courses.length);
-  
-  if (!courses || courses.length === 0) {
-    throw new Error("No courses provided for insertion");
-  }
+  const { data, error } = await supabase
+    .from('courses')
+    .insert(
+      courses.map(course => ({
+        code: course.code,
+        name: course.name,
+        lecturer: course.lecturer,
+        class_size: course.classSize,
+        department: course.department,
+        academic_level: course.academicLevel,
+        preferred_slots: course.preferredSlots ? JSON.stringify(course.preferredSlots) : null,
+        constraints: course.constraints || null,
+      }))
+    )
+    .select();
 
-  // Validate each course before insertion
-  const validatedCourses = courses.map((course, index) => {
-    if (!course.code || !course.name || !course.lecturer || !course.classSize || !course.department) {
-      console.error(`Course ${index + 1} missing required fields:`, course);
-      throw new Error(`Course ${index + 1} (${course.code || 'NO CODE'}) is missing required fields`);
+  if (error) throw error;
+  return (data as unknown as DBCourse[]).map(course => {
+    if (course.preferred_slots) {
+      course.preferred_slots = JSON.parse(course.preferred_slots as unknown as string);
     }
-
-    const insertData: any = {
-      code: course.code.trim(),
-      name: course.name.trim(),
-      lecturer: course.lecturer.trim(),
-      class_size: Number(course.classSize),
-      department: course.department,
-      academic_level: course.academicLevel?.trim() || null,
-      preferred_slots: course.preferredSlots ? JSON.stringify(course.preferredSlots) : null,
-      constraints: course.constraints || null,
-    };
-
-    // Only add new fields if they exist and the column exists in the database
-    if (course.group !== undefined) {
-      insertData.group = course.group.trim() || null;
-    }
-    if (course.sharedDepartments !== undefined) {
-      insertData.shared_departments = course.sharedDepartments;
-    }
-    if (course.venue !== undefined) {
-      insertData.venue = course.venue.trim() || null;
-    }
-    if (course.preferredDays !== undefined) {
-      insertData.preferred_days = course.preferredDays;
-    }
-    if (course.preferredTimeSlot !== undefined) {
-      insertData.preferred_time_slot = course.preferredTimeSlot.trim() || null;
-    }
-
-    console.log(`Prepared course ${index + 1} for insertion:`, {
-      code: insertData.code,
-      name: insertData.name,
-      lecturer: insertData.lecturer,
-      class_size: insertData.class_size,
-      department: insertData.department,
-      academic_level: insertData.academic_level
-    });
-
-    return insertData;
+    return mapDBCourseToClient(course);
   });
-
-  console.log("Attempting to insert courses into database...");
-  
-  try {
-    const { data, error } = await supabase
-      .from('courses')
-      .insert(validatedCourses)
-      .select();
-
-    if (error) {
-      console.error("Database insertion error:", {
-        message: error.message,
-        details: error.details,
-        hint: error.hint,
-        code: error.code
-      });
-      throw new Error(`Database error: ${error.message}`);
-    }
-
-    if (!data || data.length === 0) {
-      throw new Error("No data returned from database insertion");
-    }
-
-    console.log("Successfully inserted courses, processing response...");
-    
-    const processedCourses = (data as unknown as DBCourse[]).map(course => {
-      if (course.preferred_slots && typeof course.preferred_slots === 'string') {
-        try {
-          course.preferred_slots = JSON.parse(course.preferred_slots);
-        } catch (parseError) {
-          console.warn("Failed to parse preferred_slots for course:", course.code, parseError);
-          course.preferred_slots = null;
-        }
-      }
-      return mapDBCourseToClient(course);
-    });
-
-    console.log("Successfully processed", processedCourses.length, "courses");
-    console.log("=== addCourses FUNCTION COMPLETED SUCCESSFULLY ===");
-    return processedCourses;
-  } catch (dbError) {
-    console.error("=== addCourses FUNCTION FAILED ===");
-    console.error("Database operation failed:", dbError);
-    throw dbError;
-  }
 };
 
 export const deleteCourse = async (courseId: string): Promise<void> => {
@@ -202,20 +89,14 @@ export const deleteCourse = async (courseId: string): Promise<void> => {
     .delete()
     .eq('id', courseId);
 
-  if (error) {
-    console.error('Delete course error:', error);
-    throw new Error(`Failed to delete course: ${error.message}`);
-  }
+  if (error) throw error;
 };
 
 export const deleteAllCourses = async (): Promise<void> => {
   const { error } = await supabase
     .from('courses')
     .delete()
-    .gte('created_at', '1970-01-01'); // Delete all rows using a condition that matches all
+    .neq('id', 'none'); // Delete all rows
 
-  if (error) {
-    console.error('Delete all courses error:', error);
-    throw new Error(`Failed to delete all courses: ${error.message}`);
-  }
+  if (error) throw error;
 };

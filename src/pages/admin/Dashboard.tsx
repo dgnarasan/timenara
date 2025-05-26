@@ -40,7 +40,7 @@ const AdminDashboard = () => {
   }, [courses, userCollege]);
 
   // Handle adding a course, ensuring it belongs to admin's college
-  const handleAdminAddCourse = async (course: Omit<Course, "id">) => {
+  const handleAdminAddCourse = (course: Omit<Course, "id">) => {
     if (userCollege) {
       const collegeDepartments = collegeStructure.find(c => c.college === userCollege)?.departments || [];
       
@@ -54,11 +54,11 @@ const AdminDashboard = () => {
       }
     }
     
-    await handleAddCourse(course);
+    handleAddCourse(course);
   };
 
   // Handle adding multiple courses
-  const handleAdminAddCourses = async (coursesToAdd: Omit<Course, "id">[]): Promise<boolean> => {
+  const handleAdminAddCourses = (coursesToAdd: Omit<Course, "id">[]) => {
     if (userCollege) {
       const collegeDepartments = collegeStructure.find(c => c.college === userCollege)?.departments || [];
       
@@ -79,12 +79,12 @@ const AdminDashboard = () => {
           description: "None of the provided courses belong to your college.",
           variant: "destructive",
         });
-        return false;
+        return;
       }
       
-      return await handleAddCourses(validCourses);
+      handleAddCourses(validCourses);
     } else {
-      return await handleAddCourses(coursesToAdd);
+      handleAddCourses(coursesToAdd);
     }
   };
 

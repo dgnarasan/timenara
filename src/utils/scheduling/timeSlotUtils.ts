@@ -5,11 +5,6 @@ export const HOURS_PER_DAY = 9; // 9:00 to 17:00
 const MAX_CLASSES_PER_DAY = 4;
 const MAX_CONSECUTIVE_CLASSES = 3;
 
-const getVenueId = (venue: Venue | string): string => {
-  if (typeof venue === 'string') return venue;
-  return venue?.id || 'unknown';
-};
-
 export const hasConsecutiveClasses = (
   lecturer: string,
   timeSlot: TimeSlot,
@@ -44,7 +39,7 @@ export const hasConflict = (
     (item) =>
       item.timeSlot.day === timeSlot.day &&
       item.timeSlot.startTime === timeSlot.startTime &&
-      (getVenueId(item.venue) === venue.id || item.lecturer === lecturer)
+      (item.venue.id === venue.id || item.lecturer === lecturer)
   );
 };
 

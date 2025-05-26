@@ -18,7 +18,6 @@ export const useCourses = () => {
       const loadedCourses = await fetchCourses();
       setCourses(loadedCourses);
     } catch (error) {
-      console.error("Error loading courses:", error);
       toast({
         title: "Error Loading Courses",
         description: error instanceof Error ? error.message : "Failed to load courses",
@@ -37,74 +36,30 @@ export const useCourses = () => {
         title: "Course Added",
         description: "Successfully added new course",
       });
-      return true;
     } catch (error) {
-      console.error("Error adding course:", error);
       toast({
         title: "Error Adding Course",
         description: error instanceof Error ? error.message : "Failed to add course",
         variant: "destructive",
       });
-      return false;
     }
   };
 
-  const handleAddCourses = async (extractedCourses: Omit<Course, "id">[]): Promise<boolean> => {
-    console.log("handleAddCourses called with:", extractedCourses.length, "courses");
-    
+  const handleAddCourses = async (extractedCourses: Omit<Course, "id">[]) => {
     try {
-      // Validate the courses before attempting to add them
-      if (!extractedCourses || extractedCourses.length === 0) {
-        throw new Error("No courses provided for addition");
-      }
-
-      // Log each course being added for debugging
-      extractedCourses.forEach((course, index) => {
-        console.log(`Course ${index + 1}:`, {
-          code: course.code,
-          name: course.name,
-          lecturer: course.lecturer,
-          classSize: course.classSize,
-          department: course.department,
-          academicLevel: course.academicLevel
-        });
-      });
-
-      console.log("Calling addCourses function...");
       const newCourses = await addCourses(extractedCourses);
-      console.log("addCourses returned:", newCourses.length, "courses");
-      
-      setCourses((prev) => {
-        const updated = [...prev, ...newCourses];
-        console.log("Updated courses state, total count:", updated.length);
-        return updated;
-      });
-      
+      setCourses((prev) => [...prev, ...newCourses]);
       toast({
-        title: "Courses Added Successfully",
-        description: `Successfully added ${newCourses.length} courses from template`,
+        title: "Courses Added",
+        description: `Successfully added ${newCourses.length} courses`,
       });
-      
       return true;
     } catch (error) {
-      console.error("Error in handleAddCourses:", error);
-      
-      let errorMessage = "Failed to add courses to the database.";
-      if (error instanceof Error) {
-        errorMessage = error.message;
-        console.error("Error details:", {
-          message: error.message,
-          stack: error.stack,
-          name: error.name
-        });
-      }
-      
       toast({
-        title: "Database Error",
-        description: errorMessage,
+        title: "Error Adding Courses",
+        description: error instanceof Error ? error.message : "Failed to add courses",
         variant: "destructive",
       });
-      
       return false;
     }
   };
