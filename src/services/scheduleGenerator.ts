@@ -15,34 +15,30 @@ export const generateSchedule = async (
   try {
     console.log('Generating enhanced Caleb University schedule for courses:', courses);
 
-    // Pre-process courses to handle shared departments
+    // Safely pre-process courses with fallback defaults
     const processedCourses = courses.map(course => ({
       ...course,
-      // Ensure shared departments are properly formatted
-      sharedDepartments: course.sharedDepartments || [course.department]
+      lecturer: course.lecturer || 'TBD',
+      venue: course.venue || 'Unassigned',
+      group: course.group || '',
+      sharedDepartments: course.sharedDepartments && course.sharedDepartments.length > 0 
+        ? course.sharedDepartments 
+        : [course.department],
+      preferredDays: course.preferredDays || [],
+      preferredTimeSlot: course.preferredTimeSlot || ''
     }));
 
-    // Group courses by shared status and department
-    const departmentGroups = processedCourses.reduce((groups, course) => {
-      const key = course.sharedDepartments && course.sharedDepartments.length > 1 
-        ? 'SHARED' 
-        : course.department;
-      if (!groups[key]) {
-        groups[key] = [];
-      }
-      groups[key].push(course);
-      return groups;
-    }, {} as Record<string, Course[]>);
+    // Deduplicate shared courses to prevent multiple scheduling
+    const deduplicatedCourses = deduplicateSharedCourses(processedCourses);
 
-    console.log('Enhanced department groups:', Object.keys(departmentGroups));
+    console.log('Enhanced department groups after deduplication:', deduplicatedCourses.length);
 
     const { data, error } = await supabase.functions.invoke('generate-schedule', {
       body: { 
-        courses: processedCourses,
+        courses: deduplicatedCourses,
         includeConflictAnalysis: true,
-        departmentGroups: Object.keys(departmentGroups),
         useCalebVenues: true,
-        timeRange: { start: '8:00', end: '16:00' } // Caleb's 8 AM - 4 PM schedule
+        timeRange: { start: '8:00', end: '16:00' }
       }
     });
 
@@ -58,13 +54,12 @@ export const generateSchedule = async (
     if (!data.success) {
       console.log('Enhanced schedule generation failed with conflicts:', data.conflicts);
       
-      // Enhanced conflict reporting for shared courses and groups
       const enhancedConflicts = (data.conflicts || []).map((conflict: any) => ({
-        course: courses.find(c => c.id === conflict.courseId) || courses[0] || {
+        course: courses.find(c => c.id === conflict.courseId) || {
           id: '',
           code: '',
           name: '',
-          lecturer: '',
+          lecturer: 'TBD',
           classSize: 0,
           department: 'Computer Science',
         },
@@ -83,16 +78,17 @@ export const generateSchedule = async (
       throw new Error('Invalid schedule format received');
     }
 
-    // Add venue information and validate enhanced scheduling
+    // Add venue information and validate enhanced scheduling with safe defaults
     const scheduleWithEnhancements = data.schedule.map((item: any) => ({
       ...item,
+      lecturer: item.lecturer || 'TBD',
       venue: item.venue || { name: "TBD", capacity: 0 },
-      // Preserve group and shared department information
-      group: item.group,
-      sharedDepartments: item.sharedDepartments
+      group: item.group || '',
+      sharedDepartments: item.sharedDepartments || [item.department],
+      preferredDays: item.preferredDays || [],
+      preferredTimeSlot: item.preferredTimeSlot || ''
     }));
 
-    // Detect and report conflicts
     const detectedConflicts = detectScheduleConflicts(scheduleWithEnhancements);
 
     console.log('Generated enhanced Caleb University schedule:', scheduleWithEnhancements);
@@ -112,7 +108,7 @@ export const generateSchedule = async (
           id: '',
           code: '',
           name: '',
-          lecturer: '',
+          lecturer: 'TBD',
           classSize: 0,
           department: 'Computer Science',
         },
@@ -123,14 +119,50 @@ export const generateSchedule = async (
   }
 };
 
-// Enhanced conflict detection
+// Deduplicate shared courses to prevent multiple scheduling
+const deduplicateSharedCourses = (courses: Course[]): Course[] => {
+  const deduplicatedMap = new Map<string, Course>();
+  
+  courses.forEach(course => {
+    const baseKey = `${course.code}-${course.lecturer || 'TBD'}`;
+    const key = course.group ? `${baseKey}-${course.group}` : baseKey;
+    
+    if (!deduplicatedMap.has(key)) {
+      // For shared courses, aggregate the departments
+      const existingCourse = Array.from(deduplicatedMap.values()).find(c => 
+        c.code === course.code && 
+        (c.lecturer || 'TBD') === (course.lecturer || 'TBD') &&
+        (c.group || '') === (course.group || '')
+      );
+      
+      if (existingCourse) {
+        // Merge shared departments
+        const allDepartments = [
+          ...(existingCourse.sharedDepartments || [existingCourse.department]),
+          ...(course.sharedDepartments || [course.department])
+        ];
+        existingCourse.sharedDepartments = [...new Set(allDepartments)];
+      } else {
+        deduplicatedMap.set(key, {
+          ...course,
+          sharedDepartments: course.sharedDepartments || [course.department]
+        });
+      }
+    }
+  });
+  
+  return Array.from(deduplicatedMap.values());
+};
+
+// Enhanced conflict detection with safe field access
 const detectScheduleConflicts = (schedule: ScheduleItem[]): ScheduleConflict[] => {
   const conflicts: ScheduleConflict[] = [];
   
   // Check for lecturer conflicts
   const lecturerMap = new Map<string, ScheduleItem[]>();
   schedule.forEach(item => {
-    const key = `${item.lecturer}-${item.timeSlot.day}-${item.timeSlot.startTime}`;
+    const lecturer = item.lecturer || 'TBD';
+    const key = `${lecturer}-${item.timeSlot.day}-${item.timeSlot.startTime}`;
     if (!lecturerMap.has(key)) {
       lecturerMap.set(key, []);
     }
@@ -144,22 +176,22 @@ const detectScheduleConflicts = (schedule: ScheduleItem[]): ScheduleConflict[] =
           id: item.id,
           code: item.code,
           name: item.name,
-          lecturer: item.lecturer,
+          lecturer: item.lecturer || 'TBD',
           classSize: item.classSize,
           department: item.department,
           academicLevel: item.academicLevel,
           preferredSlots: item.preferredSlots,
           constraints: item.constraints,
-          group: item.group,
-          sharedDepartments: item.sharedDepartments,
-          venue: typeof item.venue === 'string' ? item.venue : item.venue?.name,
-          preferredDays: item.preferredDays,
-          preferredTimeSlot: item.preferredTimeSlot,
+          group: item.group || '',
+          sharedDepartments: item.sharedDepartments || [item.department],
+          venue: typeof item.venue === 'string' ? item.venue : (item.venue?.name || 'TBD'),
+          preferredDays: item.preferredDays || [],
+          preferredTimeSlot: item.preferredTimeSlot || '',
         };
 
         conflicts.push({
           course,
-          reason: `Lecturer ${item.lecturer} has overlapping classes on ${item.timeSlot.day} at ${item.timeSlot.startTime}`,
+          reason: `Lecturer ${item.lecturer || 'TBD'} has overlapping classes on ${item.timeSlot.day} at ${item.timeSlot.startTime}`,
           conflictType: 'lecturer',
           suggestion: 'Reschedule one of the conflicting classes'
         });
@@ -170,7 +202,7 @@ const detectScheduleConflicts = (schedule: ScheduleItem[]): ScheduleConflict[] =
   // Check for venue conflicts
   const venueMap = new Map<string, ScheduleItem[]>();
   schedule.forEach(item => {
-    const venueName = typeof item.venue === 'string' ? item.venue : item.venue?.name || 'TBD';
+    const venueName = typeof item.venue === 'string' ? item.venue : (item.venue?.name || 'TBD');
     const key = `${venueName}-${item.timeSlot.day}-${item.timeSlot.startTime}`;
     if (!venueMap.has(key)) {
       venueMap.set(key, []);
@@ -181,22 +213,22 @@ const detectScheduleConflicts = (schedule: ScheduleItem[]): ScheduleConflict[] =
   venueMap.forEach((items, key) => {
     if (items.length > 1) {
       items.forEach(item => {
-        const venueName = typeof item.venue === 'string' ? item.venue : item.venue?.name || 'TBD';
+        const venueName = typeof item.venue === 'string' ? item.venue : (item.venue?.name || 'TBD');
         const course: Course = {
           id: item.id,
           code: item.code,
           name: item.name,
-          lecturer: item.lecturer,
+          lecturer: item.lecturer || 'TBD',
           classSize: item.classSize,
           department: item.department,
           academicLevel: item.academicLevel,
           preferredSlots: item.preferredSlots,
           constraints: item.constraints,
-          group: item.group,
-          sharedDepartments: item.sharedDepartments,
+          group: item.group || '',
+          sharedDepartments: item.sharedDepartments || [item.department],
           venue: venueName,
-          preferredDays: item.preferredDays,
-          preferredTimeSlot: item.preferredTimeSlot,
+          preferredDays: item.preferredDays || [],
+          preferredTimeSlot: item.preferredTimeSlot || '',
         };
 
         conflicts.push({

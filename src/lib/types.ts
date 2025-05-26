@@ -8,11 +8,11 @@ export interface Course {
   academicLevel?: string;
   preferredSlots?: TimeSlot[];
   constraints?: string[];
-  group?: string; // New: Group A, B, C for split classes
-  sharedDepartments?: string[]; // New: List of departments sharing this course
-  venue?: string; // New: Manual venue assignment
-  preferredDays?: string[]; // New: Preferred days
-  preferredTimeSlot?: string; // New: Preferred time slot
+  group?: string; // Group A, B, C for split classes
+  sharedDepartments?: string[]; // List of departments sharing this course
+  venue?: string; // Manual venue assignment
+  preferredDays?: string[]; // Preferred days
+  preferredTimeSlot?: string; // Preferred time slot
 }
 
 export type College = 
@@ -89,7 +89,7 @@ export interface ScheduleItem {
   sharedDepartments?: string[];
   preferredDays?: string[];
   preferredTimeSlot?: string;
-  venue: Venue;
+  venue: Venue | string;
   timeSlot: TimeSlot;
 }
 

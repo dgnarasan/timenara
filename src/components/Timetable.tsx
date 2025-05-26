@@ -13,24 +13,34 @@ interface TimetableProps {
 
 const Timetable = ({ schedule, favorites = new Set(), onToggleFavorite }: TimetableProps) => {
   const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
-  // Updated to match Caleb University's 8:00 AM - 4:00 PM schedule
   const timeSlots = Array.from({ length: 8 }, (_, i) => `${i + 8}:00`);
 
-  // Group shared courses to avoid duplicates
+  // Group shared courses to avoid duplicates with safe field access
   const groupedSchedule = React.useMemo(() => {
     const grouped = new Map<string, ScheduleItem>();
     
     schedule.forEach(item => {
-      const baseKey = `${item.code}-${item.lecturer}-${item.timeSlot.day}-${item.timeSlot.startTime}`;
-      const key = item.group ? `${baseKey}-${item.group}` : baseKey;
+      // Ensure all fields have safe defaults
+      const safeItem = {
+        ...item,
+        lecturer: item.lecturer || 'TBD',
+        venue: item.venue || { name: "TBD", capacity: 0 },
+        group: item.group || '',
+        sharedDepartments: item.sharedDepartments || [item.department],
+        preferredDays: item.preferredDays || [],
+        preferredTimeSlot: item.preferredTimeSlot || ''
+      };
+      
+      const baseKey = `${safeItem.code}-${safeItem.lecturer}-${safeItem.timeSlot.day}-${safeItem.timeSlot.startTime}`;
+      const key = safeItem.group ? `${baseKey}-${safeItem.group}` : baseKey;
       
       if (!grouped.has(key)) {
         grouped.set(key, {
-          ...item,
+          ...safeItem,
           // For shared departments, show primary department but mark as shared
-          department: item.sharedDepartments && item.sharedDepartments.length > 1 
-            ? `${item.department} (+${item.sharedDepartments.length - 1} more)` as any
-            : item.department
+          department: safeItem.sharedDepartments && safeItem.sharedDepartments.length > 1 
+            ? `${safeItem.department} (+${safeItem.sharedDepartments.length - 1} more)` as any
+            : safeItem.department
         });
       }
     });
@@ -62,23 +72,32 @@ const Timetable = ({ schedule, favorites = new Set(), onToggleFavorite }: Timeta
   const getScheduledItemsForSlot = (day: string, startTime: string) => {
     return groupedSchedule.filter(
       (item) =>
-        item.timeSlot.day === day &&
-        item.timeSlot.startTime === startTime
+        item.timeSlot?.day === day &&
+        item.timeSlot?.startTime === startTime
     );
   };
 
   const getCourseLevel = (courseCode: string) => {
+    if (!courseCode) return "N/A";
     const match = courseCode.match(/\d/);
     return match ? `${match[0]}00L` : "N/A";
   };
 
   const formatCourseCode = (item: ScheduleItem) => {
-    return item.group ? `${item.code} (${item.group})` : item.code;
+    const code = item.code || 'Unknown';
+    const group = item.group || '';
+    return group ? `${code} (${group})` : code;
+  };
+
+  const getVenueName = (venue: any) => {
+    if (typeof venue === 'string') return venue || 'TBD';
+    if (venue && typeof venue === 'object') return venue.name || 'TBD';
+    return 'TBD';
   };
 
   // Get unique departments for legend
   const departments = Array.from(new Set(groupedSchedule.map(item => 
-    item.department.split(' (+')[0] // Remove the shared indicator for legend
+    (item.department || 'Unknown').split(' (+')[0] // Remove the shared indicator for legend
   )));
 
   return (
@@ -117,7 +136,7 @@ const Timetable = ({ schedule, favorites = new Set(), onToggleFavorite }: Timeta
                     <div className="space-y-1">
                       <div className="text-sm font-bold">{day.toUpperCase()}</div>
                       <div className="text-xs opacity-60">
-                        {groupedSchedule.filter(item => item.timeSlot.day === day).length} classes
+                        {groupedSchedule.filter(item => item.timeSlot?.day === day).length} classes
                       </div>
                     </div>
                   </th>
@@ -146,7 +165,7 @@ const Timetable = ({ schedule, favorites = new Set(), onToggleFavorite }: Timeta
                       >
                         <div className={`space-y-1 ${hasMultipleCourses ? 'grid gap-1' : ''}`}>
                           {scheduledItems.map((item, index) => {
-                            const colors = getDepartmentColor(item.department.split(' (+')[0]);
+                            const colors = getDepartmentColor((item.department || 'Unknown').split(' (+')[0]);
                             const isCompact = hasMultipleCourses;
                             
                             return (
@@ -174,7 +193,7 @@ const Timetable = ({ schedule, favorites = new Set(), onToggleFavorite }: Timeta
                                     {/* Course Name */}
                                     {!isCompact && (
                                       <div className="text-xs text-muted-foreground mb-2 line-clamp-2">
-                                        {item.name}
+                                        {item.name || 'Course Title TBD'}
                                       </div>
                                     )}
 
@@ -190,7 +209,7 @@ const Timetable = ({ schedule, favorites = new Set(), onToggleFavorite }: Timeta
                                     <div className="flex items-center gap-1 text-xs text-muted-foreground mb-1">
                                       <MapPin className="h-3 w-3 flex-shrink-0" />
                                       <span className="truncate font-medium">
-                                        {item.venue?.name || 'TBD'}
+                                        {getVenueName(item.venue)}
                                       </span>
                                     </div>
 
@@ -199,7 +218,7 @@ const Timetable = ({ schedule, favorites = new Set(), onToggleFavorite }: Timeta
                                       <div className="flex items-center gap-1 text-muted-foreground">
                                         <Clock className="h-3 w-3" />
                                         <span>
-                                          {item.timeSlot.startTime} - {item.timeSlot.endTime}
+                                          {item.timeSlot?.startTime || 'TBD'} - {item.timeSlot?.endTime || 'TBD'}
                                         </span>
                                       </div>
                                       
@@ -271,7 +290,7 @@ const Timetable = ({ schedule, favorites = new Set(), onToggleFavorite }: Timeta
         </div>
         <div className="bg-card rounded-lg p-3 text-center border">
           <div className="text-2xl font-bold text-primary">
-            {new Set(groupedSchedule.map(item => item.lecturer)).size}
+            {new Set(groupedSchedule.map(item => item.lecturer || 'TBD')).size}
           </div>
           <div className="text-xs text-muted-foreground">Instructors</div>
         </div>

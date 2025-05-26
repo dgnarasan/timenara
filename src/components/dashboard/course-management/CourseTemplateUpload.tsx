@@ -19,10 +19,10 @@ const CourseTemplateUpload = ({ courses, onCoursesExtracted }: CourseTemplateUpl
   const allDepartments = collegeStructure.flatMap(college => college.departments);
 
   const downloadTemplate = () => {
-    // Create template with new enhanced headers and sample data
+    // Create template with enhanced headers and sample data
     const template = [
       [
-        "Course Code*", "Course Name*", "Lecturer Name*", "Level*", 
+        "Course Code*", "Course Name*", "Lecturer Name", "Level*", 
         "Group", "SharedDepartments", "Venue", "Expected Class Size*",
         "Preferred Days", "Preferred Time Slot", "Department*"
       ],
@@ -120,20 +120,19 @@ const CourseTemplateUpload = ({ courses, onCoursesExtracted }: CourseTemplateUpl
 
       const headers = rows[0];
       const expectedHeaders = [
-        "Course Code*", "Course Name*", "Lecturer Name*", "Level*", 
+        "Course Code*", "Course Name*", "Lecturer Name", "Level*", 
         "Group", "SharedDepartments", "Venue", "Expected Class Size*",
         "Preferred Days", "Preferred Time Slot", "Department*"
       ];
       
-      // Flexible header matching
-      const headerMatches = expectedHeaders.every((expectedHeader, index) => {
-        const actualHeader = headers[index]?.toString().toLowerCase().trim();
-        const expectedLower = expectedHeader.toLowerCase().replace('*', '');
-        return actualHeader === expectedLower || actualHeader === expectedHeader.toLowerCase();
-      });
+      // Flexible header matching - only require essential fields
+      const hasRequiredFields = ['Course Code', 'Course Name', 'Level', 'Expected Class Size', 'Department']
+        .every(required => headers.some(header => 
+          header?.toString().toLowerCase().includes(required.toLowerCase())
+        ));
 
-      if (!headerMatches) {
-        throw new Error("Invalid template format. Please download and use the provided template with all required fields.");
+      if (!hasRequiredFields) {
+        throw new Error("Missing required fields. Please ensure Course Code, Course Name, Level, Expected Class Size, and Department are present.");
       }
 
       const newCourses = validateAndProcessCourses(rows);
@@ -146,14 +145,14 @@ const CourseTemplateUpload = ({ courses, onCoursesExtracted }: CourseTemplateUpl
       const duplicates = newCourses.filter(newCourse => 
         courses.some(existingCourse => 
           existingCourse.code.toLowerCase() === newCourse.code.toLowerCase() && 
-          existingCourse.lecturer.toLowerCase() === newCourse.lecturer.toLowerCase() &&
+          (existingCourse.lecturer || 'TBD').toLowerCase() === (newCourse.lecturer || 'TBD').toLowerCase() &&
           (existingCourse.group || '') === (newCourse.group || '')
         )
       );
 
       if (duplicates.length > 0) {
         const duplicateInfo = duplicates.map(d => 
-          `${d.code}${d.group ? ` (${d.group})` : ''} (${d.lecturer})`
+          `${d.code}${d.group ? ` (${d.group})` : ''} (${d.lecturer || 'TBD'})`
         ).join(", ");
         toast({
           title: "Duplicate Courses Found",
@@ -187,24 +186,20 @@ const CourseTemplateUpload = ({ courses, onCoursesExtracted }: CourseTemplateUpl
       .map((row, index) => {
         const rowNumber = index + 2; // +2 because we skipped header and arrays are 0-indexed
         
-        if (row.length < 11) {
-          validationErrors.push(`Row ${rowNumber}: Missing required fields`);
-          return null;
-        }
-
-        const code = row[0]?.toString().trim().toUpperCase();
-        const name = row[1]?.toString().trim();
-        const lecturer = row[2]?.toString().trim();
-        const level = row[3]?.toString().trim();
-        const group = row[4]?.toString().trim() || undefined;
-        const sharedDepartments = row[5]?.toString().trim() ? 
+        // Safely access row elements with fallback defaults
+        const code = (row[0] || '').toString().trim().toUpperCase();
+        const name = (row[1] || '').toString().trim();
+        const lecturer = (row[2] || '').toString().trim() || 'TBD';
+        const level = (row[3] || '').toString().trim();
+        const group = (row[4] || '').toString().trim() || undefined;
+        const sharedDepartments = (row[5] || '').toString().trim() ? 
           row[5].toString().split(',').map(d => d.trim()).filter(d => d) : undefined;
-        const venue = row[6]?.toString().trim() || undefined;
-        const classSize = parseInt(row[7]?.toString()) || 0;
-        const preferredDays = row[8]?.toString().trim() ? 
+        const venue = (row[6] || '').toString().trim() || undefined;
+        const classSize = parseInt((row[7] || '0').toString()) || 0;
+        const preferredDays = (row[8] || '').toString().trim() ? 
           row[8].toString().split(',').map(d => d.trim()).filter(d => d) : undefined;
-        const preferredTimeSlot = row[9]?.toString().trim() || undefined;
-        const departmentInput = row[10]?.toString().trim();
+        const preferredTimeSlot = (row[9] || '').toString().trim() || undefined;
+        const departmentInput = (row[10] || '').toString().trim();
 
         // Validate course code
         if (!code || !/^[A-Z]{2,4}\d{3,4}$/.test(code)) {
@@ -215,12 +210,6 @@ const CourseTemplateUpload = ({ courses, onCoursesExtracted }: CourseTemplateUpl
         // Validate course name
         if (!name || name.length < 3) {
           validationErrors.push(`Row ${rowNumber}: Course name must be at least 3 characters long`);
-          return null;
-        }
-
-        // Validate lecturer
-        if (!lecturer || lecturer.length < 2) {
-          validationErrors.push(`Row ${rowNumber}: Lecturer name must be at least 2 characters long`);
           return null;
         }
 
@@ -284,7 +273,7 @@ const CourseTemplateUpload = ({ courses, onCoursesExtracted }: CourseTemplateUpl
         <div className="space-y-1">
           <h4 className="text-sm font-medium">Enhanced Course Template</h4>
           <p className="text-xs text-muted-foreground">
-            Download the enhanced template with new fields for groups, shared departments, and Caleb venue codes.
+            Download the enhanced template with new fields for groups, shared departments, and Caleb venue codes. Optional fields can be left empty.
           </p>
         </div>
         <div className="flex gap-2">
@@ -314,7 +303,7 @@ const CourseTemplateUpload = ({ courses, onCoursesExtracted }: CourseTemplateUpl
               <FileSpreadsheet className="h-8 w-8 text-muted-foreground" />
               <span className="text-sm font-medium">Choose Enhanced Template File</span>
               <span className="text-xs text-muted-foreground">
-                XLSX format with new fields
+                XLSX format with optional new fields
               </span>
               <input
                 type="file"
@@ -325,7 +314,7 @@ const CourseTemplateUpload = ({ courses, onCoursesExtracted }: CourseTemplateUpl
             </label>
           </div>
           <div className="mt-3 text-xs text-muted-foreground text-center">
-            <p>Enhanced template supports groups, shared departments, and Caleb venue codes</p>
+            <p>Enhanced template supports optional groups, shared departments, and Caleb venue codes</p>
           </div>
         </div>
       )}
