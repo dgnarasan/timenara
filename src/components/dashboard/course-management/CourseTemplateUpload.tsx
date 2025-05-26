@@ -8,7 +8,7 @@ import * as XLSX from "xlsx";
 
 interface CourseTemplateUploadProps {
   courses: Course[];
-  onCoursesExtracted: (courses: Omit<Course, "id">[]) => void;
+  onCoursesExtracted: (courses: Omit<Course, "id">[]) => Promise<boolean>;
 }
 
 const CourseTemplateUpload = ({ courses, onCoursesExtracted }: CourseTemplateUploadProps) => {
@@ -162,12 +162,13 @@ const CourseTemplateUpload = ({ courses, onCoursesExtracted }: CourseTemplateUpl
         return;
       }
 
-      await onCoursesExtracted(newCourses);
-      setShowTemplateUpload(false);
-      toast({
-        title: "Success",
-        description: `${newCourses.length} courses added successfully with enhanced fields`,
-      });
+      // Call the extraction handler and wait for result
+      const success = await onCoursesExtracted(newCourses);
+      
+      if (success) {
+        setShowTemplateUpload(false);
+        // Don't show success toast here - let the parent component handle it
+      }
     } catch (error) {
       console.error("Template processing error:", error);
       toast({

@@ -36,16 +36,18 @@ export const useCourses = () => {
         title: "Course Added",
         description: "Successfully added new course",
       });
+      return true;
     } catch (error) {
       toast({
         title: "Error Adding Course",
         description: error instanceof Error ? error.message : "Failed to add course",
         variant: "destructive",
       });
+      return false;
     }
   };
 
-  const handleAddCourses = async (extractedCourses: Omit<Course, "id">[]) => {
+  const handleAddCourses = async (extractedCourses: Omit<Course, "id">[]): Promise<boolean> => {
     try {
       const newCourses = await addCourses(extractedCourses);
       setCourses((prev) => [...prev, ...newCourses]);
@@ -55,6 +57,7 @@ export const useCourses = () => {
       });
       return true;
     } catch (error) {
+      console.error("Error adding courses:", error);
       toast({
         title: "Error Adding Courses",
         description: error instanceof Error ? error.message : "Failed to add courses",
