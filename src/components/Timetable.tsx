@@ -1,4 +1,3 @@
-
 import React from "react";
 import { ScheduleItem } from "@/lib/types";
 import { Card } from "@/components/ui/card";
@@ -20,11 +19,11 @@ const Timetable = ({ schedule, favorites = new Set(), onToggleFavorite }: Timeta
     const grouped = new Map<string, ScheduleItem>();
     
     schedule.forEach(item => {
-      // Ensure all fields have safe defaults
-      const safeItem = {
+      // Ensure all fields have safe defaults and proper venue handling
+      const safeItem: ScheduleItem = {
         ...item,
         lecturer: item.lecturer || 'TBD',
-        venue: item.venue || { name: "TBD", capacity: 0 },
+        venue: typeof item.venue === 'string' ? item.venue : (item.venue?.name || 'TBD'),
         group: item.group || '',
         sharedDepartments: item.sharedDepartments || [item.department],
         preferredDays: item.preferredDays || [],

@@ -32,6 +32,11 @@ const StudentTimetableView = ({ schedule, viewMode = "timetable" }: StudentTimet
     department: "",
   });
 
+  const getVenueName = (venue: ScheduleItem['venue']) => {
+    if (typeof venue === 'string') return venue;
+    return venue?.name || 'TBD';
+  };
+
   useEffect(() => {
     const savedFavorites = localStorage.getItem('favoriteCourses');
     if (savedFavorites) {
@@ -145,7 +150,7 @@ const StudentTimetableView = ({ schedule, viewMode = "timetable" }: StudentTimet
       "Department": item.department,
       "Day": item.timeSlot.day,
       "Time": `${item.timeSlot.startTime} - ${item.timeSlot.endTime}`,
-      "Venue": item.venue.name,
+      "Venue": getVenueName(item.venue),
     }));
 
     const ws = XLSX.utils.json_to_sheet(data);
@@ -169,7 +174,7 @@ const StudentTimetableView = ({ schedule, viewMode = "timetable" }: StudentTimet
       item.department,
       item.timeSlot.day,
       `${item.timeSlot.startTime} - ${item.timeSlot.endTime}`,
-      item.venue.name,
+      getVenueName(item.venue),
     ]);
 
     doc.autoTable({
@@ -217,7 +222,7 @@ const StudentTimetableView = ({ schedule, viewMode = "timetable" }: StudentTimet
     constraints: item.constraints,
     group: item.group,
     sharedDepartments: item.sharedDepartments,
-    venue: typeof item.venue === 'string' ? item.venue : item.venue?.name,
+    venue: getVenueName(item.venue),
     preferredDays: item.preferredDays,
     preferredTimeSlot: item.preferredTimeSlot,
   }));
@@ -295,3 +300,4 @@ const StudentTimetableView = ({ schedule, viewMode = "timetable" }: StudentTimet
 };
 
 export default StudentTimetableView;
+

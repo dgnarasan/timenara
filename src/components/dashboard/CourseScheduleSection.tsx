@@ -16,6 +16,11 @@ interface CourseScheduleSectionProps {
 const CourseScheduleSection = ({ schedule }: CourseScheduleSectionProps) => {
   const [isExpanded, setIsExpanded] = useState(false);
 
+  const getVenueName = (venue: ScheduleItem['venue']) => {
+    if (typeof venue === 'string') return venue;
+    return venue?.name || 'TBD';
+  };
+
   const exportToCSV = () => {
     const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
     const timeSlots = Array.from({ length: 9 }, (_, i) => `${i + 9}:00`);
@@ -29,7 +34,7 @@ const CourseScheduleSection = ({ schedule }: CourseScheduleSectionProps) => {
           item => item.timeSlot.day === day && item.timeSlot.startTime === time
         );
         row.push(items.map(item => 
-          `${item.code}\n${item.name}\n${item.lecturer}\n${item.venue.name}`
+          `${item.code}\n${item.name}\n${item.lecturer}\n${getVenueName(item.venue)}`
         ).join(" | ") || "");
       });
       data.push(row);
@@ -56,7 +61,7 @@ const CourseScheduleSection = ({ schedule }: CourseScheduleSectionProps) => {
       "Course Code": item.code,
       "Course Name": item.name,
       Lecturer: item.lecturer,
-      Venue: item.venue.name,
+      Venue: getVenueName(item.venue),
       "Class Size": item.classSize,
     }));
 
@@ -82,7 +87,7 @@ const CourseScheduleSection = ({ schedule }: CourseScheduleSectionProps) => {
           item => item.timeSlot.day === day && item.timeSlot.startTime === time
         );
         row.push(items.map(item => 
-          `${item.code}\n${item.name}\n${item.venue.name}`
+          `${item.code}\n${item.name}\n${getVenueName(item.venue)}`
         ).join("\n\n") || "");
       });
       return row;
@@ -177,3 +182,4 @@ const CourseScheduleSection = ({ schedule }: CourseScheduleSectionProps) => {
 };
 
 export default CourseScheduleSection;
+
