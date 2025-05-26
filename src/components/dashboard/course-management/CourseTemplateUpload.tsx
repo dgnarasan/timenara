@@ -104,11 +104,15 @@ const CourseTemplateUpload = ({ courses, onCoursesExtracted }: CourseTemplateUpl
       const worksheet = workbook.Sheets[workbook.SheetNames[0]];
       const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as string[][];
 
+      console.log("Raw rows from Excel:", rows);
+
       if (rows.length === 0) {
         throw new Error("The uploaded file appears to be empty.");
       }
 
       const headers = rows[0];
+      console.log("Headers found:", headers);
+      
       const hasRequiredFields = ['Course Code', 'Course Name', 'Level', 'Expected Class Size', 'Department']
         .every(required => headers.some(header => 
           header?.toString().toLowerCase().includes(required.toLowerCase())
@@ -124,7 +128,7 @@ const CourseTemplateUpload = ({ courses, onCoursesExtracted }: CourseTemplateUpl
         throw new Error("No valid courses found in the template. Please check your data and try again.");
       }
       
-      console.log("Processing courses:", newCourses);
+      console.log("Successfully processed courses:", newCourses);
       console.log("Existing courses:", courses);
       
       // Check for duplicates considering group field
@@ -182,7 +186,9 @@ const CourseTemplateUpload = ({ courses, onCoursesExtracted }: CourseTemplateUpl
       .map((row, index) => {
         const rowNumber = index + 2; // +2 because we skipped header and arrays are 0-indexed
         
-        // Safely access row elements with fallback defaults
+        console.log(`Processing row ${rowNumber}:`, row);
+        
+        // Safely access row elements with fallback defaults - handle both string and number values
         const code = (row[0] || '').toString().trim().toUpperCase();
         const name = (row[1] || '').toString().trim();
         const lecturer = (row[2] || '').toString().trim() || 'TBD';
@@ -197,36 +203,45 @@ const CourseTemplateUpload = ({ courses, onCoursesExtracted }: CourseTemplateUpl
         const preferredTimeSlot = (row[9] || '').toString().trim() || undefined;
         const departmentInput = (row[10] || '').toString().trim();
 
-        // Validate course code
+        console.log(`Row ${rowNumber} parsed values:`, {
+          code, name, lecturer, level, group, classSize, departmentInput
+        });
+
+        // Validate course code - allow more flexible format
         if (!code || !/^[A-Z]{2,4}\d{3,4}$/.test(code)) {
-          validationErrors.push(`Row ${rowNumber}: Invalid course code format. Expected format: 2-4 letters followed by 3-4 digits (e.g., GST101, CSC202)`);
+          validationErrors.push(`Row ${rowNumber}: Invalid course code format "${code}". Expected format: 2-4 letters followed by 3-4 digits (e.g., GST101, CSC202)`);
           return null;
         }
 
         // Validate course name
         if (!name || name.length < 3) {
-          validationErrors.push(`Row ${rowNumber}: Course name must be at least 3 characters long`);
+          validationErrors.push(`Row ${rowNumber}: Course name "${name}" must be at least 3 characters long`);
           return null;
         }
 
-        // Validate level
-        if (!level || !['100L', '200L', '300L', '400L'].includes(level.toUpperCase())) {
-          validationErrors.push(`Row ${rowNumber}: Level must be one of: 100L, 200L, 300L, 400L`);
+        // Validate level - be more flexible with level format
+        const normalizedLevel = level.toUpperCase();
+        if (!normalizedLevel || !['100L', '200L', '300L', '400L', '100', '200', '300', '400'].includes(normalizedLevel)) {
+          validationErrors.push(`Row ${rowNumber}: Level "${level}" must be one of: 100L, 200L, 300L, 400L`);
           return null;
         }
+
+        // Ensure level has L suffix
+        const finalLevel = normalizedLevel.endsWith('L') ? normalizedLevel : normalizedLevel + 'L';
 
         // Validate class size
         if (classSize <= 0 || classSize > 1000) {
-          validationErrors.push(`Row ${rowNumber}: Class size must be between 1 and 1000`);
+          validationErrors.push(`Row ${rowNumber}: Class size "${classSize}" must be between 1 and 1000`);
           return null;
         }
 
-        // Flexible department validation
+        // More flexible department validation
         let matchedDepartment = allDepartments.find(dept => 
           dept.toLowerCase() === departmentInput.toLowerCase()
         );
 
         if (!matchedDepartment) {
+          // Try partial matching
           matchedDepartment = allDepartments.find(dept => {
             const deptLower = dept.toLowerCase();
             const inputLower = departmentInput.toLowerCase();
@@ -235,7 +250,7 @@ const CourseTemplateUpload = ({ courses, onCoursesExtracted }: CourseTemplateUpl
         }
 
         if (!matchedDepartment) {
-          validationErrors.push(`Row ${rowNumber}: Invalid department "${departmentInput}". Please check the "Valid Departments" sheet.`);
+          validationErrors.push(`Row ${rowNumber}: Invalid department "${departmentInput}". Available departments: ${allDepartments.slice(0, 5).join(', ')}...`);
           return null;
         }
 
@@ -245,7 +260,7 @@ const CourseTemplateUpload = ({ courses, onCoursesExtracted }: CourseTemplateUpl
           lecturer, 
           classSize, 
           department: matchedDepartment as Course["department"],
-          academicLevel: level.toUpperCase(),
+          academicLevel: finalLevel,
           group,
           sharedDepartments,
           venue,
@@ -253,10 +268,12 @@ const CourseTemplateUpload = ({ courses, onCoursesExtracted }: CourseTemplateUpl
           preferredTimeSlot
         };
 
+        console.log(`Row ${rowNumber} successfully processed:`, course);
         return course;
       }).filter((course): course is Omit<Course, "id"> => course !== null);
 
     if (validationErrors.length > 0) {
+      console.error("Validation errors:", validationErrors);
       throw new Error("Validation errors found:\n" + validationErrors.join("\n"));
     }
 
