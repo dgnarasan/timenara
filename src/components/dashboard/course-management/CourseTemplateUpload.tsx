@@ -1,4 +1,3 @@
-
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { Course, collegeStructure, CALEB_VENUES } from "@/lib/types";
@@ -79,17 +78,8 @@ const CourseTemplateUpload = ({ courses, onCoursesExtracted }: CourseTemplateUpl
     
     // Set column widths for better readability
     ws["!cols"] = [
-      { width: 15 }, // Course Code
-      { width: 40 }, // Course Name
-      { width: 25 }, // Lecturer Name
-      { width: 10 }, // Level
-      { width: 8 },  // Group
-      { width: 30 }, // SharedDepartments
-      { width: 15 }, // Venue
-      { width: 15 }, // Expected Class Size
-      { width: 20 }, // Preferred Days
-      { width: 20 }, // Preferred Time Slot
-      { width: 30 }  // Department
+      { width: 15 }, { width: 40 }, { width: 25 }, { width: 10 }, { width: 8 },
+      { width: 30 }, { width: 15 }, { width: 15 }, { width: 20 }, { width: 20 }, { width: 30 }
     ];
     
     deptWs["!cols"] = [{ width: 40 }];
@@ -119,13 +109,6 @@ const CourseTemplateUpload = ({ courses, onCoursesExtracted }: CourseTemplateUpl
       }
 
       const headers = rows[0];
-      const expectedHeaders = [
-        "Course Code*", "Course Name*", "Lecturer Name", "Level*", 
-        "Group", "SharedDepartments", "Venue", "Expected Class Size*",
-        "Preferred Days", "Preferred Time Slot", "Department*"
-      ];
-      
-      // Flexible header matching - only require essential fields
       const hasRequiredFields = ['Course Code', 'Course Name', 'Level', 'Expected Class Size', 'Department']
         .every(required => headers.some(header => 
           header?.toString().toLowerCase().includes(required.toLowerCase())
@@ -140,6 +123,9 @@ const CourseTemplateUpload = ({ courses, onCoursesExtracted }: CourseTemplateUpl
       if (newCourses.length === 0) {
         throw new Error("No valid courses found in the template. Please check your data and try again.");
       }
+      
+      console.log("Processing courses:", newCourses);
+      console.log("Existing courses:", courses);
       
       // Check for duplicates considering group field
       const duplicates = newCourses.filter(newCourse => 
@@ -159,16 +145,23 @@ const CourseTemplateUpload = ({ courses, onCoursesExtracted }: CourseTemplateUpl
           description: `The following courses already exist: ${duplicateInfo}`,
           variant: "destructive",
         });
+        event.target.value = "";
         return;
       }
+
+      console.log("No duplicates found, proceeding with course addition");
 
       // Call the extraction handler and wait for result
       const success = await onCoursesExtracted(newCourses);
       
+      console.log("Course addition result:", success);
+      
       if (success) {
         setShowTemplateUpload(false);
-        // Don't show success toast here - let the parent component handle it
+        // Success toast is handled by the parent component (useCourses hook)
       }
+      // Error toast is also handled by the parent component if success is false
+      
     } catch (error) {
       console.error("Template processing error:", error);
       toast({
@@ -177,6 +170,8 @@ const CourseTemplateUpload = ({ courses, onCoursesExtracted }: CourseTemplateUpl
         variant: "destructive",
       });
     }
+    
+    // Clear the input regardless of success or failure
     event.target.value = "";
   };
 
