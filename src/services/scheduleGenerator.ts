@@ -6,44 +6,64 @@ export type ScheduleConflict = {
   course: Course;
   reason: string;
   suggestion?: string;
+  conflictType?: 'lecturer' | 'venue' | 'resource' | 'cross-departmental';
 };
 
 export const generateSchedule = async (
   courses: Course[]
 ): Promise<{ schedule: ScheduleItem[]; conflicts: ScheduleConflict[] }> => {
   try {
-    console.log('Generating schedule for courses:', courses);
+    console.log('Generating college-wide schedule for courses:', courses);
+
+    // Group courses by department for better conflict analysis
+    const departmentGroups = courses.reduce((groups, course) => {
+      if (!groups[course.department]) {
+        groups[course.department] = [];
+      }
+      groups[course.department].push(course);
+      return groups;
+    }, {} as Record<string, Course[]>);
+
+    console.log('Department groups:', Object.keys(departmentGroups));
 
     const { data, error } = await supabase.functions.invoke('generate-schedule', {
-      body: { courses }
+      body: { 
+        courses,
+        includeConflictAnalysis: true,
+        departmentGroups: Object.keys(departmentGroups)
+      }
     });
 
     if (error) {
       console.error('Supabase function error:', error);
-      throw new Error(`Failed to generate schedule: ${error.message}`);
+      throw new Error(`Failed to generate college schedule: ${error.message}`);
     }
 
-    // If we don't have data at all, throw an error
     if (!data) {
       throw new Error('No response received from schedule generator');
     }
 
-    // If we have data but generation failed
     if (!data.success) {
-      console.log('Schedule generation failed with conflicts:', data.conflicts);
+      console.log('College schedule generation failed with conflicts:', data.conflicts);
+      
+      // Enhanced conflict reporting for college-wide scheduling
+      const enhancedConflicts = (data.conflicts || []).map((conflict: any) => ({
+        course: courses.find(c => c.id === conflict.courseId) || courses[0] || {
+          id: '',
+          code: '',
+          name: '',
+          lecturer: '',
+          classSize: 0,
+          department: 'Computer Science',
+        },
+        reason: conflict.reason || 'Unknown college-wide scheduling conflict',
+        conflictType: conflict.type || 'cross-departmental',
+        suggestion: conflict.suggestion
+      }));
+
       return {
         schedule: [],
-        conflicts: (data.conflicts || []).map((conflict: any) => ({
-          course: courses[0] || {
-            id: '',
-            code: '',
-            name: '',
-            lecturer: '',
-            classSize: 0,
-            department: 'Computer Science',
-          },
-          reason: conflict.reason || 'Unknown conflict'
-        }))
+        conflicts: enhancedConflicts
       };
     }
 
@@ -51,20 +71,22 @@ export const generateSchedule = async (
       throw new Error('Invalid schedule format received');
     }
 
-    // Add a default venue for display purposes
+    // Add venue information and validate cross-departmental scheduling
     const scheduleWithVenues = data.schedule.map((item: any) => ({
       ...item,
-      venue: { name: "TBD", capacity: 0 }
+      venue: item.venue || { name: "TBD", capacity: 0 }
     }));
 
-    console.log('Generated schedule:', scheduleWithVenues);
+    console.log('Generated college-wide schedule:', scheduleWithVenues);
+    console.log(`Successfully scheduled ${scheduleWithVenues.length} courses across ${Object.keys(departmentGroups).length} departments`);
+    
     return {
       schedule: scheduleWithVenues,
       conflicts: data.conflicts || []
     };
 
   } catch (error) {
-    console.error('Error in generateSchedule:', error);
+    console.error('Error in college-wide schedule generation:', error);
     return {
       schedule: [],
       conflicts: [{
@@ -76,7 +98,8 @@ export const generateSchedule = async (
           classSize: 0,
           department: 'Computer Science',
         },
-        reason: error instanceof Error ? error.message : 'Failed to generate schedule'
+        reason: error instanceof Error ? error.message : 'Failed to generate college-wide schedule',
+        conflictType: 'cross-departmental'
       }]
     };
   }
