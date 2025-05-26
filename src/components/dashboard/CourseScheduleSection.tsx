@@ -1,4 +1,3 @@
-
 import { FileText, Calendar, Minimize2, Maximize2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Timetable from "@/components/Timetable";
@@ -16,9 +15,10 @@ interface CourseScheduleSectionProps {
 const CourseScheduleSection = ({ schedule }: CourseScheduleSectionProps) => {
   const [isExpanded, setIsExpanded] = useState(false);
 
-  const getVenueName = (venue: ScheduleItem['venue']) => {
-    if (typeof venue === 'string') return venue;
-    return venue?.name || 'TBD';
+  const getVenueName = (venue: ScheduleItem['venue']): string => {
+    if (typeof venue === 'string') return venue || 'TBD';
+    if (venue && typeof venue === 'object') return venue.name || 'TBD';
+    return 'TBD';
   };
 
   const exportToCSV = () => {
@@ -182,4 +182,3 @@ const CourseScheduleSection = ({ schedule }: CourseScheduleSectionProps) => {
 };
 
 export default CourseScheduleSection;
-

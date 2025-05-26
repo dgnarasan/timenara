@@ -153,4 +153,3 @@ export const generateAlternativeSchedule = (
 
   return newSchedule;
 };
-

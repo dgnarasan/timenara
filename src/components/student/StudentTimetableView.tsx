@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Course, ScheduleItem, collegeStructure } from "@/lib/types";
 import CourseFilterBar, { FilterOptions } from "./CourseFilterBar";
@@ -32,9 +31,10 @@ const StudentTimetableView = ({ schedule, viewMode = "timetable" }: StudentTimet
     department: "",
   });
 
-  const getVenueName = (venue: ScheduleItem['venue']) => {
-    if (typeof venue === 'string') return venue;
-    return venue?.name || 'TBD';
+  const getVenueName = (venue: ScheduleItem['venue']): string => {
+    if (typeof venue === 'string') return venue || 'TBD';
+    if (venue && typeof venue === 'object') return venue.name || 'TBD';
+    return 'TBD';
   };
 
   useEffect(() => {
@@ -300,4 +300,3 @@ const StudentTimetableView = ({ schedule, viewMode = "timetable" }: StudentTimet
 };
 
 export default StudentTimetableView;
-

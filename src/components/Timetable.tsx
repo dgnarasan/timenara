@@ -14,6 +14,12 @@ const Timetable = ({ schedule, favorites = new Set(), onToggleFavorite }: Timeta
   const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
   const timeSlots = Array.from({ length: 8 }, (_, i) => `${i + 8}:00`);
 
+  const getVenueName = (venue: ScheduleItem['venue']): string => {
+    if (typeof venue === 'string') return venue || 'TBD';
+    if (venue && typeof venue === 'object') return venue.name || 'TBD';
+    return 'TBD';
+  };
+
   // Group shared courses to avoid duplicates with safe field access
   const groupedSchedule = React.useMemo(() => {
     const grouped = new Map<string, ScheduleItem>();
@@ -23,7 +29,7 @@ const Timetable = ({ schedule, favorites = new Set(), onToggleFavorite }: Timeta
       const safeItem: ScheduleItem = {
         ...item,
         lecturer: item.lecturer || 'TBD',
-        venue: typeof item.venue === 'string' ? item.venue : (item.venue?.name || 'TBD'),
+        venue: item.venue, // Keep the original venue as-is since it's already typed correctly
         group: item.group || '',
         sharedDepartments: item.sharedDepartments || [item.department],
         preferredDays: item.preferredDays || [],
@@ -86,12 +92,6 @@ const Timetable = ({ schedule, favorites = new Set(), onToggleFavorite }: Timeta
     const code = item.code || 'Unknown';
     const group = item.group || '';
     return group ? `${code} (${group})` : code;
-  };
-
-  const getVenueName = (venue: any) => {
-    if (typeof venue === 'string') return venue || 'TBD';
-    if (venue && typeof venue === 'object') return venue.name || 'TBD';
-    return 'TBD';
   };
 
   // Get unique departments for legend

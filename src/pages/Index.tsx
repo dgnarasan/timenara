@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Course, ScheduleItem, Venue, TimeSlot } from "@/lib/types";
 import CourseCard from "@/components/CourseCard";
