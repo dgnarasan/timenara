@@ -1,4 +1,3 @@
-
 import { Course, Department, ScheduleItem, collegeStructure, College } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import {
@@ -21,6 +20,7 @@ import {
 } from "@/components/ui/select";
 import { useState } from "react";
 import { generateSchedule } from "@/services/scheduleGenerator";
+import { saveSchedule } from "@/lib/db";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
 
@@ -94,7 +94,7 @@ const GenerateScheduleDialog = ({ courses, onScheduleGenerated }: GenerateSchedu
       });
       
       clearInterval(progressInterval);
-      setProgress(100);
+      setProgress(90);
 
       if (conflicts.length > 0) {
         console.log("Schedule conflicts found:", conflicts);
@@ -108,6 +108,11 @@ const GenerateScheduleDialog = ({ courses, onScheduleGenerated }: GenerateSchedu
       }
 
       if (newSchedule.length > 0) {
+        console.log("Saving generated schedule to database...");
+        // Save the schedule to the database (unpublished by default)
+        await saveSchedule(newSchedule, false);
+        
+        setProgress(100);
         console.log("Generated schedule successfully, updating UI...");
         onScheduleGenerated(newSchedule);
         setIsOpen(false);
@@ -120,7 +125,7 @@ const GenerateScheduleDialog = ({ courses, onScheduleGenerated }: GenerateSchedu
 
         toast({
           title: "Schedule Generated",
-          description: `Successfully scheduled ${newSchedule.length} courses ${scopeDescription}${conflicts.length > 0 ? ' with some conflicts' : ''}`,
+          description: `Successfully scheduled ${newSchedule.length} courses ${scopeDescription}${conflicts.length > 0 ? ' with some conflicts' : ''}. Use the Publish button to make it visible to students.`,
         });
       } else {
         console.log("No schedule generated, showing error");

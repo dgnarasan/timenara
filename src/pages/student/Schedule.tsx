@@ -14,7 +14,7 @@ import {
   Home, 
   Calendar, 
   List,
-  Grid 
+  Grid3x3 
 } from "lucide-react";
 
 const Schedule = () => {
@@ -31,6 +31,14 @@ const Schedule = () => {
       setIsLoading(true);
       const scheduleData = await fetchSchedule();
       setSchedule(scheduleData);
+      
+      if (scheduleData.length === 0) {
+        toast({
+          title: "No Published Schedule",
+          description: "No schedule has been published yet. Please check back later.",
+          variant: "default",
+        });
+      }
     } catch (error) {
       console.error('Failed to fetch schedule:', error);
       toast({
@@ -66,7 +74,7 @@ const Schedule = () => {
                 className="gap-2"
                 onClick={() => setViewMode("timetable")}
               >
-                <Grid className="h-4 w-4" />
+                <Grid3x3 className="h-4 w-4" />
                 Grid
               </Button>
               <Button 

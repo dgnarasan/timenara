@@ -2,7 +2,7 @@ import React from "react";
 import { ScheduleItem } from "@/lib/types";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Star, Users, MapPin, Clock, ChevronDown, ChevronUp, LayoutGrid, List } from "lucide-react";
+import { Star, Users, MapPin, Clock, ChevronDown, ChevronUp, Grid3x3, List } from "lucide-react";
 import { useState } from "react";
 import {
   Table,
@@ -87,7 +87,7 @@ const Timetable = ({ schedule, favorites = new Set(), onToggleFavorite }: Timeta
             onClick={() => setViewType("grid")}
             className="gap-2"
           >
-            <LayoutGrid className="h-4 w-4" />
+            <Grid3x3 className="h-4 w-4" />
             Grid View
           </Button>
           <Button
@@ -282,6 +282,36 @@ const Timetable = ({ schedule, favorites = new Set(), onToggleFavorite }: Timeta
 
   const renderTableView = () => (
     <div className="space-y-4">
+      {/* View Toggle Header for Table View */}
+      <div className="flex items-center justify-between bg-gradient-to-r from-primary/5 to-primary/10 p-4 rounded-lg border">
+        <div>
+          <h3 className="text-xl font-bold text-primary">Schedule List</h3>
+          <p className="text-sm text-muted-foreground">
+            Showing <span className="font-semibold text-primary">{schedule.length}</span> courses
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <Button
+            variant={viewType === "grid" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setViewType("grid")}
+            className="gap-2"
+          >
+            <Grid3x3 className="h-4 w-4" />
+            Grid View
+          </Button>
+          <Button
+            variant={viewType === "table" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setViewType("table")}
+            className="gap-2"
+          >
+            <List className="h-4 w-4" />
+            List View
+          </Button>
+        </div>
+      </div>
+
       <div className="border rounded-lg shadow-sm bg-white overflow-hidden">
         <div className="overflow-x-auto">
           <Table>

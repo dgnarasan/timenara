@@ -108,6 +108,60 @@ export const fetchSchedule = async (): Promise<ScheduleItem[]> => {
       day,
       start_time,
       end_time,
+      published,
+      created_at,
+      courses!inner (
+        id,
+        code,
+        name,
+        lecturer,
+        class_size,
+        department,
+        academic_level
+      ),
+      venues!inner (
+        id,
+        name,
+        capacity
+      )
+    `)
+    .eq('published', true)
+    .order('day', { ascending: true })
+    .order('start_time', { ascending: true });
+
+  if (error) throw error;
+
+  return (scheduleData || []).map((item: any) => ({
+    id: item.courses.id,
+    code: item.courses.code,
+    name: item.courses.name,
+    lecturer: item.courses.lecturer,
+    classSize: item.courses.class_size,
+    department: item.courses.department,
+    academicLevel: item.courses.academic_level,
+    timeSlot: {
+      day: item.day as TimeSlot["day"],
+      startTime: item.start_time,
+      endTime: item.end_time,
+    },
+    venue: {
+      id: item.venues.id,
+      name: item.venues.name,
+      capacity: item.venues.capacity,
+      availability: [],
+    },
+  }));
+};
+
+export const fetchAdminSchedule = async (): Promise<ScheduleItem[]> => {
+  const { data: scheduleData, error } = await supabase
+    .from('schedules')
+    .select(`
+      id,
+      day,
+      start_time,
+      end_time,
+      published,
       created_at,
       courses!inner (
         id,
@@ -151,7 +205,7 @@ export const fetchSchedule = async (): Promise<ScheduleItem[]> => {
   }));
 };
 
-export const saveSchedule = async (schedule: ScheduleItem[]): Promise<void> => {
+export const saveSchedule = async (schedule: ScheduleItem[], shouldPublish: boolean = false): Promise<void> => {
   // Prepare schedule data for the database function
   const scheduleData = schedule.map(item => ({
     course_id: item.id,
@@ -162,7 +216,16 @@ export const saveSchedule = async (schedule: ScheduleItem[]): Promise<void> => {
   }));
 
   const { error } = await supabase.rpc('clear_and_insert_schedule', {
-    schedule_data: scheduleData
+    schedule_data: scheduleData,
+    should_publish: shouldPublish
+  });
+
+  if (error) throw error;
+};
+
+export const publishSchedule = async (shouldPublish: boolean): Promise<void> => {
+  const { error } = await supabase.rpc('publish_schedule', {
+    should_publish: shouldPublish
   });
 
   if (error) throw error;
