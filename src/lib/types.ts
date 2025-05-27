@@ -5,32 +5,60 @@ export interface Course {
   name: string;
   lecturer: string;
   classSize: number;
-  department: string;
+  department: Department;
   academicLevel?: string;
   preferredSlots?: TimeSlot[];
   constraints?: string[];
 }
 
-export interface DBCourse {
-  id: string;
-  code: string;
-  name: string;
-  lecturer: string;
-  class_size: number;
-  department: string;
-  academic_level?: string;
-  preferred_slots?: TimeSlot[] | string;
-  constraints?: string[];
-}
+export type College = 
+  | 'COLLEGE OF ENVIRONMENTAL SCIENCES & MANAGEMENT (COLENSMA)'
+  | 'COLLEGE OF ARTS, SOCIAL AND MANAGEMENT SCIENCES (CASMAS)'
+  | 'COLLEGE OF PURE AND APPLIED SCIENCES (COPAS)'
+  | 'COLLEGE OF NURSING AND BASIC MEDICAL SCIENCES'
+  | 'COLLEGE OF EDUCATION (COLED)';
+
+export type Department = 
+  // COLENSMA
+  | 'Architecture'
+  | 'Estate Management'
+  // CASMAS
+  | 'Accounting'
+  | 'Banking and Finance'
+  | 'Business Administration'
+  | 'Criminology and Security Studies'
+  | 'Economics'
+  | 'International Relations'
+  | 'Mass Communication'
+  | 'Peace Studies and Conflict Resolution'
+  | 'Political Science'
+  | 'Public Administration'
+  | 'Psychology'
+  | 'Taxation'
+  // COPAS
+  | 'Biochemistry'
+  | 'Computer Science'
+  | 'Cyber Security'
+  | 'Environmental Management and Toxicology'
+  | 'Industrial Chemistry'
+  | 'Information Systems'
+  | 'Microbiology and Industrial Biotechnology'
+  | 'Software Engineering'
+  // COLLEGE OF NURSING AND BASIC MEDICAL SCIENCES
+  | 'Maternal and Child Health Nursing'
+  | 'Community and Public Health Nursing'
+  | 'Adult Health/Medical and Surgical Nursing'
+  | 'Mental Health and Psychiatric Nursing'
+  | 'Nursing Management and Education'
+  | 'Human Physiology'
+  | 'Human Anatomy'
+  // COLED
+  | 'Education/Christian Religious Studies'
+  | 'Guidance & Counselling'
+  | 'Early Childhood Education'
+  | 'Educational Management';
 
 export interface Venue {
-  id: string;
-  name: string;
-  capacity: number;
-  availability: TimeSlot[];
-}
-
-export interface DBVenue {
   id: string;
   name: string;
   capacity: number;
@@ -44,48 +72,85 @@ export interface TimeSlot {
 }
 
 export interface ScheduleItem extends Course {
-  timeSlot: TimeSlot;
   venue: Venue;
-  published?: boolean;
+  timeSlot: TimeSlot;
 }
 
-export type Department = 
-  | "Computer Science"
-  | "Software Engineering" 
-  | "Information Systems"
-  | "Cyber Security"
-  | "Biochemistry"
-  | "Microbiology and Industrial Biotechnology"
-  | "Peace Studies and Conflict Resolution"
-  | "Industrial Chemistry";
+export type DBCourse = {
+  id: string;
+  code: string;
+  name: string;
+  lecturer: string;
+  class_size: number;
+  department: Department;
+  academic_level?: string;
+  preferred_slots: TimeSlot[] | null;
+  constraints: string[] | null;
+  created_at: string;
+};
 
-export type College = 
-  | "College of Computing and Information Sciences (CoCIS)"
-  | "College of Natural and Applied Sciences (CoNAS)"
-  | "College of Humanities and Social Sciences (CHUSS)";
+export type DBVenue = {
+  id: string;
+  name: string;
+  capacity: number;
+  availability: TimeSlot[];
+  created_at: string;
+};
 
-export const collegeStructure = [
+export type UserRole = 'student' | 'admin';
+
+export interface UserProfile {
+  id: string;
+  email: string;
+  role: UserRole;
+}
+
+export interface AuthState {
+  user: UserProfile | null;
+  loading: boolean;
+}
+
+export interface CollegeWithDepartments {
+  college: College;
+  departments: Department[];
+}
+
+export const collegeStructure: CollegeWithDepartments[] = [
   {
-    college: "College of Computing and Information Sciences (CoCIS)" as College,
+    college: 'COLLEGE OF ENVIRONMENTAL SCIENCES & MANAGEMENT (COLENSMA)',
+    departments: ['Architecture', 'Estate Management']
+  },
+  {
+    college: 'COLLEGE OF ARTS, SOCIAL AND MANAGEMENT SCIENCES (CASMAS)',
     departments: [
-      "Computer Science",
-      "Software Engineering", 
-      "Information Systems",
-      "Cyber Security"
+      'Accounting', 'Banking and Finance', 'Business Administration',
+      'Criminology and Security Studies', 'Economics', 'International Relations',
+      'Mass Communication', 'Peace Studies and Conflict Resolution',
+      'Political Science', 'Public Administration', 'Psychology', 'Taxation'
     ]
   },
   {
-    college: "College of Natural and Applied Sciences (CoNAS)" as College,
+    college: 'COLLEGE OF PURE AND APPLIED SCIENCES (COPAS)',
     departments: [
-      "Biochemistry",
-      "Microbiology and Industrial Biotechnology",
-      "Industrial Chemistry"
+      'Biochemistry', 'Computer Science', 'Cyber Security',
+      'Environmental Management and Toxicology', 'Industrial Chemistry',
+      'Information Systems', 'Microbiology and Industrial Biotechnology',
+      'Software Engineering'
     ]
   },
   {
-    college: "College of Humanities and Social Sciences (CHUSS)" as College,
+    college: 'COLLEGE OF NURSING AND BASIC MEDICAL SCIENCES',
     departments: [
-      "Peace Studies and Conflict Resolution"
+      'Maternal and Child Health Nursing', 'Community and Public Health Nursing',
+      'Adult Health/Medical and Surgical Nursing', 'Mental Health and Psychiatric Nursing',
+      'Nursing Management and Education', 'Human Physiology', 'Human Anatomy'
+    ]
+  },
+  {
+    college: 'COLLEGE OF EDUCATION (COLED)',
+    departments: [
+      'Education/Christian Religious Studies', 'Guidance & Counselling',
+      'Early Childhood Education', 'Educational Management'
     ]
   }
 ];

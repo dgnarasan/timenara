@@ -6,7 +6,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import StudentTimetableView from "@/components/student/StudentTimetableView";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { fetchPublishedSchedule } from "@/lib/db";
+import { fetchSchedule } from "@/lib/db";
 import { useToast } from "@/hooks/use-toast";
 import { 
   LayoutDashboard, 
@@ -29,16 +29,8 @@ const Schedule = () => {
   const loadSchedule = useCallback(async () => {
     try {
       setIsLoading(true);
-      const scheduleData = await fetchPublishedSchedule();
+      const scheduleData = await fetchSchedule();
       setSchedule(scheduleData);
-      
-      if (scheduleData.length === 0) {
-        toast({
-          title: "No Published Schedule",
-          description: "No course schedule has been published yet. Please check back later.",
-          variant: "default",
-        });
-      }
     } catch (error) {
       console.error('Failed to fetch schedule:', error);
       toast({
@@ -125,17 +117,6 @@ const Schedule = () => {
               <Skeleton className="h-10 w-[150px]" />
             </div>
             <Skeleton className="h-[400px] w-full" />
-          </div>
-        ) : schedule.length === 0 ? (
-          <div className="text-center py-12">
-            <Calendar className="h-16 w-16 mx-auto mb-4 text-muted-foreground/50" />
-            <h3 className="text-lg font-semibold mb-2">No Schedule Available</h3>
-            <p className="text-muted-foreground mb-4">
-              No course schedule has been published yet.
-            </p>
-            <Button variant="outline" onClick={loadSchedule}>
-              Refresh
-            </Button>
           </div>
         ) : (
           <div className="bg-card rounded-lg p-4 shadow-sm transition-all hover:shadow-md border">

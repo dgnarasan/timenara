@@ -70,81 +70,6 @@ const Timetable = ({ schedule, favorites = new Set(), onToggleFavorite }: Timeta
   const scheduledTimeSlots = Array.from(new Set(schedule.map(item => item.timeSlot.startTime))).sort();
   const displayTimeSlots = expandedView ? timeSlots : scheduledTimeSlots;
 
-  const renderTableView = () => (
-    <div className="space-y-4">
-      {/* Enhanced Header for Table View */}
-      <div className="flex items-center justify-between bg-gradient-to-r from-primary/5 to-primary/10 p-4 rounded-lg border">
-        <div>
-          <h3 className="text-xl font-bold text-primary">Course List View</h3>
-          <p className="text-sm text-muted-foreground">
-            Showing <span className="font-semibold text-primary">{schedule.length}</span> courses in list format
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Button
-            variant={viewType === "grid" ? "default" : "outline"}
-            size="sm"
-            onClick={() => setViewType("grid")}
-            className="gap-2"
-          >
-            <LayoutGrid className="h-4 w-4" />
-            Grid View
-          </Button>
-          <Button
-            variant={viewType === "table" ? "default" : "outline"}
-            size="sm"
-            onClick={() => setViewType("table")}
-            className="gap-2"
-          >
-            <List className="h-4 w-4" />
-            List View
-          </Button>
-        </div>
-      </div>
-
-      <div className="border rounded-lg shadow-sm bg-white overflow-hidden">
-        <div className="overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow className="bg-primary hover:bg-primary">
-                <TableHead className="text-white font-bold">Course Code</TableHead>
-                <TableHead className="text-white font-bold">Course Name</TableHead>
-                <TableHead className="text-white font-bold">Lecturer</TableHead>
-                <TableHead className="text-white font-bold">Department</TableHead>
-                <TableHead className="text-white font-bold">Day</TableHead>
-                <TableHead className="text-white font-bold">Time</TableHead>
-                <TableHead className="text-white font-bold">Venue</TableHead>
-                <TableHead className="text-white font-bold">Students</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {schedule.map((item, index) => {
-                const colors = getDepartmentColor(item.department || 'Default');
-                return (
-                  <TableRow key={item.id} className={`${index % 2 === 0 ? 'bg-muted/20' : 'bg-white'} hover:bg-muted/40`}>
-                    <TableCell className="font-bold text-primary">{item.code}</TableCell>
-                    <TableCell className="font-medium">{item.name}</TableCell>
-                    <TableCell>{item.lecturer}</TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <div className={`w-3 h-3 rounded-full ${colors.accent}`} />
-                        <span className="text-sm">{item.department}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="font-medium">{item.timeSlot.day}</TableCell>
-                    <TableCell>{item.timeSlot.startTime} - {item.timeSlot.endTime}</TableCell>
-                    <TableCell>{item.venue?.name || 'TBD'}</TableCell>
-                    <TableCell className="text-center font-medium">{item.classSize}</TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </div>
-      </div>
-    </div>
-  );
-
   const renderGridView = () => (
     <div className="space-y-6">
       {/* Enhanced Header */}
@@ -350,6 +275,51 @@ const Timetable = ({ schedule, favorites = new Set(), onToggleFavorite }: Timeta
               </tbody>
             </table>
           </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderTableView = () => (
+    <div className="space-y-4">
+      <div className="border rounded-lg shadow-sm bg-white overflow-hidden">
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow className="bg-primary hover:bg-primary">
+                <TableHead className="text-white font-bold">Course Code</TableHead>
+                <TableHead className="text-white font-bold">Course Name</TableHead>
+                <TableHead className="text-white font-bold">Lecturer</TableHead>
+                <TableHead className="text-white font-bold">Department</TableHead>
+                <TableHead className="text-white font-bold">Day</TableHead>
+                <TableHead className="text-white font-bold">Time</TableHead>
+                <TableHead className="text-white font-bold">Venue</TableHead>
+                <TableHead className="text-white font-bold">Students</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {schedule.map((item, index) => {
+                const colors = getDepartmentColor(item.department || 'Default');
+                return (
+                  <TableRow key={item.id} className={`${index % 2 === 0 ? 'bg-muted/20' : 'bg-white'} hover:bg-muted/40`}>
+                    <TableCell className="font-bold text-primary">{item.code}</TableCell>
+                    <TableCell className="font-medium">{item.name}</TableCell>
+                    <TableCell>{item.lecturer}</TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <div className={`w-3 h-3 rounded-full ${colors.accent}`} />
+                        <span className="text-sm">{item.department}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell className="font-medium">{item.timeSlot.day}</TableCell>
+                    <TableCell>{item.timeSlot.startTime} - {item.timeSlot.endTime}</TableCell>
+                    <TableCell>{item.venue?.name || 'TBD'}</TableCell>
+                    <TableCell className="text-center font-medium">{item.classSize}</TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
         </div>
       </div>
     </div>

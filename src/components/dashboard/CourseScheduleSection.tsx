@@ -1,35 +1,20 @@
+
 import { FileText, Calendar, Minimize2, Maximize2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Timetable from "@/components/Timetable";
 import { Card } from "@/components/ui/card";
 import { ScheduleItem } from "@/lib/types";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
-import { fetchSchedule } from "@/lib/db";
 
 interface CourseScheduleSectionProps {
   schedule: ScheduleItem[];
 }
 
-const CourseScheduleSection = ({ schedule: propSchedule }: CourseScheduleSectionProps) => {
+const CourseScheduleSection = ({ schedule }: CourseScheduleSectionProps) => {
   const [isExpanded, setIsExpanded] = useState(false);
-  const [schedule, setSchedule] = useState<ScheduleItem[]>(propSchedule);
-
-  useEffect(() => {
-    const loadSchedule = async () => {
-      try {
-        const dbSchedule = await fetchSchedule();
-        setSchedule(dbSchedule);
-      } catch (error) {
-        console.error("Error loading schedule:", error);
-        setSchedule(propSchedule);
-      }
-    };
-
-    loadSchedule();
-  }, [propSchedule]);
 
   const exportToCSV = () => {
     const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];

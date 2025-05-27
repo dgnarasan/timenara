@@ -11,9 +11,7 @@ export const mapDBCourseToClient = (dbCourse: DBCourse): Course => ({
   classSize: dbCourse.class_size,
   department: dbCourse.department,
   academicLevel: dbCourse.academic_level,
-  preferredSlots: typeof dbCourse.preferred_slots === 'string' 
-    ? JSON.parse(dbCourse.preferred_slots) 
-    : dbCourse.preferred_slots || undefined,
+  preferredSlots: dbCourse.preferred_slots || undefined,
   constraints: dbCourse.constraints || undefined,
 });
 
@@ -42,7 +40,7 @@ export const addCourse = async (course: Omit<Course, "id">): Promise<Course> => 
       name: course.name,
       lecturer: course.lecturer,
       class_size: course.classSize,
-      department: course.department as any, // Type assertion to handle Supabase type mismatch
+      department: course.department,
       academic_level: course.academicLevel,
       preferred_slots: course.preferredSlots ? JSON.stringify(course.preferredSlots) : null,
       constraints: course.constraints || null,
@@ -52,8 +50,8 @@ export const addCourse = async (course: Omit<Course, "id">): Promise<Course> => 
 
   if (error) throw error;
   const dbCourse = data as unknown as DBCourse;
-  if (dbCourse.preferred_slots && typeof dbCourse.preferred_slots === 'string') {
-    dbCourse.preferred_slots = JSON.parse(dbCourse.preferred_slots);
+  if (dbCourse.preferred_slots) {
+    dbCourse.preferred_slots = JSON.parse(dbCourse.preferred_slots as unknown as string);
   }
   return mapDBCourseToClient(dbCourse);
 };
@@ -67,7 +65,7 @@ export const addCourses = async (courses: Omit<Course, "id">[]): Promise<Course[
         name: course.name,
         lecturer: course.lecturer,
         class_size: course.classSize,
-        department: course.department as any, // Type assertion to handle Supabase type mismatch
+        department: course.department,
         academic_level: course.academicLevel,
         preferred_slots: course.preferredSlots ? JSON.stringify(course.preferredSlots) : null,
         constraints: course.constraints || null,
@@ -77,8 +75,8 @@ export const addCourses = async (courses: Omit<Course, "id">[]): Promise<Course[
 
   if (error) throw error;
   return (data as unknown as DBCourse[]).map(course => {
-    if (course.preferred_slots && typeof course.preferred_slots === 'string') {
-      course.preferred_slots = JSON.parse(course.preferred_slots);
+    if (course.preferred_slots) {
+      course.preferred_slots = JSON.parse(course.preferred_slots as unknown as string);
     }
     return mapDBCourseToClient(course);
   });
@@ -110,7 +108,6 @@ export const fetchSchedule = async (): Promise<ScheduleItem[]> => {
       day,
       start_time,
       end_time,
-      published,
       created_at,
       courses!inner (
         id,
@@ -151,65 +148,10 @@ export const fetchSchedule = async (): Promise<ScheduleItem[]> => {
       capacity: item.venues.capacity,
       availability: [],
     },
-    published: item.published,
   }));
 };
 
-export const fetchPublishedSchedule = async (): Promise<ScheduleItem[]> => {
-  const { data: scheduleData, error } = await supabase
-    .from('schedules')
-    .select(`
-      id,
-      day,
-      start_time,
-      end_time,
-      published,
-      created_at,
-      courses!inner (
-        id,
-        code,
-        name,
-        lecturer,
-        class_size,
-        department,
-        academic_level
-      ),
-      venues!inner (
-        id,
-        name,
-        capacity
-      )
-    `)
-    .eq('published', true)
-    .order('day', { ascending: true })
-    .order('start_time', { ascending: true });
-
-  if (error) throw error;
-
-  return (scheduleData || []).map((item: any) => ({
-    id: item.courses.id,
-    code: item.courses.code,
-    name: item.courses.name,
-    lecturer: item.courses.lecturer,
-    classSize: item.courses.class_size,
-    department: item.courses.department,
-    academicLevel: item.courses.academic_level,
-    timeSlot: {
-      day: item.day as TimeSlot["day"],
-      startTime: item.start_time,
-      endTime: item.end_time,
-    },
-    venue: {
-      id: item.venues.id,
-      name: item.venues.name,
-      capacity: item.venues.capacity,
-      availability: [],
-    },
-    published: item.published,
-  }));
-};
-
-export const saveSchedule = async (schedule: ScheduleItem[], shouldPublish: boolean = false): Promise<void> => {
+export const saveSchedule = async (schedule: ScheduleItem[]): Promise<void> => {
   // Prepare schedule data for the database function
   const scheduleData = schedule.map(item => ({
     course_id: item.id,
@@ -220,16 +162,7 @@ export const saveSchedule = async (schedule: ScheduleItem[], shouldPublish: bool
   }));
 
   const { error } = await supabase.rpc('clear_and_insert_schedule', {
-    schedule_data: scheduleData,
-    should_publish: shouldPublish
-  });
-
-  if (error) throw error;
-};
-
-export const publishSchedule = async (shouldPublish: boolean): Promise<void> => {
-  const { error } = await supabase.rpc('publish_schedule', {
-    should_publish: shouldPublish
+    schedule_data: scheduleData
   });
 
   if (error) throw error;
@@ -242,18 +175,4 @@ export const clearSchedule = async (): Promise<void> => {
     .gte('created_at', '1970-01-01'); // Delete all rows
 
   if (error) throw error;
-};
-
-export const getScheduleStatus = async (): Promise<{ hasSchedule: boolean; isPublished: boolean }> => {
-  const { data, error } = await supabase
-    .from('schedules')
-    .select('published')
-    .limit(1);
-
-  if (error) throw error;
-
-  const hasSchedule = (data && data.length > 0);
-  const isPublished = hasSchedule ? data[0].published : false;
-
-  return { hasSchedule, isPublished };
 };
