@@ -30,61 +30,84 @@ const AdminDashboard = () => {
 
   // Filter courses based on admin's college
   useEffect(() => {
-    if (userCollege) {
-      const collegeDepartments = collegeStructure.find(c => c.college === userCollege)?.departments || [];
-      const filtered = courses.filter(course => collegeDepartments.includes(course.department));
-      setFilteredCourses(filtered);
-    } else {
+    try {
+      if (userCollege) {
+        const collegeDepartments = collegeStructure.find(c => c.college === userCollege)?.departments || [];
+        const filtered = courses.filter(course => collegeDepartments.includes(course.department));
+        setFilteredCourses(filtered);
+      } else {
+        setFilteredCourses(courses);
+      }
+    } catch (error) {
+      console.error('Error filtering courses:', error);
       setFilteredCourses(courses);
     }
   }, [courses, userCollege]);
 
   // Handle adding a course, ensuring it belongs to admin's college
   const handleAdminAddCourse = (course: Omit<Course, "id">) => {
-    if (userCollege) {
-      const collegeDepartments = collegeStructure.find(c => c.college === userCollege)?.departments || [];
-      
-      if (!collegeDepartments.includes(course.department)) {
-        toast({
-          title: "Access Denied",
-          description: "You can only add courses for your assigned college.",
-          variant: "destructive",
-        });
-        return;
+    try {
+      if (userCollege) {
+        const collegeDepartments = collegeStructure.find(c => c.college === userCollege)?.departments || [];
+        
+        if (!collegeDepartments.includes(course.department)) {
+          toast({
+            title: "Access Denied",
+            description: "You can only add courses for your assigned college.",
+            variant: "destructive",
+          });
+          return;
+        }
       }
+      
+      handleAddCourse(course);
+    } catch (error) {
+      console.error('Error adding course:', error);
+      toast({
+        title: "Error",
+        description: "Failed to add course. Please try again.",
+        variant: "destructive",
+      });
     }
-    
-    handleAddCourse(course);
   };
 
   // Handle adding multiple courses
   const handleAdminAddCourses = (coursesToAdd: Omit<Course, "id">[]) => {
-    if (userCollege) {
-      const collegeDepartments = collegeStructure.find(c => c.college === userCollege)?.departments || [];
-      
-      // Filter out courses not in admin's college
-      const validCourses = coursesToAdd.filter(course => collegeDepartments.includes(course.department));
-      
-      if (validCourses.length < coursesToAdd.length) {
-        toast({
-          title: "Notice",
-          description: `${coursesToAdd.length - validCourses.length} courses were skipped as they don't belong to your college.`,
-          variant: "default",
-        });
+    try {
+      if (userCollege) {
+        const collegeDepartments = collegeStructure.find(c => c.college === userCollege)?.departments || [];
+        
+        // Filter out courses not in admin's college
+        const validCourses = coursesToAdd.filter(course => collegeDepartments.includes(course.department));
+        
+        if (validCourses.length < coursesToAdd.length) {
+          toast({
+            title: "Notice",
+            description: `${coursesToAdd.length - validCourses.length} courses were skipped as they don't belong to your college.`,
+            variant: "default",
+          });
+        }
+        
+        if (validCourses.length === 0) {
+          toast({
+            title: "No courses added",
+            description: "None of the provided courses belong to your college.",
+            variant: "destructive",
+          });
+          return;
+        }
+        
+        handleAddCourses(validCourses);
+      } else {
+        handleAddCourses(coursesToAdd);
       }
-      
-      if (validCourses.length === 0) {
-        toast({
-          title: "No courses added",
-          description: "None of the provided courses belong to your college.",
-          variant: "destructive",
-        });
-        return;
-      }
-      
-      handleAddCourses(validCourses);
-    } else {
-      handleAddCourses(coursesToAdd);
+    } catch (error) {
+      console.error('Error adding courses:', error);
+      toast({
+        title: "Error",
+        description: "Failed to add courses. Please try again.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -94,6 +117,33 @@ const AdminDashboard = () => {
       description: "Edit functionality coming soon",
     });
   };
+
+  const handleScheduleGenerated = (newSchedule: ScheduleItem[]) => {
+    try {
+      console.log('Setting new schedule in dashboard:', newSchedule.length, 'items');
+      setSchedule(newSchedule);
+    } catch (error) {
+      console.error('Error setting schedule:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update schedule display. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="container mx-auto py-8 min-h-screen bg-background">
+        <div className="flex items-center justify-center min-h-[400px]">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+            <p className="mt-2 text-muted-foreground">Loading dashboard...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto py-8 min-h-screen bg-background">
@@ -135,7 +185,7 @@ const AdminDashboard = () => {
             </Button>
             <GenerateScheduleDialog 
               courses={filteredCourses}
-              onScheduleGenerated={setSchedule}
+              onScheduleGenerated={handleScheduleGenerated}
             />
           </div>
         </div>

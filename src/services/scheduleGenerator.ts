@@ -13,7 +13,7 @@ export const generateSchedule = async (
   courses: Course[]
 ): Promise<{ schedule: ScheduleItem[]; conflicts: ScheduleConflict[] }> => {
   try {
-    console.log('Generating college-wide schedule for courses:', courses);
+    console.log('Starting schedule generation for courses:', courses.length);
 
     // Group courses by department for better conflict analysis
     const departmentGroups = courses.reduce((groups, course) => {
@@ -26,6 +26,7 @@ export const generateSchedule = async (
 
     console.log('Department groups:', Object.keys(departmentGroups));
 
+    console.log('Calling Supabase edge function...');
     const { data, error } = await supabase.functions.invoke('generate-schedule', {
       body: { 
         courses,
@@ -36,17 +37,20 @@ export const generateSchedule = async (
 
     if (error) {
       console.error('Supabase function error:', error);
-      throw new Error(`Failed to generate college schedule: ${error.message}`);
+      throw new Error(`Failed to generate schedule: ${error.message}`);
     }
 
     if (!data) {
+      console.error('No data received from edge function');
       throw new Error('No response received from schedule generator');
     }
 
+    console.log('Edge function response:', data);
+
     if (!data.success) {
-      console.log('College schedule generation failed with conflicts:', data.conflicts);
+      console.log('Schedule generation failed with conflicts:', data.conflicts);
       
-      // Enhanced conflict reporting for college-wide scheduling
+      // Enhanced conflict reporting
       const enhancedConflicts = (data.conflicts || []).map((conflict: any) => ({
         course: courses.find(c => c.id === conflict.courseId) || courses[0] || {
           id: '',
@@ -56,7 +60,7 @@ export const generateSchedule = async (
           classSize: 0,
           department: 'Computer Science',
         },
-        reason: conflict.reason || 'Unknown college-wide scheduling conflict',
+        reason: conflict.reason || 'Unknown scheduling conflict',
         conflictType: conflict.type || 'cross-departmental',
         suggestion: conflict.suggestion
       }));
@@ -68,17 +72,17 @@ export const generateSchedule = async (
     }
 
     if (!Array.isArray(data.schedule)) {
-      throw new Error('Invalid schedule format received');
+      console.error('Invalid schedule format received:', data.schedule);
+      throw new Error('Invalid schedule format received from server');
     }
 
-    // Add venue information and validate cross-departmental scheduling
+    // Add venue information and validate
     const scheduleWithVenues = data.schedule.map((item: any) => ({
       ...item,
       venue: item.venue || { name: "TBD", capacity: 0 }
     }));
 
-    console.log('Generated college-wide schedule:', scheduleWithVenues);
-    console.log(`Successfully scheduled ${scheduleWithVenues.length} courses across ${Object.keys(departmentGroups).length} departments`);
+    console.log('Generated schedule successfully:', scheduleWithVenues.length, 'items');
     
     return {
       schedule: scheduleWithVenues,
@@ -86,7 +90,9 @@ export const generateSchedule = async (
     };
 
   } catch (error) {
-    console.error('Error in college-wide schedule generation:', error);
+    console.error('Error in schedule generation:', error);
+    
+    // Return a more informative error
     return {
       schedule: [],
       conflicts: [{
@@ -98,7 +104,7 @@ export const generateSchedule = async (
           classSize: 0,
           department: 'Computer Science',
         },
-        reason: error instanceof Error ? error.message : 'Failed to generate college-wide schedule',
+        reason: error instanceof Error ? error.message : 'An unexpected error occurred during schedule generation',
         conflictType: 'cross-departmental'
       }]
     };

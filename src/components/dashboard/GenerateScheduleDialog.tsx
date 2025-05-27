@@ -74,23 +74,30 @@ const GenerateScheduleDialog = ({ courses, onScheduleGenerated }: GenerateSchedu
     setProgress(0);
 
     try {
+      console.log("Starting schedule generation with courses:", filteredCourses.length);
+      
       // Start progress animation
       const progressInterval = setInterval(() => {
         setProgress(prev => {
-          if (prev >= 90) {
-            clearInterval(progressInterval);
-            return 90;
-          }
-          return prev + 10;
+          const newProgress = Math.min(prev + 5, 85); // Cap at 85% until we get response
+          console.log("Progress:", newProgress + "%");
+          return newProgress;
         });
-      }, 3000);
+      }, 200);
 
+      console.log("Calling generateSchedule function...");
       const { schedule: newSchedule, conflicts } = await generateSchedule(filteredCourses);
+      
+      console.log("Schedule generation completed:", {
+        scheduleLength: newSchedule.length,
+        conflictsLength: conflicts.length
+      });
       
       clearInterval(progressInterval);
       setProgress(100);
 
       if (conflicts.length > 0) {
+        console.log("Schedule conflicts found:", conflicts);
         conflicts.forEach(({ reason }) => {
           toast({
             title: "Scheduling Conflict",
@@ -101,6 +108,7 @@ const GenerateScheduleDialog = ({ courses, onScheduleGenerated }: GenerateSchedu
       }
 
       if (newSchedule.length > 0) {
+        console.log("Generated schedule successfully, updating UI...");
         onScheduleGenerated(newSchedule);
         setIsOpen(false);
         
@@ -115,6 +123,7 @@ const GenerateScheduleDialog = ({ courses, onScheduleGenerated }: GenerateSchedu
           description: `Successfully scheduled ${newSchedule.length} courses ${scopeDescription}${conflicts.length > 0 ? ' with some conflicts' : ''}`,
         });
       } else {
+        console.log("No schedule generated, showing error");
         toast({
           title: "Generation Failed",
           description: "Could not generate a valid schedule. Please check the conflicts and try again.",
@@ -131,6 +140,7 @@ const GenerateScheduleDialog = ({ courses, onScheduleGenerated }: GenerateSchedu
     } finally {
       setIsLoading(false);
       setProgress(0);
+      console.log("Schedule generation process completed");
     }
   };
 
@@ -261,18 +271,18 @@ const GenerateScheduleDialog = ({ courses, onScheduleGenerated }: GenerateSchedu
             <div className="space-y-2">
               <div className="h-2 bg-secondary rounded-full overflow-hidden">
                 <div 
-                  className="h-full bg-primary transition-all duration-500"
+                  className="h-full bg-primary transition-all duration-300"
                   style={{ width: `${progress}%` }}
                 />
               </div>
               <p className="text-sm text-muted-foreground text-center">
-                Generating college-wide schedule ({progress}%)
+                Generating schedule ({progress}%)...
               </p>
             </div>
           )}
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={() => setIsOpen(false)}>
+          <Button variant="outline" onClick={() => setIsOpen(false)} disabled={isLoading}>
             Cancel
           </Button>
           <Button 
