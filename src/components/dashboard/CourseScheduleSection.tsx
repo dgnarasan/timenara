@@ -11,9 +11,10 @@ import "jspdf-autotable";
 
 interface CourseScheduleSectionProps {
   schedule: ScheduleItem[];
+  isPublished?: boolean;
 }
 
-const CourseScheduleSection = ({ schedule }: CourseScheduleSectionProps) => {
+const CourseScheduleSection = ({ schedule, isPublished = false }: CourseScheduleSectionProps) => {
   const [isExpanded, setIsExpanded] = useState(false);
 
   const exportToCSV = () => {
@@ -117,6 +118,11 @@ const CourseScheduleSection = ({ schedule }: CourseScheduleSectionProps) => {
         <div className="space-y-1.5">
           <h2 className="text-2xl font-bold tracking-tight">
             Course Schedule
+            {isPublished && (
+              <span className="ml-2 text-sm bg-green-100 text-green-800 px-2 py-1 rounded-full">
+                Published
+              </span>
+            )}
           </h2>
           <p className="text-muted-foreground text-sm">
             View and manage your department's timetable

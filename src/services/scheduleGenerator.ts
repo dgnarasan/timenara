@@ -13,47 +13,50 @@ export type ScheduleConflict = {
 // Ensure default venues exist in the database
 const ensureDefaultVenues = async () => {
   const defaultVenues = [
-    { id: "venue_1", name: "Room 101", capacity: 50 },
-    { id: "venue_2", name: "Room 102", capacity: 100 },
-    { id: "venue_3", name: "Lecture Hall A", capacity: 150 },
-    { id: "venue_4", name: "Lecture Hall B", capacity: 200 },
-    { id: "venue_5", name: "Laboratory 1", capacity: 30 },
-    { id: "venue_6", name: "Laboratory 2", capacity: 30 },
-    { id: "venue_7", name: "Seminar Room 1", capacity: 25 },
-    { id: "venue_8", name: "Seminar Room 2", capacity: 25 },
-    { id: "venue_9", name: "Computer Lab", capacity: 40 },
-    { id: "venue_10", name: "Conference Hall", capacity: 300 },
+    { name: "Room 101", capacity: 50 },
+    { name: "Room 102", capacity: 100 },
+    { name: "Lecture Hall A", capacity: 150 },
+    { name: "Lecture Hall B", capacity: 200 },
+    { name: "Laboratory 1", capacity: 30 },
+    { name: "Laboratory 2", capacity: 30 },
+    { name: "Seminar Room 1", capacity: 25 },
+    { name: "Seminar Room 2", capacity: 25 },
+    { name: "Computer Lab", capacity: 40 },
+    { name: "Conference Hall", capacity: 300 },
   ];
 
   try {
-    // Check if venues exist
+    // Check if any venues exist
     const { data: existingVenues } = await supabase
       .from('venues')
-      .select('id')
-      .in('id', defaultVenues.map(v => v.id));
+      .select('id, name, capacity')
+      .limit(10);
 
-    const existingIds = new Set(existingVenues?.map(v => v.id) || []);
-    const venuesToInsert = defaultVenues.filter(v => !existingIds.has(v.id));
-
-    if (venuesToInsert.length > 0) {
-      console.log('Inserting missing venues:', venuesToInsert.length);
-      const { error } = await supabase
+    if (!existingVenues || existingVenues.length === 0) {
+      console.log('No venues found, inserting default venues...');
+      const { data: insertedVenues, error } = await supabase
         .from('venues')
-        .insert(venuesToInsert.map(v => ({
-          id: v.id,
+        .insert(defaultVenues.map(v => ({
           name: v.name,
           capacity: v.capacity,
           availability: []
-        })));
+        })))
+        .select('id, name, capacity');
 
       if (error) {
         console.error('Error inserting venues:', error);
+        throw error;
       } else {
-        console.log('Successfully inserted venues');
+        console.log('Successfully inserted venues:', insertedVenues?.length);
+        return insertedVenues || [];
       }
+    } else {
+      console.log('Using existing venues:', existingVenues.length);
+      return existingVenues;
     }
   } catch (error) {
     console.error('Error ensuring default venues:', error);
+    throw error;
   }
 };
 
@@ -63,8 +66,11 @@ export const generateSchedule = async (
   try {
     console.log('Starting schedule generation for courses:', courses.length);
 
-    // Ensure default venues exist
-    await ensureDefaultVenues();
+    // Ensure default venues exist and get their actual IDs
+    const venues = await ensureDefaultVenues();
+    if (!venues || venues.length === 0) {
+      throw new Error('No venues available for scheduling');
+    }
 
     const departmentGroups = courses.reduce((groups, course) => {
       if (!groups[course.department]) {
@@ -75,11 +81,13 @@ export const generateSchedule = async (
     }, {} as Record<string, Course[]>);
 
     console.log('Department groups:', Object.keys(departmentGroups));
+    console.log('Available venues:', venues.length);
 
     console.log('Calling Supabase edge function...');
     const { data, error } = await supabase.functions.invoke('generate-schedule', {
       body: { 
         courses,
+        venues,
         includeConflictAnalysis: true,
         departmentGroups: Object.keys(departmentGroups)
       }
@@ -125,10 +133,19 @@ export const generateSchedule = async (
       throw new Error('Invalid schedule format received from server');
     }
 
-    const scheduleWithVenues = data.schedule.map((item: any) => ({
-      ...item,
-      venue: item.venue || { id: "venue_1", name: "Room 101", capacity: 50 }
-    }));
+    const scheduleWithVenues = data.schedule.map((item: any) => {
+      // Ensure venue has a valid ID from our actual database venues
+      const venue = venues.find(v => v.capacity >= item.classSize) || venues[0];
+      return {
+        ...item,
+        venue: {
+          id: venue.id,
+          name: venue.name,
+          capacity: venue.capacity,
+          availability: []
+        }
+      };
+    });
 
     console.log('Generated schedule successfully:', scheduleWithVenues.length, 'items');
     

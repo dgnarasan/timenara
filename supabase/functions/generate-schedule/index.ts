@@ -15,6 +15,12 @@ interface TimeSlot {
   endTime: string;
 }
 
+interface Venue {
+  id: string;
+  name: string;
+  capacity: number;
+}
+
 interface ScheduleItem {
   id: string;
   code: string;
@@ -23,11 +29,7 @@ interface ScheduleItem {
   classSize: number;
   department?: string;
   timeSlot: TimeSlot;
-  venue?: {
-    id: string;
-    name: string;
-    capacity: number;
-  };
+  venue?: Venue;
 }
 
 function isValidTimeSlot(startTime: string, endTime: string): boolean {
@@ -109,31 +111,16 @@ function validateSchedule(schedule: ScheduleItem[]): { reason: string; courseId?
   return conflicts;
 }
 
-// Create a fixed set of venues with consistent IDs
-const DEFAULT_VENUES = [
-  { id: "venue_1", name: "Room 101", capacity: 50 },
-  { id: "venue_2", name: "Room 102", capacity: 100 },
-  { id: "venue_3", name: "Lecture Hall A", capacity: 150 },
-  { id: "venue_4", name: "Lecture Hall B", capacity: 200 },
-  { id: "venue_5", name: "Laboratory 1", capacity: 30 },
-  { id: "venue_6", name: "Laboratory 2", capacity: 30 },
-  { id: "venue_7", name: "Seminar Room 1", capacity: 25 },
-  { id: "venue_8", name: "Seminar Room 2", capacity: 25 },
-  { id: "venue_9", name: "Computer Lab", capacity: 40 },
-  { id: "venue_10", name: "Conference Hall", capacity: 300 },
-];
-
-function addDefaultVenues(schedule: ScheduleItem[]): ScheduleItem[] {
+function addVenuesFromDatabase(schedule: ScheduleItem[], venues: Venue[]): ScheduleItem[] {
   return schedule.map((item, index) => {
     // Find suitable venue based on class size
-    let selectedVenue = DEFAULT_VENUES.find(v => v.capacity >= item.classSize) || DEFAULT_VENUES[DEFAULT_VENUES.length - 1];
+    let selectedVenue = venues.find(v => v.capacity >= item.classSize) || venues[venues.length - 1];
 
-    // Add some rotation to distribute venues
-    const venueIndex = (index + Math.floor(item.classSize / 50)) % DEFAULT_VENUES.length;
-    const rotatedVenue = DEFAULT_VENUES[venueIndex];
-    
-    if (item.classSize <= rotatedVenue.capacity) {
-      selectedVenue = rotatedVenue;
+    // Add some rotation to distribute venues if multiple suitable ones exist
+    const suitableVenues = venues.filter(v => v.capacity >= item.classSize);
+    if (suitableVenues.length > 1) {
+      const venueIndex = index % suitableVenues.length;
+      selectedVenue = suitableVenues[venueIndex];
     }
 
     return {
@@ -149,9 +136,14 @@ serve(async (req) => {
   }
 
   try {
-    const { courses } = await req.json();
+    const { courses, venues } = await req.json();
 
-    console.log('Input courses:', JSON.stringify(courses.slice(0, 5), null, 2), '... (showing first 5 of', courses.length, ')');
+    console.log('Input courses:', courses.length);
+    console.log('Available venues:', venues.length);
+
+    if (!venues || venues.length === 0) {
+      throw new Error('No venues provided for scheduling');
+    }
 
     const systemPrompt = `You are an AI assistant that generates optimal course schedules.
 Generate a timetable that assigns courses to time slots following these rules:
@@ -269,7 +261,7 @@ Requirements:
       );
     }
 
-    const scheduleWithVenues = addDefaultVenues(validScheduleItems);
+    const scheduleWithVenues = addVenuesFromDatabase(validScheduleItems, venues);
 
     console.log('Generated valid schedule with', scheduleWithVenues.length, 'items');
 
