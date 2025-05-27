@@ -110,6 +110,7 @@ export type Database = {
           day: string
           end_time: string
           id: string
+          published: boolean
           start_time: string
           updated_at: string
           venue_id: string
@@ -121,6 +122,7 @@ export type Database = {
           day: string
           end_time: string
           id?: string
+          published?: boolean
           start_time: string
           updated_at?: string
           venue_id: string
@@ -132,6 +134,7 @@ export type Database = {
           day?: string
           end_time?: string
           id?: string
+          published?: boolean
           start_time?: string
           updated_at?: string
           venue_id?: string
@@ -183,12 +186,18 @@ export type Database = {
     }
     Functions: {
       clear_and_insert_schedule: {
-        Args: { schedule_data: Json }
+        Args:
+          | { schedule_data: Json }
+          | { schedule_data: Json; should_publish?: boolean }
         Returns: undefined
       }
       get_user_role: {
         Args: Record<PropertyKey, never>
         Returns: Database["public"]["Enums"]["user_role"]
+      }
+      publish_schedule: {
+        Args: { should_publish: boolean }
+        Returns: undefined
       }
       use_admin_code: {
         Args: { code_to_use: string; user_id: string }

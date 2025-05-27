@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Course, ScheduleItem, Venue, TimeSlot } from "@/lib/types";
 import { useCourses } from "@/hooks/useCourses";
@@ -9,10 +8,14 @@ import Timetable from "@/components/Timetable";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { FileText, Users, GraduationCap, BookOpen } from "lucide-react";
+import { FileText, Users, GraduationCap, BookOpen, Eye, EyeOff } from "lucide-react";
+import { fetchSchedule, saveSchedule, publishSchedule, getScheduleStatus } from "@/lib/db";
 
 const Index = () => {
   const [schedule, setSchedule] = useState<ScheduleItem[]>([]);
+  const [isPublished, setIsPublished] = useState(false);
+  const [hasSchedule, setHasSchedule] = useState(false);
+  const [isLoadingStatus, setIsLoadingStatus] = useState(true);
   const { toast } = useToast();
   const { 
     courses, 
@@ -22,6 +25,64 @@ const Index = () => {
     handleDeleteCourse, 
     handleClearAllCourses 
   } = useCourses();
+
+  useEffect(() => {
+    loadScheduleAndStatus();
+  }, []);
+
+  const loadScheduleAndStatus = async () => {
+    try {
+      setIsLoadingStatus(true);
+      const [scheduleData, statusData] = await Promise.all([
+        fetchSchedule(),
+        getScheduleStatus()
+      ]);
+      
+      setSchedule(scheduleData);
+      setHasSchedule(statusData.hasSchedule);
+      setIsPublished(statusData.isPublished);
+    } catch (error) {
+      console.error("Error loading schedule:", error);
+      toast({
+        title: "Error Loading Schedule",
+        description: "Failed to load the current schedule",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoadingStatus(false);
+    }
+  };
+
+  const handlePublishToggle = async () => {
+    if (!hasSchedule) {
+      toast({
+        title: "No Schedule Available",
+        description: "Please generate a schedule first before publishing",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const newPublishStatus = !isPublished;
+      await publishSchedule(newPublishStatus);
+      setIsPublished(newPublishStatus);
+      
+      toast({
+        title: newPublishStatus ? "Schedule Published" : "Schedule Unpublished",
+        description: newPublishStatus 
+          ? "Schedule is now visible to students" 
+          : "Schedule is no longer visible to students",
+      });
+    } catch (error) {
+      console.error("Error toggling publish status:", error);
+      toast({
+        title: "Error",
+        description: "Failed to update schedule visibility",
+        variant: "destructive",
+      });
+    }
+  };
 
   const isFoundationalCourse = (courseCode: string): boolean => {
     return /^[A-Z]{2}10[0-9]/.test(courseCode);
@@ -115,7 +176,7 @@ const Index = () => {
     return null;
   };
 
-  const generateSchedule = () => {
+  const generateSchedule = async () => {
     const venues: Venue[] = [
       {
         id: "v1",
@@ -198,20 +259,32 @@ const Index = () => {
       }
     }
 
-    setSchedule(newSchedule);
+    try {
+      await saveSchedule(newSchedule, false); // Save as draft initially
+      setSchedule(newSchedule);
+      setHasSchedule(newSchedule.length > 0);
+      setIsPublished(false);
 
-    if (conflicts.length > 0) {
-      conflicts.forEach(({ course, reason }) => {
-        toast({
-          title: `Scheduling Conflict: ${course.code}`,
-          description: reason,
-          variant: "destructive",
+      if (conflicts.length > 0) {
+        conflicts.forEach(({ course, reason }) => {
+          toast({
+            title: `Scheduling Conflict: ${course.code}`,
+            description: reason,
+            variant: "destructive",
+          });
         });
-      });
-    } else {
+      } else {
+        toast({
+          title: "Schedule Generated Successfully",
+          description: "All courses have been scheduled without conflicts. Use the publish button to make it visible to students.",
+        });
+      }
+    } catch (error) {
+      console.error("Error saving schedule:", error);
       toast({
-        title: "Schedule Generated Successfully",
-        description: "All courses have been scheduled without conflicts.",
+        title: "Error Saving Schedule",
+        description: "Failed to save the generated schedule",
+        variant: "destructive",
       });
     }
   };
@@ -242,7 +315,7 @@ const Index = () => {
     return new Set(courses.map(course => course.code.substring(0, 4))).size;
   };
 
-  if (isLoading) {
+  if (isLoading || isLoadingStatus) {
     return (
       <div className="container mx-auto py-8 flex items-center justify-center">
         <div className="text-center">
@@ -263,10 +336,50 @@ const Index = () => {
               Manage and view your department's course schedule
             </p>
           </div>
-          <Button onClick={generateSchedule}>
-            Generate Schedule
-          </Button>
+          <div className="flex gap-2">
+            <Button onClick={generateSchedule}>
+              Generate Schedule
+            </Button>
+            {hasSchedule && (
+              <Button
+                onClick={handlePublishToggle}
+                variant={isPublished ? "destructive" : "default"}
+                className="gap-2"
+              >
+                {isPublished ? (
+                  <>
+                    <EyeOff className="h-4 w-4" />
+                    Unpublish
+                  </>
+                ) : (
+                  <>
+                    <Eye className="h-4 w-4" />
+                    Publish
+                  </>
+                )}
+              </Button>
+            )}
+          </div>
         </div>
+
+        {hasSchedule && (
+          <div className="bg-muted/30 rounded-lg p-4 border">
+            <div className="flex items-center gap-3">
+              <div className={`w-3 h-3 rounded-full ${isPublished ? 'bg-green-500' : 'bg-yellow-500'}`} />
+              <div>
+                <p className="font-medium">
+                  Schedule Status: {isPublished ? 'Published' : 'Draft'}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  {isPublished 
+                    ? 'Students can currently view this schedule' 
+                    : 'Schedule is saved but not visible to students yet'
+                  }
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Card className="p-6 space-y-2">
