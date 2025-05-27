@@ -1,5 +1,4 @@
 
-
 export interface Course {
   id: string;
   code: string;
@@ -90,4 +89,3 @@ export const collegeStructure = [
     ]
   }
 ];
-
