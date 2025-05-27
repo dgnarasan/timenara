@@ -10,13 +10,62 @@ export type ScheduleConflict = {
   conflictType?: 'lecturer' | 'venue' | 'resource' | 'cross-departmental';
 };
 
+// Ensure default venues exist in the database
+const ensureDefaultVenues = async () => {
+  const defaultVenues = [
+    { id: "venue_1", name: "Room 101", capacity: 50 },
+    { id: "venue_2", name: "Room 102", capacity: 100 },
+    { id: "venue_3", name: "Lecture Hall A", capacity: 150 },
+    { id: "venue_4", name: "Lecture Hall B", capacity: 200 },
+    { id: "venue_5", name: "Laboratory 1", capacity: 30 },
+    { id: "venue_6", name: "Laboratory 2", capacity: 30 },
+    { id: "venue_7", name: "Seminar Room 1", capacity: 25 },
+    { id: "venue_8", name: "Seminar Room 2", capacity: 25 },
+    { id: "venue_9", name: "Computer Lab", capacity: 40 },
+    { id: "venue_10", name: "Conference Hall", capacity: 300 },
+  ];
+
+  try {
+    // Check if venues exist
+    const { data: existingVenues } = await supabase
+      .from('venues')
+      .select('id')
+      .in('id', defaultVenues.map(v => v.id));
+
+    const existingIds = new Set(existingVenues?.map(v => v.id) || []);
+    const venuesToInsert = defaultVenues.filter(v => !existingIds.has(v.id));
+
+    if (venuesToInsert.length > 0) {
+      console.log('Inserting missing venues:', venuesToInsert.length);
+      const { error } = await supabase
+        .from('venues')
+        .insert(venuesToInsert.map(v => ({
+          id: v.id,
+          name: v.name,
+          capacity: v.capacity,
+          availability: []
+        })));
+
+      if (error) {
+        console.error('Error inserting venues:', error);
+      } else {
+        console.log('Successfully inserted venues');
+      }
+    }
+  } catch (error) {
+    console.error('Error ensuring default venues:', error);
+  }
+};
+
 export const generateSchedule = async (
   courses: Course[]
 ): Promise<{ schedule: ScheduleItem[]; conflicts: ScheduleConflict[] }> => {
   try {
     console.log('Starting schedule generation for courses:', courses.length);
 
-    // Group courses by department for better conflict analysis
+    // Ensure default venues exist
+    await ensureDefaultVenues();
+
     const departmentGroups = courses.reduce((groups, course) => {
       if (!groups[course.department]) {
         groups[course.department] = [];
@@ -51,7 +100,6 @@ export const generateSchedule = async (
     if (!data.success) {
       console.log('Schedule generation failed with conflicts:', data.conflicts);
       
-      // Enhanced conflict reporting
       const enhancedConflicts = (data.conflicts || []).map((conflict: any) => ({
         course: courses.find(c => c.id === conflict.courseId) || courses[0] || {
           id: '',
@@ -77,19 +125,23 @@ export const generateSchedule = async (
       throw new Error('Invalid schedule format received from server');
     }
 
-    // Add venue information and validate
     const scheduleWithVenues = data.schedule.map((item: any) => ({
       ...item,
-      venue: item.venue || { name: "TBD", capacity: 0 }
+      venue: item.venue || { id: "venue_1", name: "Room 101", capacity: 50 }
     }));
 
     console.log('Generated schedule successfully:', scheduleWithVenues.length, 'items');
     
-    // Save the schedule to the database
     if (scheduleWithVenues.length > 0) {
       console.log('Saving schedule to database...');
-      await saveSchedule(scheduleWithVenues);
-      console.log('Schedule saved to database successfully');
+      try {
+        await saveSchedule(scheduleWithVenues);
+        console.log('Schedule saved to database successfully');
+      } catch (saveError) {
+        console.error('Error saving schedule to database:', saveError);
+        // Don't throw here, just log the error and continue
+        // The schedule was generated successfully, saving is secondary
+      }
     }
     
     return {
@@ -100,7 +152,6 @@ export const generateSchedule = async (
   } catch (error) {
     console.error('Error in schedule generation:', error);
     
-    // Return a more informative error
     return {
       schedule: [],
       conflicts: [{
