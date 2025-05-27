@@ -44,13 +44,18 @@ const Timetable = ({ schedule, favorites = new Set(), onToggleFavorite }: Timeta
     );
   };
 
-  const getCourseLevel = (courseCode: string) => {
+  const getCourseLevel = (courseCode: string | undefined) => {
+    // Handle undefined, null, or empty course codes
+    if (!courseCode || typeof courseCode !== 'string') {
+      return "N/A";
+    }
+    
     const match = courseCode.match(/\d/);
     return match ? `${match[0]}00` : "N/A";
   };
 
   // Get unique departments for legend
-  const departments = Array.from(new Set(schedule.map(item => item.department)));
+  const departments = Array.from(new Set(schedule.map(item => item.department).filter(Boolean)));
 
   return (
     <div className="w-full space-y-4 animate-fade-in">
@@ -119,7 +124,7 @@ const Timetable = ({ schedule, favorites = new Set(), onToggleFavorite }: Timeta
                       >
                         <div className={`space-y-1 ${hasMultipleCourses ? 'grid gap-1' : ''}`}>
                           {scheduledItems.map((item, index) => {
-                            const colors = getDepartmentColor(item.department);
+                            const colors = getDepartmentColor(item.department || 'Default');
                             const isCompact = hasMultipleCourses;
                             
                             return (
@@ -137,7 +142,7 @@ const Timetable = ({ schedule, favorites = new Set(), onToggleFavorite }: Timeta
                                   <div className="flex-1 min-w-0">
                                     <div className="flex items-center gap-2 mb-1">
                                       <div className={`text-xs font-bold ${colors.text} truncate`}>
-                                        {item.code}
+                                        {item.code || 'N/A'}
                                       </div>
                                       <div className="text-xs bg-white/60 px-1.5 py-0.5 rounded text-muted-foreground">
                                         L{getCourseLevel(item.code)}
@@ -146,14 +151,14 @@ const Timetable = ({ schedule, favorites = new Set(), onToggleFavorite }: Timeta
                                     
                                     {!isCompact && (
                                       <div className="text-xs text-muted-foreground mb-2 line-clamp-2">
-                                        {item.name}
+                                        {item.name || 'Course Name'}
                                       </div>
                                     )}
 
                                     <div className="space-y-1">
                                       <div className="flex items-center gap-1 text-xs text-muted-foreground">
                                         <Users className="h-3 w-3" />
-                                        <span className="truncate">{item.lecturer}</span>
+                                        <span className="truncate">{item.lecturer || 'TBD'}</span>
                                       </div>
                                       
                                       <div className="flex items-center gap-1 text-xs text-muted-foreground">
@@ -165,7 +170,7 @@ const Timetable = ({ schedule, favorites = new Set(), onToggleFavorite }: Timeta
                                         <div className="flex items-center gap-1 text-xs text-muted-foreground">
                                           <Clock className="h-3 w-3" />
                                           <span>
-                                            {item.timeSlot.startTime} - {item.timeSlot.endTime}
+                                            {item.timeSlot?.startTime || 'TBD'} - {item.timeSlot?.endTime || 'TBD'}
                                           </span>
                                         </div>
                                         
@@ -231,7 +236,7 @@ const Timetable = ({ schedule, favorites = new Set(), onToggleFavorite }: Timeta
         </div>
         <div className="bg-card rounded-lg p-3 text-center border">
           <div className="text-2xl font-bold text-primary">
-            {new Set(schedule.map(item => item.lecturer)).size}
+            {new Set(schedule.map(item => item.lecturer).filter(Boolean)).size}
           </div>
           <div className="text-xs text-muted-foreground">Instructors</div>
         </div>
