@@ -1,6 +1,7 @@
 
 import { Course, ScheduleItem } from "@/lib/types";
 import { supabase } from "@/integrations/supabase/client";
+import { saveSchedule } from "@/lib/db";
 
 export type ScheduleConflict = {
   course: Course;
@@ -83,6 +84,13 @@ export const generateSchedule = async (
     }));
 
     console.log('Generated schedule successfully:', scheduleWithVenues.length, 'items');
+    
+    // Save the schedule to the database
+    if (scheduleWithVenues.length > 0) {
+      console.log('Saving schedule to database...');
+      await saveSchedule(scheduleWithVenues);
+      console.log('Schedule saved to database successfully');
+    }
     
     return {
       schedule: scheduleWithVenues,

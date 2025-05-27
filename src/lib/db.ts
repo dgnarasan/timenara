@@ -1,6 +1,5 @@
-
 import { supabase } from "@/integrations/supabase/client";
-import { Course, DBCourse, Venue, DBVenue, TimeSlot, Department } from "./types";
+import { Course, DBCourse, Venue, DBVenue, TimeSlot, Department, ScheduleItem } from "./types";
 import { PostgrestResponse } from "@supabase/supabase-js";
 import { Database } from "@/integrations/supabase/types";
 
@@ -97,6 +96,83 @@ export const deleteAllCourses = async (): Promise<void> => {
     .from('courses')
     .delete()
     .gte('created_at', '1970-01-01'); // Delete all rows by using a condition that matches all
+
+  if (error) throw error;
+};
+
+export const fetchSchedule = async (): Promise<ScheduleItem[]> => {
+  const { data: scheduleData, error } = await supabase
+    .from('schedules')
+    .select(`
+      id,
+      day,
+      start_time,
+      end_time,
+      created_at,
+      courses!inner (
+        id,
+        code,
+        name,
+        lecturer,
+        class_size,
+        department,
+        academic_level
+      ),
+      venues!inner (
+        id,
+        name,
+        capacity
+      )
+    `)
+    .order('day', { ascending: true })
+    .order('start_time', { ascending: true });
+
+  if (error) throw error;
+
+  return (scheduleData || []).map((item: any) => ({
+    id: item.courses.id,
+    code: item.courses.code,
+    name: item.courses.name,
+    lecturer: item.courses.lecturer,
+    classSize: item.courses.class_size,
+    department: item.courses.department,
+    academicLevel: item.courses.academic_level,
+    timeSlot: {
+      day: item.day as TimeSlot["day"],
+      startTime: item.start_time,
+      endTime: item.end_time,
+    },
+    venue: {
+      id: item.venues.id,
+      name: item.venues.name,
+      capacity: item.venues.capacity,
+      availability: [],
+    },
+  }));
+};
+
+export const saveSchedule = async (schedule: ScheduleItem[]): Promise<void> => {
+  // Prepare schedule data for the database function
+  const scheduleData = schedule.map(item => ({
+    course_id: item.id,
+    venue_id: item.venue.id,
+    day: item.timeSlot.day,
+    start_time: item.timeSlot.startTime,
+    end_time: item.timeSlot.endTime,
+  }));
+
+  const { error } = await supabase.rpc('clear_and_insert_schedule', {
+    schedule_data: scheduleData
+  });
+
+  if (error) throw error;
+};
+
+export const clearSchedule = async (): Promise<void> => {
+  const { error } = await supabase
+    .from('schedules')
+    .delete()
+    .gte('created_at', '1970-01-01'); // Delete all rows
 
   if (error) throw error;
 };

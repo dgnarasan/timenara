@@ -102,6 +102,57 @@ export type Database = {
         }
         Relationships: []
       }
+      schedules: {
+        Row: {
+          course_id: string
+          created_at: string
+          created_by: string | null
+          day: string
+          end_time: string
+          id: string
+          start_time: string
+          updated_at: string
+          venue_id: string
+        }
+        Insert: {
+          course_id: string
+          created_at?: string
+          created_by?: string | null
+          day: string
+          end_time: string
+          id?: string
+          start_time: string
+          updated_at?: string
+          venue_id: string
+        }
+        Update: {
+          course_id?: string
+          created_at?: string
+          created_by?: string | null
+          day?: string
+          end_time?: string
+          id?: string
+          start_time?: string
+          updated_at?: string
+          venue_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "schedules_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "schedules_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       venues: {
         Row: {
           availability: Json | null
@@ -131,6 +182,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      clear_and_insert_schedule: {
+        Args: { schedule_data: Json }
+        Returns: undefined
+      }
       get_user_role: {
         Args: Record<PropertyKey, never>
         Returns: Database["public"]["Enums"]["user_role"]

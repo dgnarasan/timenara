@@ -6,6 +6,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import StudentTimetableView from "@/components/student/StudentTimetableView";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { fetchSchedule } from "@/lib/db";
+import { useToast } from "@/hooks/use-toast";
 import { 
   LayoutDashboard, 
   LogOut, 
@@ -21,27 +23,29 @@ const Schedule = () => {
   const [viewMode, setViewMode] = useState<"timetable" | "list">("timetable");
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
+  const { toast } = useToast();
 
   // Use useCallback to memoize the fetchSchedule function
-  const fetchSchedule = useCallback(async () => {
+  const loadSchedule = useCallback(async () => {
     try {
-      // Artificial delay for demonstration
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      // Simulated data fetch
-      const response = await fetch('/api/schedule');
-      const data = await response.json();
-      setSchedule(data.schedule);
+      setIsLoading(true);
+      const scheduleData = await fetchSchedule();
+      setSchedule(scheduleData);
     } catch (error) {
       console.error('Failed to fetch schedule:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load schedule. Please try again.",
+        variant: "destructive",
+      });
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [toast]);
 
   useEffect(() => {
-    fetchSchedule();
-  }, [fetchSchedule]);
+    loadSchedule();
+  }, [loadSchedule]);
 
   return (
     <div className="container mx-auto py-8 px-4 fade-in">

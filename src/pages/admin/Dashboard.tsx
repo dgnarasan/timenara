@@ -10,12 +10,14 @@ import CourseScheduleSection from "@/components/dashboard/CourseScheduleSection"
 import CourseManagementSection from "@/components/dashboard/CourseManagementSection";
 import GenerateScheduleDialog from "@/components/dashboard/GenerateScheduleDialog";
 import { getActiveInstructors, getAcademicLevels } from "@/utils/scheduling/courseUtils";
+import { fetchSchedule, clearSchedule } from "@/lib/db";
 import { Button } from "@/components/ui/button";
-import { LogOut, Calendar, Home } from "lucide-react";
+import { LogOut, Calendar, Home, Trash2 } from "lucide-react";
 
 const AdminDashboard = () => {
   const [schedule, setSchedule] = useState<ScheduleItem[]>([]);
   const [filteredCourses, setFilteredCourses] = useState<Course[]>([]);
+  const [isLoadingSchedule, setIsLoadingSchedule] = useState(true);
   const {
     courses,
     isLoading,
@@ -43,6 +45,28 @@ const AdminDashboard = () => {
       setFilteredCourses(courses);
     }
   }, [courses, userCollege]);
+
+  // Load existing schedule from database
+  useEffect(() => {
+    const loadSchedule = async () => {
+      try {
+        setIsLoadingSchedule(true);
+        const existingSchedule = await fetchSchedule();
+        setSchedule(existingSchedule);
+      } catch (error) {
+        console.error('Error loading schedule:', error);
+        toast({
+          title: "Error",
+          description: "Failed to load existing schedule",
+          variant: "destructive",
+        });
+      } finally {
+        setIsLoadingSchedule(false);
+      }
+    };
+
+    loadSchedule();
+  }, [toast]);
 
   // Handle adding a course, ensuring it belongs to admin's college
   const handleAdminAddCourse = (course: Omit<Course, "id">) => {
@@ -132,7 +156,27 @@ const AdminDashboard = () => {
     }
   };
 
-  if (isLoading) {
+  const handleClearSchedule = async () => {
+    if (window.confirm("Are you sure you want to clear the entire schedule? This action cannot be undone.")) {
+      try {
+        await clearSchedule();
+        setSchedule([]);
+        toast({
+          title: "Schedule Cleared",
+          description: "All schedule entries have been removed.",
+        });
+      } catch (error) {
+        console.error('Error clearing schedule:', error);
+        toast({
+          title: "Error",
+          description: "Failed to clear schedule. Please try again.",
+          variant: "destructive",
+        });
+      }
+    }
+  };
+
+  if (isLoading || isLoadingSchedule) {
     return (
       <div className="container mx-auto py-8 min-h-screen bg-background">
         <div className="flex items-center justify-center min-h-[400px]">
@@ -174,6 +218,17 @@ const AdminDashboard = () => {
               <Calendar className="h-4 w-4" />
               Student View
             </Button>
+            {schedule.length > 0 && (
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="gap-2"
+                onClick={handleClearSchedule}
+              >
+                <Trash2 className="h-4 w-4" />
+                Clear Schedule
+              </Button>
+            )}
             <Button 
               variant="outline" 
               size="sm" 
