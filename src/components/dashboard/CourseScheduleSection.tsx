@@ -17,7 +17,7 @@ interface CourseScheduleSectionProps {
 const CourseScheduleSection = ({ schedule, isPublished = false }: CourseScheduleSectionProps) => {
   const [isExpanded, setIsExpanded] = useState(false);
 
-  const exportToCSV = () => {
+  const exportToExcel = () => {
     const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
     const timeSlots = Array.from({ length: 9 }, (_, i) => `${i + 9}:00`);
 
@@ -50,7 +50,7 @@ const CourseScheduleSection = ({ schedule, isPublished = false }: CourseSchedule
     XLSX.writeFile(wb, "timetable.xlsx");
   };
 
-  const exportToCSVRaw = () => {
+  const exportToCSV = () => {
     const data = schedule.map(item => ({
       Day: item.timeSlot.day,
       Time: item.timeSlot.startTime,
@@ -132,11 +132,20 @@ const CourseScheduleSection = ({ schedule, isPublished = false }: CourseSchedule
           <Button 
             variant="outline" 
             size="sm" 
-            onClick={exportToCSVRaw}
+            onClick={exportToCSV}
             className="shadow-sm hover:bg-secondary/80 transition-all duration-200 font-medium"
           >
             <FileText className="h-4 w-4 mr-2" />
             CSV
+          </Button>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={exportToExcel}
+            className="shadow-sm hover:bg-secondary/80 transition-all duration-200 font-medium"
+          >
+            <FileText className="h-4 w-4 mr-2" />
+            Excel
           </Button>
           <Button 
             variant="outline" 
