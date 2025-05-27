@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { Course, DBCourse, Venue, DBVenue, TimeSlot, Department, ScheduleItem } from "./types";
 import { PostgrestResponse } from "@supabase/supabase-js";
@@ -12,7 +11,9 @@ export const mapDBCourseToClient = (dbCourse: DBCourse): Course => ({
   classSize: dbCourse.class_size,
   department: dbCourse.department,
   academicLevel: dbCourse.academic_level,
-  preferredSlots: dbCourse.preferred_slots || undefined,
+  preferredSlots: typeof dbCourse.preferred_slots === 'string' 
+    ? JSON.parse(dbCourse.preferred_slots) 
+    : dbCourse.preferred_slots || undefined,
   constraints: dbCourse.constraints || undefined,
 });
 
@@ -41,7 +42,7 @@ export const addCourse = async (course: Omit<Course, "id">): Promise<Course> => 
       name: course.name,
       lecturer: course.lecturer,
       class_size: course.classSize,
-      department: course.department,
+      department: course.department as any, // Type assertion to handle Supabase type mismatch
       academic_level: course.academicLevel,
       preferred_slots: course.preferredSlots ? JSON.stringify(course.preferredSlots) : null,
       constraints: course.constraints || null,
@@ -51,8 +52,8 @@ export const addCourse = async (course: Omit<Course, "id">): Promise<Course> => 
 
   if (error) throw error;
   const dbCourse = data as unknown as DBCourse;
-  if (dbCourse.preferred_slots) {
-    dbCourse.preferred_slots = JSON.parse(dbCourse.preferred_slots as unknown as string);
+  if (dbCourse.preferred_slots && typeof dbCourse.preferred_slots === 'string') {
+    dbCourse.preferred_slots = JSON.parse(dbCourse.preferred_slots);
   }
   return mapDBCourseToClient(dbCourse);
 };
@@ -66,7 +67,7 @@ export const addCourses = async (courses: Omit<Course, "id">[]): Promise<Course[
         name: course.name,
         lecturer: course.lecturer,
         class_size: course.classSize,
-        department: course.department,
+        department: course.department as any, // Type assertion to handle Supabase type mismatch
         academic_level: course.academicLevel,
         preferred_slots: course.preferredSlots ? JSON.stringify(course.preferredSlots) : null,
         constraints: course.constraints || null,
@@ -76,8 +77,8 @@ export const addCourses = async (courses: Omit<Course, "id">[]): Promise<Course[
 
   if (error) throw error;
   return (data as unknown as DBCourse[]).map(course => {
-    if (course.preferred_slots) {
-      course.preferred_slots = JSON.parse(course.preferred_slots as unknown as string);
+    if (course.preferred_slots && typeof course.preferred_slots === 'string') {
+      course.preferred_slots = JSON.parse(course.preferred_slots);
     }
     return mapDBCourseToClient(course);
   });

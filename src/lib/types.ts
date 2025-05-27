@@ -1,4 +1,5 @@
 
+
 export interface Course {
   id: string;
   code: string;
@@ -59,9 +60,14 @@ export type Department =
   | "Peace Studies and Conflict Resolution"
   | "Industrial Chemistry";
 
+export type College = 
+  | "College of Computing and Information Sciences (CoCIS)"
+  | "College of Natural and Applied Sciences (CoNAS)"
+  | "College of Humanities and Social Sciences (CHUSS)";
+
 export const collegeStructure = [
   {
-    college: "College of Computing and Information Sciences (CoCIS)",
+    college: "College of Computing and Information Sciences (CoCIS)" as College,
     departments: [
       "Computer Science",
       "Software Engineering", 
@@ -70,7 +76,7 @@ export const collegeStructure = [
     ]
   },
   {
-    college: "College of Natural and Applied Sciences (CoNAS)",
+    college: "College of Natural and Applied Sciences (CoNAS)" as College,
     departments: [
       "Biochemistry",
       "Microbiology and Industrial Biotechnology",
@@ -78,9 +84,10 @@ export const collegeStructure = [
     ]
   },
   {
-    college: "College of Humanities and Social Sciences (CHUSS)",
+    college: "College of Humanities and Social Sciences (CHUSS)" as College,
     departments: [
       "Peace Studies and Conflict Resolution"
     ]
   }
 ];
+
