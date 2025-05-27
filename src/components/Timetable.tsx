@@ -1,9 +1,8 @@
-
 import React from "react";
 import { ScheduleItem } from "@/lib/types";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Star, Users, MapPin, Clock, ChevronDown, ChevronUp, LayoutGrid } from "lucide-react";
+import { Star, Users, MapPin, Clock, ChevronDown, ChevronUp, LayoutGrid, List } from "lucide-react";
 import { useState } from "react";
 import {
   Table,
@@ -97,7 +96,7 @@ const Timetable = ({ schedule, favorites = new Set(), onToggleFavorite }: Timeta
             onClick={() => setViewType("table")}
             className="gap-2"
           >
-            <Clock className="h-4 w-4" />
+            <List className="h-4 w-4" />
             List View
           </Button>
           <Button
