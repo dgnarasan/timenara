@@ -21,13 +21,19 @@ interface ScheduleItem {
   name: string;
   lecturer: string;
   classSize: number;
+  department?: string;
   timeSlot: TimeSlot;
+  venue?: {
+    id: string;
+    name: string;
+    capacity: number;
+  };
 }
 
 function isValidTimeSlot(startTime: string, endTime: string): boolean {
   const start = parseInt(startTime.split(':')[0]);
   const end = parseInt(endTime.split(':')[0]);
-  return start >= 9 && end <= 17 && end - start === 2;
+  return start >= 9 && end <= 17 && end > start && (end - start) === 2;
 }
 
 function isValidScheduleItem(item: any): item is ScheduleItem {
@@ -47,182 +53,50 @@ function isValidScheduleItem(item: any): item is ScheduleItem {
   );
 }
 
-serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
-
-  try {
-    const { courses } = await req.json();
-
-    console.log('Input courses:', JSON.stringify(courses, null, 2));
-
-    const systemPrompt = `You are an AI assistant that generates optimal course schedules.
-Generate a timetable that assigns courses to time slots following these rules:
-1. No lecturer should teach multiple classes at the same time
-2. Classes should be distributed evenly throughout the week
-3. Time slots are from 9:00 to 17:00, Monday to Friday
-4. Each class is EXACTLY 2 hours long
-5. Consider class sizes when distributing - try to avoid scheduling multiple large classes in the same time slot
-
-Return the schedule as a JSON array where each item contains:
-- id (from input)
-- code (from input)
-- name (from input)
-- lecturer (from input)
-- classSize (from input)
-- timeSlot: { 
-    day: string, 
-    startTime: string (HH:00 format),
-    endTime: string (HH:00 format, must be startTime + 2 hours)
-  }
-
-IMPORTANT: Return ONLY the JSON array, no markdown formatting or additional text.`;
-
-    const userPrompt = `Generate an optimized weekly schedule for these courses:
-${JSON.stringify(courses, null, 2)}
-
-Requirements:
-- Every course must be exactly 2 hours long
-- No lecturer can teach multiple courses at the same time
-- Distribute courses evenly across Monday to Friday
-- Only use time slots between 9 AM and 5 PM`;
-
-    console.log('Sending request to OpenAI...');
-    
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${openAIApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt }
-        ],
-        temperature: 0.3,
-      }),
-    });
-
-    const rawResponse = await response.json();
-    console.log('Raw OpenAI response:', JSON.stringify(rawResponse, null, 2));
-
-    if (!rawResponse.choices || !rawResponse.choices[0]?.message?.content) {
-      console.error('Invalid OpenAI response structure:', rawResponse);
-      throw new Error('Invalid response structure from OpenAI');
-    }
-
-    const content = rawResponse.choices[0].message.content.trim();
-    console.log('Raw content from OpenAI:', content);
-    
-    let jsonString = content;
-    // Handle markdown code blocks if present
-    const markdownMatch = content.match(/```(?:json)?\n?([\s\S]*?)\n?```/);
-    if (markdownMatch) {
-      jsonString = markdownMatch[1].trim();
-    }
-    
-    console.log('Extracted JSON string:', jsonString);
-
-    let parsedContent: any;
-    try {
-      parsedContent = JSON.parse(jsonString);
-      console.log('Parsed content:', JSON.stringify(parsedContent, null, 2));
-    } catch (parseError) {
-      console.error('Failed to parse JSON:', parseError);
-      throw new Error('Failed to parse schedule from OpenAI response');
-    }
-
-    if (!Array.isArray(parsedContent)) {
-      throw new Error('OpenAI response is not an array');
-    }
-
-    // Validate all schedule items
-    const validScheduleItems = parsedContent.filter(isValidScheduleItem);
-    if (validScheduleItems.length === 0) {
-      throw new Error('No valid schedule items found in OpenAI response');
-    }
-
-    // Check for scheduling conflicts
-    const conflicts = validateSchedule(validScheduleItems);
-    if (conflicts.length > 0) {
-      return new Response(
-        JSON.stringify({
-          success: false,
-          schedule: [],
-          conflicts
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    return new Response(
-      JSON.stringify({
-        success: true,
-        schedule: validScheduleItems,
-        conflicts: []
-      }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
-
-  } catch (error) {
-    console.error('Error in generate-schedule function:', error);
-    return new Response(
-      JSON.stringify({
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error occurred',
-        schedule: [],
-        conflicts: [{ reason: error instanceof Error ? error.message : 'Failed to generate schedule' }]
-      }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      }
-    );
-  }
-});
-
-function validateSchedule(schedule: ScheduleItem[]): { reason: string }[] {
-  const conflicts: { reason: string }[] = [];
-  const timeSlotMap = new Map<string, Set<string>>();
-  const lecturerMap = new Map<string, Set<string>>();
+function validateSchedule(schedule: ScheduleItem[]): { reason: string; courseId?: string }[] {
+  const conflicts: { reason: string; courseId?: string }[] = [];
+  const lecturerTimeSlots = new Map<string, Set<string>>();
 
   for (const item of schedule) {
     const { timeSlot, lecturer } = item;
     const timeKey = `${timeSlot.day}-${timeSlot.startTime}-${timeSlot.endTime}`;
 
-    // Check if the slot is already taken
-    if (!timeSlotMap.has(timeKey)) {
-      timeSlotMap.set(timeKey, new Set());
+    // Check lecturer conflicts
+    if (!lecturerTimeSlots.has(lecturer)) {
+      lecturerTimeSlots.set(lecturer, new Set());
     }
-    timeSlotMap.get(timeKey)!.add(lecturer);
 
-    // Check lecturer availability
-    if (!lecturerMap.has(lecturer)) {
-      lecturerMap.set(lecturer, new Set());
+    const lecturerSlots = lecturerTimeSlots.get(lecturer)!;
+    
+    // Check if lecturer already has a class at this time
+    for (const existingSlot of lecturerSlots) {
+      if (doTimeSlotsOverlap(timeKey, existingSlot)) {
+        conflicts.push({
+          reason: `Lecturer ${lecturer} has overlapping classes on ${timeSlot.day} at ${timeSlot.startTime}`,
+          courseId: item.id
+        });
+      }
     }
-    lecturerMap.get(lecturer)!.add(timeKey);
+    
+    lecturerSlots.add(timeKey);
 
     // Validate time slot duration
     const startHour = parseInt(timeSlot.startTime.split(':')[0]);
     const endHour = parseInt(timeSlot.endTime.split(':')[0]);
     if (endHour - startHour !== 2) {
       conflicts.push({
-        reason: `Course ${item.code} duration is not exactly 2 hours (${timeSlot.startTime} - ${timeSlot.endTime})`
+        reason: `Course ${item.code} duration is not exactly 2 hours (${timeSlot.startTime} - ${timeSlot.endTime})`,
+        courseId: item.id
       });
     }
 
-    // Check for lecturer conflicts
-    const lecturerSlots = lecturerMap.get(lecturer)!;
-    lecturerSlots.forEach(slot => {
-      if (slot !== timeKey && doTimeSlotsOverlap(timeKey, slot)) {
-        conflicts.push({
-          reason: `Lecturer ${lecturer} has overlapping classes at ${timeSlot.day} ${timeSlot.startTime}-${timeSlot.endTime}`
-        });
-      }
-    });
+    // Validate time bounds
+    if (startHour < 9 || endHour > 17) {
+      conflicts.push({
+        reason: `Course ${item.code} is scheduled outside business hours (${timeSlot.startTime} - ${timeSlot.endTime})`,
+        courseId: item.id
+      });
+    }
   }
 
   return conflicts;
@@ -244,3 +118,207 @@ function doTimeSlotsOverlap(slot1: string, slot2: string): boolean {
     (start2Hour >= start1Hour && start2Hour < end1Hour)
   );
 }
+
+function addDefaultVenues(schedule: ScheduleItem[]): ScheduleItem[] {
+  const venues = [
+    { id: "v1", name: "Room 101", capacity: 50 },
+    { id: "v2", name: "Room 102", capacity: 100 },
+    { id: "v3", name: "Lecture Hall A", capacity: 150 },
+    { id: "v4", name: "Lecture Hall B", capacity: 200 },
+    { id: "v5", name: "Laboratory 1", capacity: 30 },
+    { id: "v6", name: "Laboratory 2", capacity: 30 },
+    { id: "v7", name: "Seminar Room 1", capacity: 25 },
+    { id: "v8", name: "Seminar Room 2", capacity: 25 },
+    { id: "v9", name: "Computer Lab", capacity: 40 },
+    { id: "v10", name: "Conference Hall", capacity: 300 },
+  ];
+
+  return schedule.map((item, index) => {
+    // Assign venue based on class size
+    let selectedVenue = venues[0]; // default
+    
+    for (const venue of venues) {
+      if (item.classSize <= venue.capacity) {
+        selectedVenue = venue;
+        break;
+      }
+    }
+
+    // If class is too large for any venue, use the largest one
+    if (item.classSize > selectedVenue.capacity) {
+      selectedVenue = venues[venues.length - 1];
+    }
+
+    // Add some rotation to avoid same venue for all small classes
+    const venueIndex = (index + Math.floor(item.classSize / 50)) % venues.length;
+    const rotatedVenue = venues[venueIndex];
+    
+    if (item.classSize <= rotatedVenue.capacity) {
+      selectedVenue = rotatedVenue;
+    }
+
+    return {
+      ...item,
+      venue: selectedVenue
+    };
+  });
+}
+
+serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    const { courses } = await req.json();
+
+    console.log('Input courses:', JSON.stringify(courses.slice(0, 5), null, 2), '... (showing first 5 of', courses.length, ')');
+
+    const systemPrompt = `You are an AI assistant that generates optimal course schedules.
+Generate a timetable that assigns courses to time slots following these STRICT rules:
+1. Each class is EXACTLY 2 hours long
+2. Time slots are between 9:00 and 17:00, Monday to Friday only
+3. No lecturer should teach multiple classes at the same time
+4. Classes should be distributed evenly throughout the week
+5. Use only these time slots: 9:00-11:00, 11:00-13:00, 13:00-15:00, 15:00-17:00
+
+Return the schedule as a JSON array where each item contains:
+- id (from input)
+- code (from input)  
+- name (from input)
+- lecturer (from input)
+- classSize (from input)
+- timeSlot: { 
+    day: "Monday"|"Tuesday"|"Wednesday"|"Thursday"|"Friday", 
+    startTime: "HH:00" format (09:00, 11:00, 13:00, or 15:00),
+    endTime: "HH:00" format (11:00, 13:00, 15:00, or 17:00)
+  }
+
+CRITICAL: Every course must have exactly these time slots:
+- 09:00-11:00, 11:00-13:00, 13:00-15:00, or 15:00-17:00
+- Days: Monday, Tuesday, Wednesday, Thursday, Friday only
+
+Return ONLY the JSON array, no markdown formatting.`;
+
+    const userPrompt = `Generate a complete weekly schedule for ALL ${courses.length} courses:
+${JSON.stringify(courses, null, 2)}
+
+Requirements:
+- Schedule ALL courses provided
+- Every course must be exactly 2 hours long
+- Use only valid time slots: 09:00-11:00, 11:00-13:00, 13:00-15:00, 15:00-17:00
+- No lecturer conflicts
+- Distribute evenly across Monday-Friday`;
+
+    console.log('Sending request to OpenAI...');
+    
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${openAIApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt }
+        ],
+        temperature: 0.1,
+        max_tokens: 8000,
+      }),
+    });
+
+    const rawResponse = await response.json();
+    console.log('OpenAI response received, tokens used:', rawResponse.usage?.total_tokens);
+
+    if (!rawResponse.choices || !rawResponse.choices[0]?.message?.content) {
+      console.error('Invalid OpenAI response structure:', rawResponse);
+      throw new Error('Invalid response structure from OpenAI');
+    }
+
+    const content = rawResponse.choices[0].message.content.trim();
+    console.log('Content length:', content.length);
+    
+    let jsonString = content;
+    // Handle markdown code blocks if present
+    const markdownMatch = content.match(/```(?:json)?\n?([\s\S]*?)\n?```/);
+    if (markdownMatch) {
+      jsonString = markdownMatch[1].trim();
+    }
+
+    let parsedContent: any;
+    try {
+      parsedContent = JSON.parse(jsonString);
+      console.log('Parsed schedule items:', parsedContent.length);
+    } catch (parseError) {
+      console.error('Failed to parse JSON:', parseError);
+      console.error('Content:', jsonString.substring(0, 500));
+      throw new Error('Failed to parse schedule from OpenAI response');
+    }
+
+    if (!Array.isArray(parsedContent)) {
+      throw new Error('OpenAI response is not an array');
+    }
+
+    // Validate and filter schedule items
+    const validScheduleItems = parsedContent.filter(isValidScheduleItem);
+    console.log('Valid schedule items:', validScheduleItems.length, 'out of', parsedContent.length);
+
+    if (validScheduleItems.length === 0) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          schedule: [],
+          conflicts: [{ reason: 'No valid schedule items found in OpenAI response' }]
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Check for conflicts
+    const conflicts = validateSchedule(validScheduleItems);
+    console.log('Conflicts found:', conflicts.length);
+
+    if (conflicts.length > 0) {
+      console.log('Schedule conflicts:', conflicts);
+      return new Response(
+        JSON.stringify({
+          success: false,
+          schedule: [],
+          conflicts: conflicts
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Add venues to the schedule
+    const scheduleWithVenues = addDefaultVenues(validScheduleItems);
+
+    console.log('Generated valid schedule with', scheduleWithVenues.length, 'items');
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        schedule: scheduleWithVenues,
+        conflicts: []
+      }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+
+  } catch (error) {
+    console.error('Error in generate-schedule function:', error);
+    return new Response(
+      JSON.stringify({
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error occurred',
+        schedule: [],
+        conflicts: [{ reason: error instanceof Error ? error.message : 'Failed to generate schedule' }]
+      }),
+      {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      }
+    );
+  }
+});
