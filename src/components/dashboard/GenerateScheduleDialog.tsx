@@ -19,10 +19,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useState } from "react";
-import { generateSchedule } from "@/services/scheduleGenerator";
+import { generateSchedule, GenerationResult } from "@/services/scheduleGenerator";
 import { saveSchedule } from "@/lib/db";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
+import ErrorReportDialog from "./ErrorReportDialog";
 
 interface GenerateScheduleDialogProps {
   courses: Course[];
@@ -36,6 +37,8 @@ const GenerateScheduleDialog = ({ courses, onScheduleGenerated }: GenerateSchedu
   const [scheduleScope, setScheduleScope] = useState<'department' | 'college' | 'all'>('department');
   const [selectedDepartment, setSelectedDepartment] = useState<Department | 'all'>('all');
   const [selectedCollege, setSelectedCollege] = useState<College | 'all'>('all');
+  const [generationResult, setGenerationResult] = useState<GenerationResult | null>(null);
+  const [showErrorReport, setShowErrorReport] = useState(false);
   const { toast } = useToast();
 
   const getFilteredCourses = () => {
@@ -72,66 +75,87 @@ const GenerateScheduleDialog = ({ courses, onScheduleGenerated }: GenerateSchedu
 
     setIsLoading(true);
     setProgress(0);
+    setGenerationResult(null);
 
     try {
-      console.log("Starting schedule generation with courses:", filteredCourses.length);
+      console.log("Starting enhanced schedule generation with courses:", filteredCourses.length);
       
       // Start progress animation
       const progressInterval = setInterval(() => {
         setProgress(prev => {
-          const newProgress = Math.min(prev + 5, 85); // Cap at 85% until we get response
+          const newProgress = Math.min(prev + 5, 85);
           console.log("Progress:", newProgress + "%");
           return newProgress;
         });
       }, 200);
 
-      console.log("Calling generateSchedule function...");
-      const { schedule: newSchedule, conflicts } = await generateSchedule(filteredCourses);
+      console.log("Calling enhanced generateSchedule function...");
+      const result = await generateSchedule(filteredCourses);
       
-      console.log("Schedule generation completed:", {
-        scheduleLength: newSchedule.length,
-        conflictsLength: conflicts.length
+      console.log("Enhanced schedule generation completed:", {
+        scheduleLength: result.schedule.length,
+        conflictsLength: result.conflicts.length,
+        successRate: result.summary.successRate
       });
       
       clearInterval(progressInterval);
       setProgress(90);
+      setGenerationResult(result);
 
-      if (conflicts.length > 0) {
-        console.log("Schedule conflicts found:", conflicts);
-        conflicts.forEach(({ reason }) => {
-          toast({
-            title: "Scheduling Conflict",
-            description: reason,
-            variant: "destructive",
+      if (result.conflicts.length > 0) {
+        console.log("Schedule conflicts found:", result.conflicts);
+        
+        // Show critical errors immediately
+        const criticalErrors = result.conflicts.filter(c => c.severity === 'critical');
+        if (criticalErrors.length > 0) {
+          criticalErrors.forEach(conflict => {
+            toast({
+              title: "Critical Error",
+              description: conflict.reason,
+              variant: "destructive",
+            });
           });
-        });
+        }
       }
 
-      if (newSchedule.length > 0) {
+      if (result.schedule.length > 0) {
         console.log("Saving generated schedule to database...");
-        // Save the schedule to the database (unpublished by default)
-        await saveSchedule(newSchedule, false);
-        
-        setProgress(100);
-        console.log("Generated schedule successfully, updating UI...");
-        onScheduleGenerated(newSchedule);
-        setIsOpen(false);
-        
-        const scopeDescription = scheduleScope === 'college' && selectedCollege !== 'all' 
-          ? `for ${selectedCollege.replace(/\s*\([^)]*\)/g, '')}`
-          : scheduleScope === 'department' && selectedDepartment !== 'all'
-          ? `for ${selectedDepartment}`
-          : 'across all departments';
+        try {
+          await saveSchedule(result.schedule, false);
+          setProgress(100);
+          console.log("Generated schedule successfully, updating UI...");
+          onScheduleGenerated(result.schedule);
+          
+          const scopeDescription = scheduleScope === 'college' && selectedCollege !== 'all' 
+            ? `for ${selectedCollege.replace(/\s*\([^)]*\)/g, '')}`
+            : scheduleScope === 'department' && selectedDepartment !== 'all'
+            ? `for ${selectedDepartment}`
+            : 'across all departments';
 
-        toast({
-          title: "Schedule Generated",
-          description: `Successfully scheduled ${newSchedule.length} courses ${scopeDescription}${conflicts.length > 0 ? ' with some conflicts' : ''}. Use the Publish button to make it visible to students.`,
-        });
+          toast({
+            title: "Schedule Generated",
+            description: `Successfully scheduled ${result.schedule.length}/${result.summary.totalCourses} courses ${scopeDescription} (${result.summary.successRate}% success rate)`,
+          });
+
+          if (result.conflicts.length > 0) {
+            setShowErrorReport(true);
+          } else {
+            setIsOpen(false);
+          }
+        } catch (saveError) {
+          console.error('Error saving schedule:', saveError);
+          toast({
+            title: "Save Error",
+            description: "Schedule generated but failed to save. Please try again.",
+            variant: "destructive",
+          });
+        }
       } else {
-        console.log("No schedule generated, showing error");
+        console.log("No schedule generated, showing error report");
+        setShowErrorReport(true);
         toast({
           title: "Generation Failed",
-          description: "Could not generate a valid schedule. Please check the conflicts and try again.",
+          description: `Could not generate a valid schedule. ${result.conflicts.length} issues found.`,
           variant: "destructive",
         });
       }
@@ -149,156 +173,175 @@ const GenerateScheduleDialog = ({ courses, onScheduleGenerated }: GenerateSchedu
     }
   };
 
+  const handleRetryGeneration = () => {
+    setShowErrorReport(false);
+    setGenerationResult(null);
+    handleGenerateAI();
+  };
+
   return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogTrigger asChild>
-        <Button 
-          className="shadow-sm"
-          disabled={courses.length === 0}
-        >
-          Generate with AI
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>Generate AI Schedule</DialogTitle>
-          <DialogDescription>
-            Generate an optimized schedule using AI with advanced conflict detection
-          </DialogDescription>
-        </DialogHeader>
-        <div className="py-4 space-y-6">
-          <div className="space-y-3">
-            <h4 className="text-sm font-medium">Schedule Scope</h4>
-            <Select
-              value={scheduleScope}
-              onValueChange={(value: 'department' | 'college' | 'all') => {
-                setScheduleScope(value);
-                setSelectedDepartment('all');
-                setSelectedCollege('all');
-              }}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select scope" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="department">Single Department</SelectItem>
-                <SelectItem value="college">Entire College</SelectItem>
-                <SelectItem value="all">All Colleges</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          {scheduleScope === 'department' && (
-            <div className="space-y-3">
-              <h4 className="text-sm font-medium">Department</h4>
-              <Select
-                value={selectedDepartment}
-                onValueChange={(value: Department | 'all') => setSelectedDepartment(value)}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select a department" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Departments</SelectItem>
-                  {collegeStructure.map((collegeItem) => (
-                    <SelectGroup key={collegeItem.college}>
-                      <SelectLabel>{collegeItem.college.replace(/\s*\([^)]*\)/g, '')}</SelectLabel>
-                      {collegeItem.departments.map((dept) => (
-                        <SelectItem key={dept} value={dept}>
-                          {dept}
-                        </SelectItem>
-                      ))}
-                    </SelectGroup>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
-
-          {scheduleScope === 'college' && (
-            <div className="space-y-3">
-              <h4 className="text-sm font-medium">College</h4>
-              <Select
-                value={selectedCollege}
-                onValueChange={(value: College | 'all') => setSelectedCollege(value)}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select a college" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Colleges</SelectItem>
-                  {collegeStructure.map((collegeItem) => (
-                    <SelectItem key={collegeItem.college} value={collegeItem.college}>
-                      {collegeItem.college.replace(/\s*\([^)]*\)/g, '')}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
-
-          <div className="space-y-3">
-            <h4 className="text-sm font-medium">Schedule Overview</h4>
-            <div className="bg-muted/30 p-4 rounded-lg space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">Total Courses:</span>
-                <Badge variant="secondary">{filteredCourses.length}</Badge>
-              </div>
-              
-              {Object.keys(getDepartmentCounts()).length > 1 && (
-                <div className="space-y-2">
-                  <span className="text-sm text-muted-foreground">Department Distribution:</span>
-                  <div className="grid grid-cols-2 gap-2">
-                    {Object.entries(getDepartmentCounts()).map(([dept, count]) => (
-                      <div key={dept} className="flex items-center justify-between text-xs">
-                        <span className="truncate">{dept}</span>
-                        <Badge variant="outline" className="text-xs">{count}</Badge>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div className="space-y-3">
-            <h4 className="text-sm font-medium">Advanced Conflict Detection</h4>
-            <ul className="text-sm text-muted-foreground list-disc list-inside space-y-1 bg-blue-50 p-3 rounded-lg">
-              <li>Cross-departmental lecturer scheduling conflicts</li>
-              <li>Venue capacity vs class size validation</li>
-              <li>Time slot optimization across departments</li>
-              <li>Resource sharing conflict detection</li>
-              <li>Similar course scheduling across departments</li>
-            </ul>
-          </div>
-
-          {isLoading && (
-            <div className="space-y-2">
-              <div className="h-2 bg-secondary rounded-full overflow-hidden">
-                <div 
-                  className="h-full bg-primary transition-all duration-300"
-                  style={{ width: `${progress}%` }}
-                />
-              </div>
-              <p className="text-sm text-muted-foreground text-center">
-                Generating schedule ({progress}%)...
-              </p>
-            </div>
-          )}
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => setIsOpen(false)} disabled={isLoading}>
-            Cancel
-          </Button>
+    <>
+      <Dialog open={isOpen} onOpenChange={setIsOpen}>
+        <DialogTrigger asChild>
           <Button 
-            onClick={handleGenerateAI}
-            disabled={isLoading}
+            className="shadow-sm"
+            disabled={courses.length === 0}
           >
-            {isLoading ? "Generating..." : "Generate Schedule"}
+            Generate with AI
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </DialogTrigger>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Generate AI Schedule</DialogTitle>
+            <DialogDescription>
+              Generate an optimized schedule using AI with advanced conflict detection and detailed error reporting
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4 space-y-6">
+            <div className="space-y-3">
+              <h4 className="text-sm font-medium">Schedule Scope</h4>
+              <Select
+                value={scheduleScope}
+                onValueChange={(value: 'department' | 'college' | 'all') => {
+                  setScheduleScope(value);
+                  setSelectedDepartment('all');
+                  setSelectedCollege('all');
+                }}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select scope" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="department">Single Department</SelectItem>
+                  <SelectItem value="college">Entire College</SelectItem>
+                  <SelectItem value="all">All Colleges</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {scheduleScope === 'department' && (
+              <div className="space-y-3">
+                <h4 className="text-sm font-medium">Department</h4>
+                <Select
+                  value={selectedDepartment}
+                  onValueChange={(value: Department | 'all') => setSelectedDepartment(value)}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select a department" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Departments</SelectItem>
+                    {collegeStructure.map((collegeItem) => (
+                      <SelectGroup key={collegeItem.college}>
+                        <SelectLabel>{collegeItem.college.replace(/\s*\([^)]*\)/g, '')}</SelectLabel>
+                        {collegeItem.departments.map((dept) => (
+                          <SelectItem key={dept} value={dept}>
+                            {dept}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {scheduleScope === 'college' && (
+              <div className="space-y-3">
+                <h4 className="text-sm font-medium">College</h4>
+                <Select
+                  value={selectedCollege}
+                  onValueChange={(value: College | 'all') => setSelectedCollege(value)}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select a college" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Colleges</SelectItem>
+                    {collegeStructure.map((collegeItem) => (
+                      <SelectItem key={collegeItem.college} value={collegeItem.college}>
+                        {collegeItem.college.replace(/\s*\([^)]*\)/g, '')}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            <div className="space-y-3">
+              <h4 className="text-sm font-medium">Schedule Overview</h4>
+              <div className="bg-muted/30 p-4 rounded-lg space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">Total Courses:</span>
+                  <Badge variant="secondary">{filteredCourses.length}</Badge>
+                </div>
+                
+                {Object.keys(getDepartmentCounts()).length > 1 && (
+                  <div className="space-y-2">
+                    <span className="text-sm text-muted-foreground">Department Distribution:</span>
+                    <div className="grid grid-cols-2 gap-2">
+                      {Object.entries(getDepartmentCounts()).map(([dept, count]) => (
+                        <div key={dept} className="flex items-center justify-between text-xs">
+                          <span className="truncate">{dept}</span>
+                          <Badge variant="outline" className="text-xs">{count}</Badge>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <h4 className="text-sm font-medium">Enhanced Error Detection</h4>
+              <ul className="text-sm text-muted-foreground list-disc list-inside space-y-1 bg-blue-50 p-3 rounded-lg">
+                <li>Cross-departmental lecturer scheduling conflicts</li>
+                <li>Venue capacity vs class size validation</li>
+                <li>API connectivity and performance monitoring</li>
+                <li>Database integrity and venue availability checks</li>
+                <li>Lecturer workload distribution analysis</li>
+                <li>Detailed conflict categorization and resolution suggestions</li>
+              </ul>
+            </div>
+
+            {isLoading && (
+              <div className="space-y-2">
+                <div className="h-2 bg-secondary rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-primary transition-all duration-300"
+                    style={{ width: `${progress}%` }}
+                  />
+                </div>
+                <p className="text-sm text-muted-foreground text-center">
+                  Generating schedule with enhanced error detection ({progress}%)...
+                </p>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsOpen(false)} disabled={isLoading}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleGenerateAI}
+              disabled={isLoading}
+            >
+              {isLoading ? "Generating..." : "Generate Schedule"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <ErrorReportDialog
+        isOpen={showErrorReport}
+        onClose={() => {
+          setShowErrorReport(false);
+          setIsOpen(false);
+        }}
+        conflicts={generationResult?.conflicts || []}
+        onRetryGeneration={handleRetryGeneration}
+      />
+    </>
   );
 };
 
