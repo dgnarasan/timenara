@@ -1,3 +1,4 @@
+
 import { Course, Department, ScheduleItem, collegeStructure, College } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import {
@@ -106,9 +107,14 @@ const GenerateScheduleDialog = ({ courses, onScheduleGenerated }: GenerateSchedu
             description: `Successfully scheduled ${result.schedule.length}/${result.summary.totalCourses} courses ${scopeDescription} (${result.summary.successRate}% success rate)`,
           });
 
-          if (result.conflicts.length > 0 || !result.preValidationPassed) {
+          // Only show conflict modal if generation actually failed or there are critical issues
+          // Don't show it for successful generations with minor conflicts that were resolved
+          const hasCriticalFailures = result.schedule.length === 0 || !result.preValidationPassed;
+          
+          if (hasCriticalFailures) {
             setShowConflictModal(true);
           } else {
+            // Close the dialog since generation was successful
             setIsOpen(false);
           }
         } catch (saveError) {
