@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Course, ScheduleItem, collegeStructure } from "@/lib/types";
 import { useCourses } from "@/hooks/useCourses";
@@ -69,6 +70,38 @@ const AdminDashboard = () => {
     }
   };
 
+  // Robust schedule filtering function
+  const filterAndValidateSchedule = (rawSchedule: any[]): ScheduleItem[] => {
+    try {
+      if (!Array.isArray(rawSchedule)) {
+        console.warn('Schedule is not an array:', rawSchedule);
+        return [];
+      }
+
+      const validItems = rawSchedule
+        .filter((item): item is ScheduleItem => {
+          // First check if item exists and is not null/undefined
+          if (!item || typeof item !== 'object') {
+            console.warn('Filtering out null/undefined/non-object item:', item);
+            return false;
+          }
+
+          // Then validate with our comprehensive validation
+          const isValid = validateScheduleItem(item);
+          if (!isValid) {
+            console.warn('Filtering out invalid schedule item:', item);
+          }
+          return isValid;
+        });
+
+      console.log(`Filtered ${validItems.length} valid items from ${rawSchedule.length} total items`);
+      return validItems;
+    } catch (error) {
+      console.error('Error filtering schedule:', error);
+      return [];
+    }
+  };
+
   // Filter courses based on admin's college
   useEffect(() => {
     try {
@@ -104,14 +137,8 @@ const AdminDashboard = () => {
         
         console.log('Raw schedule from database:', existingSchedule.length, 'items');
         
-        // Enhanced validation and filtering
-        const validSchedule = existingSchedule.filter(item => {
-          const isValid = validateScheduleItem(item);
-          if (!isValid) {
-            console.warn('Invalid schedule item filtered out during load:', item);
-          }
-          return isValid;
-        });
+        // Use our robust filtering function
+        const validSchedule = filterAndValidateSchedule(existingSchedule);
         
         console.log('Setting schedule in dashboard:', validSchedule.length, 'valid items out of', existingSchedule.length, 'total');
         setSchedule(validSchedule);
@@ -208,24 +235,32 @@ const AdminDashboard = () => {
 
   const handleScheduleGenerated = (newSchedule: ScheduleItem[]) => {
     try {
-      console.log('Handling newly generated schedule:', newSchedule.length, 'items');
+      console.log('Handling newly generated schedule:', newSchedule?.length || 0, 'items');
       
-      // Enhanced validation and filtering for new schedule
-      const validSchedule = newSchedule.filter(item => {
-        const isValid = validateScheduleItem(item);
-        if (!isValid) {
-          console.warn('Invalid schedule item filtered out from new schedule:', item);
-        }
-        return isValid;
-      });
+      // Ensure we have a valid array
+      if (!Array.isArray(newSchedule)) {
+        console.error('Invalid schedule format received:', typeof newSchedule);
+        toast({
+          title: "Error",
+          description: "Invalid schedule format received. Please try again.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Use our robust filtering function
+      const validSchedule = filterAndValidateSchedule(newSchedule);
 
       console.log('Setting new schedule in dashboard:', validSchedule.length, 'valid items out of', newSchedule.length, 'total');
       
-      // Use setTimeout to ensure state update happens after component is ready
-      setTimeout(() => {
-        setSchedule(validSchedule);
-        setIsSchedulePublished(false); // New schedule is not published by default
-      }, 100);
+      // Use React's functional state update to ensure we're working with the latest state
+      setSchedule(prevSchedule => {
+        console.log('Previous schedule length:', prevSchedule.length);
+        console.log('New schedule length:', validSchedule.length);
+        return validSchedule;
+      });
+      
+      setIsSchedulePublished(false); // New schedule is not published by default
       
       if (validSchedule.length < newSchedule.length) {
         toast({
@@ -233,14 +268,21 @@ const AdminDashboard = () => {
           description: `${validSchedule.length} valid courses scheduled. ${newSchedule.length - validSchedule.length} items were filtered out due to missing data.`,
           variant: "default",
         });
-      } else {
+      } else if (validSchedule.length > 0) {
         toast({
           title: "Schedule Generated Successfully",
           description: `${validSchedule.length} courses scheduled without conflicts.`,
         });
+      } else {
+        toast({
+          title: "No Valid Schedule Generated",
+          description: "No valid schedule items could be created. Please check your course data and try again.",
+          variant: "destructive",
+        });
       }
     } catch (error) {
       console.error('Error setting schedule:', error);
+      setSchedule([]);
       toast({
         title: "Error",
         description: "Failed to update schedule display. Please try again.",
@@ -317,6 +359,9 @@ const AdminDashboard = () => {
     );
   }
 
+  // Additional safety check before rendering
+  const safeSchedule = Array.isArray(schedule) ? schedule.filter(validateScheduleItem) : [];
+
   return (
     <ErrorBoundary>
       <div className="container mx-auto py-8 min-h-screen bg-background">
@@ -347,7 +392,7 @@ const AdminDashboard = () => {
                 <Calendar className="h-4 w-4" />
                 Student View
               </Button>
-              {schedule.length > 0 && (
+              {safeSchedule.length > 0 && (
                 <>
                   <Button 
                     variant={isSchedulePublished ? "default" : "outline"}
@@ -400,7 +445,7 @@ const AdminDashboard = () => {
             <div className="bg-card rounded-lg p-6 shadow-sm">
               <ErrorBoundary>
                 <CourseScheduleSection 
-                  schedule={schedule} 
+                  schedule={safeSchedule} 
                   isPublished={isSchedulePublished}
                 />
               </ErrorBoundary>

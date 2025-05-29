@@ -23,108 +23,173 @@ interface CourseScheduleSectionProps {
 const CourseScheduleSection = ({ schedule, isPublished = false }: CourseScheduleSectionProps) => {
   const [isExpanded, setIsExpanded] = useState(false);
 
-  const exportToExcel = () => {
-    const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
-    const timeSlots = ["9:00", "11:00", "13:00", "15:00", "17:00"]; // 2-hour slots
+  // Validate schedule items before processing
+  const validateAndFilterSchedule = (items: ScheduleItem[]): ScheduleItem[] => {
+    try {
+      if (!Array.isArray(items)) {
+        console.warn('Schedule is not an array in CourseScheduleSection:', items);
+        return [];
+      }
 
-    const data = [["Time", ...days]];
+      return items.filter((item): item is ScheduleItem => {
+        if (!item || typeof item !== 'object') {
+          console.warn('Filtering out invalid item in CourseScheduleSection:', item);
+          return false;
+        }
 
-    timeSlots.forEach(time => {
-      const startHour = parseInt(time.split(':')[0]);
-      const endTime = `${startHour + 2}:00`;
-      const timeDisplay = `${time} - ${endTime}`;
-      
-      const row = [timeDisplay];
-      days.forEach(day => {
-        const items = schedule.filter(
-          item => item.timeSlot.day === day && item.timeSlot.startTime === time
+        const hasRequiredFields = Boolean(
+          item.code &&
+          item.name &&
+          item.lecturer &&
+          item.venue?.name &&
+          item.timeSlot?.day &&
+          item.timeSlot?.startTime
         );
-        row.push(items.map(item => 
-          `${item.code}\n${item.name}\n${item.lecturer}\n${item.venue.name}`
-        ).join(" | ") || "");
+
+        if (!hasRequiredFields) {
+          console.warn('Filtering out item with missing required fields:', item);
+        }
+
+        return hasRequiredFields;
       });
-      data.push(row);
-    });
+    } catch (error) {
+      console.error('Error validating schedule in CourseScheduleSection:', error);
+      return [];
+    }
+  };
 
-    const ws = XLSX.utils.aoa_to_sheet(data);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Timetable");
+  // Get validated schedule
+  const validSchedule = validateAndFilterSchedule(schedule);
 
-    const columnWidths = data[0].map((_, i) => ({
-      wch: Math.max(...data.map(row => 
-        row[i] ? row[i].toString().length : 0
-      ))
-    }));
-    ws["!cols"] = columnWidths;
+  const exportToExcel = () => {
+    if (validSchedule.length === 0) {
+      console.warn('No valid schedule items to export');
+      return;
+    }
 
-    XLSX.writeFile(wb, "timetable.xlsx");
+    try {
+      const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
+      const timeSlots = ["9:00", "11:00", "13:00", "15:00", "17:00"]; // 2-hour slots
+
+      const data = [["Time", ...days]];
+
+      timeSlots.forEach(time => {
+        const startHour = parseInt(time.split(':')[0]);
+        const endTime = `${startHour + 2}:00`;
+        const timeDisplay = `${time} - ${endTime}`;
+        
+        const row = [timeDisplay];
+        days.forEach(day => {
+          const items = validSchedule.filter(
+            item => item.timeSlot?.day === day && item.timeSlot?.startTime === time
+          );
+          row.push(items.map(item => 
+            `${item.code || 'N/A'}\n${item.name || 'N/A'}\n${item.lecturer || 'N/A'}\n${item.venue?.name || 'N/A'}`
+          ).join(" | ") || "");
+        });
+        data.push(row);
+      });
+
+      const ws = XLSX.utils.aoa_to_sheet(data);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Timetable");
+
+      const columnWidths = data[0].map((_, i) => ({
+        wch: Math.max(...data.map(row => 
+          row[i] ? row[i].toString().length : 0
+        ))
+      }));
+      ws["!cols"] = columnWidths;
+
+      XLSX.writeFile(wb, "timetable.xlsx");
+    } catch (error) {
+      console.error('Error exporting to Excel:', error);
+    }
   };
 
   const exportToCSV = () => {
-    const data = schedule.map(item => {
-      const startHour = parseInt(item.timeSlot.startTime.split(':')[0]);
-      const endTime = `${startHour + 2}:00`;
-      
-      return {
-        Day: item.timeSlot.day,
-        Time: `${item.timeSlot.startTime} - ${endTime}`,
-        "Course Code": item.code,
-        "Course Name": item.name,
-        Lecturer: item.lecturer,
-        Venue: item.venue.name,
-        "Class Size": item.classSize,
-      };
-    });
+    if (validSchedule.length === 0) {
+      console.warn('No valid schedule items to export');
+      return;
+    }
 
-    const ws = XLSX.utils.json_to_sheet(data);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Schedule Data");
-    XLSX.writeFile(wb, "schedule_data.csv");
+    try {
+      const data = validSchedule.map(item => {
+        const startHour = parseInt(item.timeSlot?.startTime?.split(':')[0] || '9');
+        const endTime = `${startHour + 2}:00`;
+        
+        return {
+          Day: item.timeSlot?.day || 'N/A',
+          Time: `${item.timeSlot?.startTime || 'N/A'} - ${endTime}`,
+          "Course Code": item.code || 'N/A',
+          "Course Name": item.name || 'N/A',
+          Lecturer: item.lecturer || 'N/A',
+          Venue: item.venue?.name || 'N/A',
+          "Class Size": item.classSize || 0,
+        };
+      });
+
+      const ws = XLSX.utils.json_to_sheet(data);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Schedule Data");
+      XLSX.writeFile(wb, "schedule_data.csv");
+    } catch (error) {
+      console.error('Error exporting to CSV:', error);
+    }
   };
 
   const exportToPDF = () => {
-    const doc = new jsPDF();
-    const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
-    const timeSlots = ["9:00", "11:00", "13:00", "15:00", "17:00"]; // 2-hour slots
+    if (validSchedule.length === 0) {
+      console.warn('No valid schedule items to export');
+      return;
+    }
 
-    doc.setFontSize(16);
-    doc.text("Course Timetable", 14, 15);
-    doc.setFontSize(10);
+    try {
+      const doc = new jsPDF();
+      const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
+      const timeSlots = ["9:00", "11:00", "13:00", "15:00", "17:00"]; // 2-hour slots
 
-    const tableData = timeSlots.map(time => {
-      const startHour = parseInt(time.split(':')[0]);
-      const endTime = `${startHour + 2}:00`;
-      const timeDisplay = `${time} - ${endTime}`;
-      
-      const row = [timeDisplay];
-      days.forEach(day => {
-        const items = schedule.filter(
-          item => item.timeSlot.day === day && item.timeSlot.startTime === time
-        );
-        row.push(items.map(item => 
-          `${item.code}\n${item.name}\n${item.venue.name}`
-        ).join("\n\n") || "");
+      doc.setFontSize(16);
+      doc.text("Course Timetable", 14, 15);
+      doc.setFontSize(10);
+
+      const tableData = timeSlots.map(time => {
+        const startHour = parseInt(time.split(':')[0]);
+        const endTime = `${startHour + 2}:00`;
+        const timeDisplay = `${time} - ${endTime}`;
+        
+        const row = [timeDisplay];
+        days.forEach(day => {
+          const items = validSchedule.filter(
+            item => item.timeSlot?.day === day && item.timeSlot?.startTime === time
+          );
+          row.push(items.map(item => 
+            `${item.code || 'N/A'}\n${item.name || 'N/A'}\n${item.venue?.name || 'N/A'}`
+          ).join("\n\n") || "");
+        });
+        return row;
       });
-      return row;
-    });
 
-    (doc as any).autoTable({
-      head: [["Time", ...days]],
-      body: tableData,
-      startY: 20,
-      styles: { fontSize: 8, cellPadding: 1 },
-      columnStyles: {
-        0: { cellWidth: 20 },
-        1: { cellWidth: 32 },
-        2: { cellWidth: 32 },
-        3: { cellWidth: 32 },
-        4: { cellWidth: 32 },
-        5: { cellWidth: 32 },
-      },
-      theme: "grid",
-    });
+      (doc as any).autoTable({
+        head: [["Time", ...days]],
+        body: tableData,
+        startY: 20,
+        styles: { fontSize: 8, cellPadding: 1 },
+        columnStyles: {
+          0: { cellWidth: 20 },
+          1: { cellWidth: 32 },
+          2: { cellWidth: 32 },
+          3: { cellWidth: 32 },
+          4: { cellWidth: 32 },
+          5: { cellWidth: 32 },
+        },
+        theme: "grid",
+      });
 
-    doc.save("timetable.pdf");
+      doc.save("timetable.pdf");
+    } catch (error) {
+      console.error('Error exporting to PDF:', error);
+    }
   };
 
   return (
@@ -153,7 +218,7 @@ const CourseScheduleSection = ({ schedule, isPublished = false }: CourseSchedule
           <div className="sm:hidden flex-1">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="w-full">
+                <Button variant="outline" size="sm" className="w-full" disabled={validSchedule.length === 0}>
                   <Download className="h-4 w-4 mr-2" />
                   Export
                 </Button>
@@ -181,6 +246,7 @@ const CourseScheduleSection = ({ schedule, isPublished = false }: CourseSchedule
               variant="outline" 
               size="sm" 
               onClick={exportToCSV}
+              disabled={validSchedule.length === 0}
               className="shadow-sm hover:bg-secondary/80 transition-all duration-200 font-medium"
             >
               <FileText className="h-4 w-4 mr-2" />
@@ -190,6 +256,7 @@ const CourseScheduleSection = ({ schedule, isPublished = false }: CourseSchedule
               variant="outline" 
               size="sm" 
               onClick={exportToExcel}
+              disabled={validSchedule.length === 0}
               className="shadow-sm hover:bg-secondary/80 transition-all duration-200 font-medium"
             >
               <FileText className="h-4 w-4 mr-2" />
@@ -199,6 +266,7 @@ const CourseScheduleSection = ({ schedule, isPublished = false }: CourseSchedule
               variant="outline" 
               size="sm" 
               onClick={exportToPDF}
+              disabled={validSchedule.length === 0}
               className="shadow-sm hover:bg-secondary/80 transition-all duration-200 font-medium"
             >
               <FileText className="h-4 w-4 mr-2" />
@@ -226,11 +294,11 @@ const CourseScheduleSection = ({ schedule, isPublished = false }: CourseSchedule
         }`}
       >
         <div className={`p-2 md:p-4 ${isExpanded ? "h-full overflow-auto" : ""}`}>
-          <Timetable schedule={schedule} />
+          <Timetable schedule={validSchedule} />
         </div>
       </Card>
       
-      {schedule.length === 0 && (
+      {validSchedule.length === 0 && (
         <div className="text-center py-8 md:py-12 text-muted-foreground">
           <Calendar className="h-8 w-8 md:h-12 md:w-12 mx-auto mb-4 opacity-20" />
           <p className="text-sm md:text-base">No courses scheduled yet.</p>
