@@ -1,5 +1,4 @@
-
-import { Course, ScheduleItem, Venue } from "@/lib/types";
+import { Course, ScheduleItem, Venue, Department } from "@/lib/types";
 import { supabase } from "@/integrations/supabase/client";
 import { performPreGenerationValidation, ValidationResult } from "@/utils/scheduling/preValidation";
 import { identifySharedCourses, shouldGroupCourses, calculateOptimalClassSize } from "@/utils/scheduling/courseGrouping";
@@ -12,6 +11,29 @@ export interface EnhancedGenerationResult extends GenerationResult {
   courseGroups?: any[];
   preValidationPassed: boolean;
 }
+
+// Helper function to validate if a string is a valid Department
+const isValidDepartment = (dept: string): dept is Department => {
+  const validDepartments: Department[] = [
+    'Architecture', 'Estate Management', 'Accounting', 'Banking and Finance',
+    'Business Administration', 'Criminology and Security Studies', 'Economics',
+    'International Relations', 'Mass Communication', 'Peace Studies and Conflict Resolution',
+    'Political Science', 'Public Administration', 'Psychology', 'Taxation',
+    'Biochemistry', 'Computer Science', 'Cyber Security', 'Environmental Management and Toxicology',
+    'Industrial Chemistry', 'Information Systems', 'Microbiology and Industrial Biotechnology',
+    'Software Engineering', 'Maternal and Child Health Nursing', 'Community and Public Health Nursing',
+    'Adult Health/Medical and Surgical Nursing', 'Mental Health and Psychiatric Nursing',
+    'Nursing Management and Education', 'Human Physiology', 'Human Anatomy',
+    'Education/Christian Religious Studies', 'Guidance & Counselling', 'Early Childhood Education',
+    'Educational Management'
+  ];
+  return validDepartments.includes(dept as Department);
+};
+
+// Helper function to validate if a string is a valid day
+const isValidDay = (day: string): day is "Monday" | "Tuesday" | "Wednesday" | "Thursday" | "Friday" => {
+  return ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'].includes(day);
+};
 
 // Enhanced validation function to validate schedule items thoroughly
 const validateScheduleItem = (item: any): item is ScheduleItem => {
@@ -57,16 +79,28 @@ const sanitizeScheduleItem = (item: any): ScheduleItem | null => {
   try {
     if (!item || typeof item !== 'object') return null;
 
+    // Validate and sanitize department
+    const departmentValue = String(item.department || 'Computer Science');
+    const validDepartment: Department = isValidDepartment(departmentValue) 
+      ? departmentValue 
+      : 'Computer Science';
+
+    // Validate and sanitize day
+    const dayValue = String(item.timeSlot?.day || 'Monday');
+    const validDay: "Monday" | "Tuesday" | "Wednesday" | "Thursday" | "Friday" = isValidDay(dayValue)
+      ? dayValue
+      : 'Monday';
+
     // Create a properly structured schedule item with all required fields
     const sanitized: ScheduleItem = {
       id: String(item.id || `temp-${Math.random()}`),
       code: String(item.code || 'UNKNOWN'),
       name: String(item.name || 'Unknown Course'),
       lecturer: String(item.lecturer || 'TBA'),
-      department: String(item.department || 'General'),
+      department: validDepartment,
       classSize: Number(item.classSize) || 0,
       timeSlot: {
-        day: String(item.timeSlot?.day || 'Monday'),
+        day: validDay,
         startTime: String(item.timeSlot?.startTime || '09:00'),
         endTime: String(item.timeSlot?.endTime || '10:00')
       },
