@@ -22,124 +22,64 @@ interface TimetableProps {
 }
 
 const Timetable = ({ schedule, favorites = new Set(), onToggleFavorite }: TimetableProps) => {
-  console.log('🔍 Timetable component received schedule:', {
+  console.log('🎯 Timetable: Received schedule:', {
     isArray: Array.isArray(schedule),
     length: schedule?.length || 0,
-    firstItem: schedule?.[0],
-    allItems: schedule
+    firstItem: schedule?.[0]
   });
 
-  // Early validation - stop everything if schedule is invalid
-  if (!schedule) {
-    console.warn('❌ Timetable: Schedule is null/undefined');
-    return (
-      <div className="w-full space-y-4 md:space-y-6 animate-fade-in">
-        <div className="text-center py-12">
-          <h3 className="text-lg font-medium text-muted-foreground">No Schedule Data</h3>
-          <p className="text-sm text-muted-foreground mt-2">
-            Schedule data is not available.
-          </p>
-        </div>
-      </div>
-    );
-  }
+  // Super strict validation function
+  const isValidScheduleItem = (item: any): item is ScheduleItem => {
+    try {
+      return Boolean(
+        item &&
+        typeof item === 'object' &&
+        typeof item.id === 'string' &&
+        typeof item.code === 'string' &&
+        typeof item.name === 'string' &&
+        typeof item.lecturer === 'string' &&
+        typeof item.department === 'string' &&
+        typeof item.classSize === 'number' &&
+        item.timeSlot &&
+        typeof item.timeSlot === 'object' &&
+        typeof item.timeSlot.day === 'string' &&
+        typeof item.timeSlot.startTime === 'string' &&
+        typeof item.timeSlot.endTime === 'string' &&
+        item.venue &&
+        typeof item.venue === 'object' &&
+        typeof item.venue.name === 'string'
+      );
+    } catch (error) {
+      console.warn('Validation error:', error);
+      return false;
+    }
+  };
 
-  if (!Array.isArray(schedule)) {
-    console.warn('❌ Timetable: Schedule is not an array:', typeof schedule, schedule);
-    return (
-      <div className="w-full space-y-4 md:space-y-6 animate-fade-in">
-        <div className="text-center py-12">
-          <h3 className="text-lg font-medium text-muted-foreground">Invalid Schedule Format</h3>
-          <p className="text-sm text-muted-foreground mt-2">
-            Schedule data format is invalid.
-          </p>
-        </div>
-      </div>
-    );
-  }
+  // Bulletproof filtering
+  const validSchedule = useMemo(() => {
+    if (!Array.isArray(schedule)) {
+      console.warn('⚠️ Timetable: Schedule is not an array');
+      return [];
+    }
+
+    const filtered = schedule.filter((item, index) => {
+      const isValid = isValidScheduleItem(item);
+      if (!isValid) {
+        console.warn(`🚫 Timetable: Filtering out invalid item ${index}:`, item);
+      }
+      return isValid;
+    });
+
+    console.log(`✅ Timetable: ${filtered.length} valid items out of ${schedule.length}`);
+    return filtered;
+  }, [schedule]);
 
   const [expandedView, setExpandedView] = useState(false);
   const [viewType, setViewType] = useState<"grid" | "table">("grid");
   const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
 
-  // Simplified and more defensive validation
-  const isValidScheduleItem = (item: any, index: number): item is ScheduleItem => {
-    console.log(`🔍 Validating item ${index}:`, item);
-    
-    try {
-      // Basic existence check
-      if (!item || typeof item !== 'object') {
-        console.warn(`❌ Item ${index}: Not an object:`, item);
-        return false;
-      }
-
-      // Check essential string fields
-      const stringFields = ['id', 'code', 'name', 'lecturer', 'department'];
-      for (const field of stringFields) {
-        if (!item[field] || typeof item[field] !== 'string' || item[field].trim() === '') {
-          console.warn(`❌ Item ${index}: Invalid ${field}:`, item[field]);
-          return false;
-        }
-      }
-
-      // Check classSize
-      if (typeof item.classSize !== 'number' || item.classSize <= 0) {
-        console.warn(`❌ Item ${index}: Invalid classSize:`, item.classSize);
-        return false;
-      }
-
-      // Check timeSlot
-      if (!item.timeSlot || typeof item.timeSlot !== 'object') {
-        console.warn(`❌ Item ${index}: No timeSlot:`, item.timeSlot);
-        return false;
-      }
-
-      if (!item.timeSlot.day || !item.timeSlot.startTime || !item.timeSlot.endTime) {
-        console.warn(`❌ Item ${index}: Invalid timeSlot properties:`, item.timeSlot);
-        return false;
-      }
-
-      // Check venue
-      if (!item.venue || typeof item.venue !== 'object' || !item.venue.name) {
-        console.warn(`❌ Item ${index}: Invalid venue:`, item.venue);
-        return false;
-      }
-
-      console.log(`✅ Item ${index}: Valid`);
-      return true;
-    } catch (error) {
-      console.warn(`❌ Item ${index}: Validation error:`, error);
-      return false;
-    }
-  };
-
-  // Validate and filter schedule items
-  const validSchedule = useMemo(() => {
-    console.log('🔍 Starting schedule validation...');
-    
-    try {
-      const filtered = schedule
-        .map((item, index) => ({ item, index }))
-        .filter(({ item, index }) => {
-          const isValid = isValidScheduleItem(item, index);
-          if (!isValid) {
-            console.warn(`🚫 Filtering out invalid item at index ${index}:`, item);
-          }
-          return isValid;
-        })
-        .map(({ item }) => item);
-      
-      console.log(`✅ Validation complete: ${filtered.length} valid items out of ${schedule.length}`);
-      return filtered;
-    } catch (error) {
-      console.error('❌ Error during validation:', error);
-      return [];
-    }
-  }, [schedule]);
-
   // If no valid schedule items, show empty state
   if (validSchedule.length === 0) {
-    console.warn('⚠️ No valid schedule items after validation');
     return (
       <div className="w-full space-y-4 md:space-y-6 animate-fade-in">
         <div className="text-center py-12">
@@ -155,19 +95,15 @@ const Timetable = ({ schedule, favorites = new Set(), onToggleFavorite }: Timeta
     );
   }
 
-  // Get unique time slots with safety checks
+  // Get unique time slots safely
   const getUniqueTimeSlots = () => {
     const timeSlots = new Set<string>();
-    validSchedule.forEach((item, index) => {
+    validSchedule.forEach((item) => {
       try {
-        if (item?.timeSlot?.startTime && item?.timeSlot?.endTime) {
-          const timeRange = `${item.timeSlot.startTime} - ${item.timeSlot.endTime}`;
-          timeSlots.add(timeRange);
-        } else {
-          console.warn(`⚠️ Item ${index} has invalid time slot:`, item?.timeSlot);
-        }
+        const timeRange = `${item.timeSlot.startTime} - ${item.timeSlot.endTime}`;
+        timeSlots.add(timeRange);
       } catch (error) {
-        console.warn(`❌ Error processing time slot for item ${index}:`, error);
+        console.warn('Error processing time slot:', error);
       }
     });
     return Array.from(timeSlots).sort();
@@ -177,9 +113,7 @@ const Timetable = ({ schedule, favorites = new Set(), onToggleFavorite }: Timeta
   const allTimeSlots = generateFlexibleTimeSlots();
   const displayTimeSlots = expandedView ? allTimeSlots : uniqueTimeSlots;
 
-  console.log('🔍 Time slots:', { unique: uniqueTimeSlots.length, all: allTimeSlots.length, display: displayTimeSlots.length });
-
-  // Department colors with safety
+  // Department colors
   const getDepartmentColor = useMemo(() => {
     const colorMap: Record<string, { bg: string; border: string; text: string; accent: string }> = {
       'Computer Science': { bg: "bg-blue-50", border: "border-blue-300", text: "text-blue-900", accent: "bg-blue-600" },
@@ -205,19 +139,11 @@ const Timetable = ({ schedule, favorites = new Set(), onToggleFavorite }: Timeta
   const getScheduledItemsForSlot = (day: string, timeRange: string) => {
     try {
       return validSchedule.filter((item) => {
-        try {
-          if (!item?.timeSlot?.startTime || !item?.timeSlot?.endTime || !item?.timeSlot?.day) {
-            return false;
-          }
-          const itemTimeRange = `${item.timeSlot.startTime} - ${item.timeSlot.endTime}`;
-          return item.timeSlot.day === day && itemTimeRange === timeRange;
-        } catch (error) {
-          console.warn('❌ Error comparing time ranges for item:', item, error);
-          return false;
-        }
+        const itemTimeRange = `${item.timeSlot.startTime} - ${item.timeSlot.endTime}`;
+        return item.timeSlot.day === day && itemTimeRange === timeRange;
       });
     } catch (error) {
-      console.warn('❌ Error in getScheduledItemsForSlot:', error);
+      console.warn('Error in getScheduledItemsForSlot:', error);
       return [];
     }
   };
@@ -229,7 +155,6 @@ const Timetable = ({ schedule, favorites = new Set(), onToggleFavorite }: Timeta
       const endHour = parseInt(end.split(':')[0]);
       return endHour - startHour;
     } catch (error) {
-      console.warn('❌ Error calculating duration:', timeRange, error);
       return 1;
     }
   };
@@ -243,19 +168,10 @@ const Timetable = ({ schedule, favorites = new Set(), onToggleFavorite }: Timeta
   };
 
   const departments = useMemo(() => {
-    return Array.from(new Set(validSchedule.map(item => item?.department).filter(Boolean)));
+    return Array.from(new Set(validSchedule.map(item => item.department).filter(Boolean)));
   }, [validSchedule]);
 
-  console.log('🔍 About to render with:', {
-    validScheduleLength: validSchedule.length,
-    departments: departments.length,
-    displayTimeSlots: displayTimeSlots.length,
-    viewType
-  });
-
   const renderGridView = () => {
-    console.log('🔍 Rendering grid view...');
-    
     return (
       <div className="space-y-4 md:space-y-6">
         {/* Header */}
@@ -313,7 +229,7 @@ const Timetable = ({ schedule, favorites = new Set(), onToggleFavorite }: Timeta
                       <span className="text-xs md:text-sm">TIME SLOT</span>
                     </th>
                     {days.map((day) => {
-                      const dayClasses = validSchedule.filter(item => item?.timeSlot?.day === day).length;
+                      const dayClasses = validSchedule.filter(item => item.timeSlot.day === day).length;
                       return (
                         <th
                           key={day}
@@ -356,15 +272,7 @@ const Timetable = ({ schedule, favorites = new Set(), onToggleFavorite }: Timeta
                             >
                               <div className="space-y-1 sm:space-y-2">
                                 {scheduledItems.map((item) => {
-                                  console.log('🔍 Rendering item in grid:', { id: item?.id, code: item?.code });
-                                  
-                                  // Extra safety check before rendering
-                                  if (!item || !item.id || !item.code) {
-                                    console.warn('⚠️ Skipping invalid item in render:', item);
-                                    return null;
-                                  }
-
-                                  const colors = getDepartmentColor(item.department || 'Default');
+                                  const colors = getDepartmentColor(item.department);
                                   const itemDuration = getDurationFromTimeRange(`${item.timeSlot.startTime} - ${item.timeSlot.endTime}`);
                                   
                                   return (
@@ -423,22 +331,20 @@ const Timetable = ({ schedule, favorites = new Set(), onToggleFavorite }: Timeta
                                           
                                           <div className="flex items-center gap-1 text-muted-foreground">
                                             <MapPin className="h-2.5 w-2.5 sm:h-3 sm:w-3 flex-shrink-0" />
-                                            <span className="truncate text-xs">{item.venue?.name}</span>
+                                            <span className="truncate text-xs">{item.venue.name}</span>
                                           </div>
 
                                           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
                                             <div className="flex items-center gap-1 text-muted-foreground">
                                               <Clock className="h-2.5 w-2.5 sm:h-3 sm:w-3 flex-shrink-0" />
                                               <span className="text-xs">
-                                                {item.timeSlot?.startTime} - {item.timeSlot?.endTime}
+                                                {item.timeSlot.startTime} - {item.timeSlot.endTime}
                                               </span>
                                             </div>
                                             
-                                            {item.classSize && (
-                                              <div className="bg-white/90 px-1 py-0.5 rounded text-xs font-medium text-muted-foreground">
-                                                {item.classSize}
-                                              </div>
-                                            )}
+                                            <div className="bg-white/90 px-1 py-0.5 rounded text-xs font-medium text-muted-foreground">
+                                              {item.classSize}
+                                            </div>
                                           </div>
                                         </div>
                                       </div>
@@ -470,8 +376,6 @@ const Timetable = ({ schedule, favorites = new Set(), onToggleFavorite }: Timeta
   };
 
   const renderTableView = () => {
-    console.log('🔍 Rendering table view...');
-    
     return (
       <div className="space-y-4">
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between bg-gradient-to-r from-primary/5 to-primary/10 p-3 md:p-4 rounded-lg border">
@@ -523,15 +427,7 @@ const Timetable = ({ schedule, favorites = new Set(), onToggleFavorite }: Timeta
               </TableHeader>
               <TableBody>
                 {validSchedule.map((item, index) => {
-                  console.log('🔍 Rendering item in table:', { id: item?.id, code: item?.code, index });
-                  
-                  // Extra safety check before rendering
-                  if (!item || !item.id || !item.code) {
-                    console.warn('⚠️ Skipping invalid item in table render:', item);
-                    return null;
-                  }
-
-                  const colors = getDepartmentColor(item.department || 'Default');
+                  const colors = getDepartmentColor(item.department);
                   const duration = getDurationFromTimeRange(`${item.timeSlot.startTime} - ${item.timeSlot.endTime}`);
                   return (
                     <TableRow key={item.id} className={`${index % 2 === 0 ? 'bg-muted/20' : 'bg-white'} hover:bg-muted/40`}>
@@ -554,7 +450,7 @@ const Timetable = ({ schedule, favorites = new Set(), onToggleFavorite }: Timeta
                           {duration}h
                         </span>
                       </TableCell>
-                      <TableCell className="hidden sm:table-cell text-xs md:text-sm">{item.venue?.name}</TableCell>
+                      <TableCell className="hidden sm:table-cell text-xs md:text-sm">{item.venue.name}</TableCell>
                       <TableCell className="text-center font-medium text-xs md:text-sm hidden lg:table-cell">{item.classSize}</TableCell>
                     </TableRow>
                   );
@@ -566,8 +462,6 @@ const Timetable = ({ schedule, favorites = new Set(), onToggleFavorite }: Timeta
       </div>
     );
   };
-
-  console.log('🔍 Rendering main component with viewType:', viewType);
 
   return (
     <div className="w-full space-y-4 md:space-y-6 animate-fade-in">
@@ -585,7 +479,7 @@ const Timetable = ({ schedule, favorites = new Set(), onToggleFavorite }: Timeta
         </div>
         <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg p-3 md:p-4 text-center border border-purple-200">
           <div className="text-lg md:text-2xl font-bold text-purple-700">
-            {new Set(validSchedule.map(item => item?.lecturer).filter(Boolean)).size}
+            {new Set(validSchedule.map(item => item.lecturer).filter(Boolean)).size}
           </div>
           <div className="text-xs text-purple-600 font-medium">Instructors</div>
         </div>

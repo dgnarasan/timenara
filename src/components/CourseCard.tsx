@@ -11,48 +11,22 @@ interface CourseCardProps {
 }
 
 const CourseCard = ({ course, onEdit, onDelete }: CourseCardProps) => {
-  // Early return for null/undefined course
-  if (!course) {
-    console.warn('CourseCard: course is null/undefined, returning null');
+  // Bulletproof validation
+  if (!course || typeof course !== 'object') {
+    console.warn('CourseCard: Invalid course object:', course);
     return null;
   }
 
-  // Validate course is an object
-  if (typeof course !== 'object') {
-    console.warn('CourseCard: course is not an object:', typeof course, course);
-    return null;
-  }
+  // Extract and validate all properties with defaults
+  const courseCode = course.code || '';
+  const courseName = course.name || '';
+  const courseLecturer = course.lecturer || 'No lecturer assigned';
+  const courseDepartment = course.department || 'No department';
+  const courseClassSize = course.classSize || 0;
 
-  // Safe property access with strict validation
-  const courseCode = course.code;
-  const courseName = course.name;
-  const courseLecturer = course.lecturer;
-  const courseDepartment = course.department;
-  const courseClassSize = course.classSize;
-
-  // Strict validation of required properties
-  if (!courseCode || typeof courseCode !== 'string' || courseCode.trim() === '') {
-    console.warn('CourseCard: Invalid course code:', courseCode, 'Full course:', course);
-    return null;
-  }
-
-  if (!courseName || typeof courseName !== 'string' || courseName.trim() === '') {
-    console.warn('CourseCard: Invalid course name:', courseName, 'Full course:', course);
-    return null;
-  }
-
-  if (!courseLecturer || typeof courseLecturer !== 'string') {
-    console.warn('CourseCard: Invalid lecturer:', courseLecturer, 'Full course:', course);
-    return null;
-  }
-
-  if (!courseDepartment || typeof courseDepartment !== 'string') {
-    console.warn('CourseCard: Invalid department:', courseDepartment, 'Full course:', course);
-    return null;
-  }
-
-  if (typeof courseClassSize !== 'number' || courseClassSize <= 0) {
-    console.warn('CourseCard: Invalid class size:', courseClassSize, 'Full course:', course);
+  // Validate essential fields
+  if (!courseCode.trim() || !courseName.trim()) {
+    console.warn('CourseCard: Missing essential fields:', { code: courseCode, name: courseName });
     return null;
   }
 
@@ -119,10 +93,10 @@ const CourseCard = ({ course, onEdit, onDelete }: CourseCardProps) => {
           
           <div className="space-y-1">
             <p className="text-xs md:text-sm text-muted-foreground truncate">
-              {courseLecturer || 'No lecturer assigned'}
+              {courseLecturer}
             </p>
             <p className="text-xs md:text-sm text-muted-foreground truncate">
-              {courseDepartment || 'No department'}
+              {courseDepartment}
             </p>
           </div>
           
