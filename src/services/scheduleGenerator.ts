@@ -7,7 +7,7 @@ export type ScheduleConflict = {
   course: Course;
   reason: string;
   suggestion?: string;
-  conflictType?: 'lecturer' | 'venue' | 'resource' | 'cross-departmental' | 'api-error' | 'database-error';
+  conflictType?: 'lecturer' | 'venue' | 'resource' | 'cross-departmental' | 'system-error' | 'database-error';
   severity?: 'low' | 'medium' | 'high' | 'critical';
   affectedCourses?: Course[];
 };
@@ -96,31 +96,31 @@ const analyzeScheduleErrors = (
 ): ScheduleConflict[] => {
   const conflicts: ScheduleConflict[] = [];
 
-  // API-related errors
+  // System-related errors
   if (edgeFunctionResponse.error) {
     const errorMessage = edgeFunctionResponse.error.toLowerCase();
     
-    if (errorMessage.includes('openai') || errorMessage.includes('api key')) {
+    if (errorMessage.includes('api key') || errorMessage.includes('authentication')) {
       conflicts.push(createEnhancedConflict(
         courses[0] || {} as Course,
-        'OpenAI API integration failed. Please check your API key and try again.',
-        'api-error',
+        'System authentication failed. Please check configuration and try again.',
+        'system-error',
         'critical',
-        'Verify your OpenAI API key is correctly configured in the project settings.'
+        'Verify your system configuration is correctly set up in the project settings.'
       ));
     } else if (errorMessage.includes('timeout') || errorMessage.includes('network')) {
       conflicts.push(createEnhancedConflict(
         courses[0] || {} as Course,
         'Network timeout occurred during schedule generation.',
-        'api-error',
+        'system-error',
         'high',
         'Check your internet connection and try again. If the problem persists, try with fewer courses.'
       ));
     } else {
       conflicts.push(createEnhancedConflict(
         courses[0] || {} as Course,
-        `API Error: ${edgeFunctionResponse.error}`,
-        'api-error',
+        `System Error: ${edgeFunctionResponse.error}`,
+        'system-error',
         'high',
         'Please try again or contact support if the issue persists.'
       ));
@@ -251,10 +251,10 @@ export const generateSchedule = async (
 
     if (error) {
       console.error('Supabase function error:', error);
-      const apiConflicts = analyzeScheduleErrors(courses, { error: error.message }, venues);
+      const systemConflicts = analyzeScheduleErrors(courses, { error: error.message }, venues);
       return {
         schedule: [],
-        conflicts: [...preAnalysisConflicts, ...apiConflicts],
+        conflicts: [...preAnalysisConflicts, ...systemConflicts],
         summary: {
           totalCourses: courses.length,
           scheduledCourses: 0,
@@ -271,7 +271,7 @@ export const generateSchedule = async (
         conflicts: [createEnhancedConflict(
           courses[0] || {} as Course,
           'No response received from schedule generator',
-          'api-error',
+          'system-error',
           'high',
           'Please try again or contact support if the issue persists.'
         )],
@@ -321,7 +321,7 @@ export const generateSchedule = async (
         conflicts: [createEnhancedConflict(
           courses[0] || {} as Course,
           'Invalid schedule format received from server',
-          'api-error',
+          'system-error',
           'high',
           'Please try again or contact support if the issue persists.'
         )],
@@ -404,7 +404,7 @@ export const generateSchedule = async (
       conflicts: errorConflicts.length > 0 ? errorConflicts : [createEnhancedConflict(
         courses[0] || {} as Course,
         error instanceof Error ? error.message : 'An unexpected error occurred during schedule generation',
-        'api-error',
+        'system-error',
         'critical',
         'Please check your internet connection and try again. If the problem persists, contact support.'
       )],

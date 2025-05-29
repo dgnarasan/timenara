@@ -1,3 +1,4 @@
+
 import { Course, Department, ScheduleItem, collegeStructure, College } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import {
@@ -187,14 +188,14 @@ const GenerateScheduleDialog = ({ courses, onScheduleGenerated }: GenerateSchedu
             className="shadow-sm"
             disabled={courses.length === 0}
           >
-            Generate with AI
+            Generate Schedule
           </Button>
         </DialogTrigger>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Generate AI Schedule</DialogTitle>
+            <DialogTitle>Generate Optimized Schedule</DialogTitle>
             <DialogDescription>
-              Generate an optimized schedule using AI with advanced conflict detection and detailed error reporting
+              Generate an intelligent schedule with advanced conflict detection and detailed error reporting
             </DialogDescription>
           </DialogHeader>
           <div className="py-4 space-y-6">
@@ -293,11 +294,11 @@ const GenerateScheduleDialog = ({ courses, onScheduleGenerated }: GenerateSchedu
             </div>
 
             <div className="space-y-3">
-              <h4 className="text-sm font-medium">Enhanced Error Detection</h4>
+              <h4 className="text-sm font-medium">Advanced Scheduling Features</h4>
               <ul className="text-sm text-muted-foreground list-disc list-inside space-y-1 bg-blue-50 p-3 rounded-lg">
-                <li>Cross-departmental lecturer scheduling conflicts</li>
+                <li>Cross-departmental lecturer scheduling conflicts detection</li>
                 <li>Venue capacity vs class size validation</li>
-                <li>API connectivity and performance monitoring</li>
+                <li>System connectivity and performance monitoring</li>
                 <li>Database integrity and venue availability checks</li>
                 <li>Lecturer workload distribution analysis</li>
                 <li>Detailed conflict categorization and resolution suggestions</li>
@@ -313,7 +314,7 @@ const GenerateScheduleDialog = ({ courses, onScheduleGenerated }: GenerateSchedu
                   />
                 </div>
                 <p className="text-sm text-muted-foreground text-center">
-                  Generating schedule with enhanced error detection ({progress}%)...
+                  Generating schedule with advanced error detection ({progress}%)...
                 </p>
               </div>
             )}

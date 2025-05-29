@@ -2,7 +2,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 
-const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
+const apiKey = Deno.env.get('OPENAI_API_KEY');
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -145,7 +145,7 @@ serve(async (req) => {
       throw new Error('No venues provided for scheduling');
     }
 
-    const systemPrompt = `You are an AI assistant that generates optimal course schedules.
+    const systemPrompt = `You are an advanced scheduling system that generates optimal course schedules.
 Generate a timetable that assigns courses to time slots following these rules:
 1. Classes can be 1-3 hours long
 2. Time slots are between 9:00 and 17:00, Monday to Friday only
@@ -177,12 +177,12 @@ Requirements:
 - Distribute evenly across Monday-Friday
 - Use business hours 9:00-17:00`;
 
-    console.log('Sending request to OpenAI...');
+    console.log('Sending request to scheduling service...');
     
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${openAIApiKey}`,
+        'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
@@ -197,11 +197,11 @@ Requirements:
     });
 
     const rawResponse = await response.json();
-    console.log('OpenAI response received, tokens used:', rawResponse.usage?.total_tokens);
+    console.log('Scheduling service response received, tokens used:', rawResponse.usage?.total_tokens);
 
     if (!rawResponse.choices || !rawResponse.choices[0]?.message?.content) {
-      console.error('Invalid OpenAI response structure:', rawResponse);
-      throw new Error('Invalid response structure from OpenAI');
+      console.error('Invalid service response structure:', rawResponse);
+      throw new Error('Invalid response structure from scheduling service');
     }
 
     const content = rawResponse.choices[0].message.content.trim();
@@ -220,11 +220,11 @@ Requirements:
     } catch (parseError) {
       console.error('Failed to parse JSON:', parseError);
       console.error('Content:', jsonString.substring(0, 500));
-      throw new Error('Failed to parse schedule from OpenAI response');
+      throw new Error('Failed to parse schedule from service response');
     }
 
     if (!Array.isArray(parsedContent)) {
-      throw new Error('OpenAI response is not an array');
+      throw new Error('Service response is not an array');
     }
 
     const validScheduleItems = parsedContent.filter(isValidScheduleItem);
@@ -235,7 +235,7 @@ Requirements:
         JSON.stringify({
           success: false,
           schedule: [],
-          conflicts: [{ reason: 'No valid schedule items found in OpenAI response' }]
+          conflicts: [{ reason: 'No valid schedule items found in service response' }]
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );

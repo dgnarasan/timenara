@@ -63,11 +63,11 @@ serve(async (req) => {
       );
     }
 
-    const openAIKey = Deno.env.get("OPENAI_API_KEY");
-    if (!openAIKey) {
-      console.error("[Error] OpenAI API key not found");
+    const apiKey = Deno.env.get("OPENAI_API_KEY");
+    if (!apiKey) {
+      console.error("[Error] API key not found");
       return new Response(
-        JSON.stringify({ error: "OpenAI API key not configured" }),
+        JSON.stringify({ error: "System configuration error - please contact administrator" }),
         { 
           status: 500,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -75,11 +75,11 @@ serve(async (req) => {
       );
     }
 
-    console.log("[Debug] Sending request to OpenAI API");
-    const openAIResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+    console.log("[Debug] Sending request to text processing service");
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${openAIKey}`,
+        'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
@@ -121,36 +121,36 @@ serve(async (req) => {
       })
     });
 
-    // Log OpenAI response status and headers
-    console.log("[Debug] OpenAI Response:", {
-      status: openAIResponse.status,
-      statusText: openAIResponse.statusText,
-      contentType: openAIResponse.headers.get("content-type")
+    // Log response status and headers
+    console.log("[Debug] Service Response:", {
+      status: response.status,
+      statusText: response.statusText,
+      contentType: response.headers.get("content-type")
     });
 
-    if (!openAIResponse.ok) {
-      const errorText = await openAIResponse.text();
-      console.error("[Error] OpenAI API error response:", errorText);
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("[Error] Service error response:", errorText);
       
       return new Response(
         JSON.stringify({ 
-          error: "OpenAI API error",
-          details: errorText.substring(0, 200)
+          error: "Text processing service error",
+          details: "Please try again or contact support"
         }),
         { 
-          status: openAIResponse.status,
+          status: response.status,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
       );
     }
 
-    const contentType = openAIResponse.headers.get("content-type");
+    const contentType = response.headers.get("content-type");
     if (!contentType?.includes("application/json")) {
-      console.error("[Error] Invalid content type from OpenAI:", contentType);
+      console.error("[Error] Invalid content type from service:", contentType);
       return new Response(
         JSON.stringify({ 
-          error: "Invalid response from OpenAI API",
-          details: `Expected JSON but got ${contentType}` 
+          error: "Invalid response from text processing service",
+          details: "System configuration issue - please contact administrator" 
         }),
         { 
           status: 500,
@@ -159,7 +159,7 @@ serve(async (req) => {
       );
     }
 
-    const data = await openAIResponse.json();
+    const data = await response.json();
     const extractedText = data.choices[0].message.content;
     
     try {
@@ -167,7 +167,7 @@ serve(async (req) => {
       console.log("[Debug] Parsed courses:", courses);
       
       if (!Array.isArray(courses)) {
-        throw new Error("OpenAI response is not a valid array");
+        throw new Error("Service response is not a valid array");
       }
 
       const validatedCourses = courses.filter(course => {
@@ -206,7 +206,7 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({ 
           error: "Failed to parse course data",
-          details: error.message
+          details: "Please try uploading the PDF again"
         }),
         { 
           status: 500,
@@ -219,7 +219,7 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         error: "An unexpected error occurred",
-        details: error.message
+        details: "Please try again or contact support"
       }),
       { 
         status: 500,
