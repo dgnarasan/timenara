@@ -322,19 +322,11 @@ const Timetable = ({ schedule, favorites = new Set(), onToggleFavorite }: Timeta
                                         <span className="truncate text-xs">{item.venue?.name || 'TBD'}</span>
                                       </div>
 
-                                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
-                                        <div className="flex items-center gap-1 text-muted-foreground">
-                                          <Clock className="h-2.5 w-2.5 sm:h-3 sm:w-3 flex-shrink-0" />
-                                          <span className="text-xs">
-                                            {item.timeSlot?.startTime || 'TBD'} - {endTime}
-                                          </span>
-                                        </div>
-                                        
-                                        {item.classSize && (
-                                          <div className="bg-white/90 px-1 py-0.5 rounded text-xs font-medium text-muted-foreground">
-                                            {item.classSize}
-                                          </div>
-                                        )}
+                                      <div className="flex items-center gap-1 text-muted-foreground">
+                                        <Clock className="h-2.5 w-2.5 sm:h-3 sm:w-3 flex-shrink-0" />
+                                        <span className="text-xs">
+                                          {item.timeSlot?.startTime || 'TBD'} - {endTime}
+                                        </span>
                                       </div>
                                     </div>
                                   </div>
@@ -410,7 +402,6 @@ const Timetable = ({ schedule, favorites = new Set(), onToggleFavorite }: Timeta
                 <TableHead className="text-white font-bold text-xs md:text-sm">Day</TableHead>
                 <TableHead className="text-white font-bold text-xs md:text-sm">Time</TableHead>
                 <TableHead className="text-white font-bold text-xs md:text-sm hidden sm:table-cell">Venue</TableHead>
-                <TableHead className="text-white font-bold text-xs md:text-sm hidden lg:table-cell">Students</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -435,7 +426,6 @@ const Timetable = ({ schedule, favorites = new Set(), onToggleFavorite }: Timeta
                     <TableCell className="font-medium text-xs md:text-sm">{item.timeSlot.day.slice(0, 3)}</TableCell>
                     <TableCell className="text-xs md:text-sm">{item.timeSlot.startTime} - {endTime}</TableCell>
                     <TableCell className="hidden sm:table-cell text-xs md:text-sm">{item.venue?.name || 'TBD'}</TableCell>
-                    <TableCell className="text-center font-medium text-xs md:text-sm hidden lg:table-cell">{item.classSize}</TableCell>
                   </TableRow>
                 );
               })}
