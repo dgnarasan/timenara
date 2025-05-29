@@ -13,6 +13,24 @@ export interface EnhancedGenerationResult extends GenerationResult {
   preValidationPassed: boolean;
 }
 
+// Helper function to validate schedule items
+const validateScheduleItem = (item: any): item is ScheduleItem => {
+  return (
+    item &&
+    typeof item.id === 'string' &&
+    typeof item.code === 'string' &&
+    typeof item.name === 'string' &&
+    typeof item.lecturer === 'string' &&
+    typeof item.classSize === 'number' &&
+    item.timeSlot &&
+    typeof item.timeSlot.day === 'string' &&
+    typeof item.timeSlot.startTime === 'string' &&
+    typeof item.timeSlot.endTime === 'string' &&
+    item.venue &&
+    typeof item.venue.name === 'string'
+  );
+};
+
 export const generateEnhancedSchedule = async (
   courses: Course[],
   enableFallbacks: boolean = true
@@ -150,16 +168,47 @@ export const generateEnhancedSchedule = async (
       };
     }
 
-    const scheduledCourses = data.schedule?.length || 0;
+    // Validate and filter schedule items to prevent crashes
+    const rawSchedule = data.schedule || [];
+    const validSchedule = rawSchedule.filter((item: any) => {
+      const isValid = validateScheduleItem(item);
+      if (!isValid) {
+        console.warn('Invalid schedule item filtered out:', item);
+      }
+      return isValid;
+    });
+
+    const scheduleWithVenues = validSchedule.map((item: any) => {
+      // Ensure venue has a valid ID from our actual database venues
+      const venue = venues.find(v => v.capacity >= item.classSize) || venues[0];
+      return {
+        ...item,
+        venue: {
+          id: venue.id,
+          name: venue.name,
+          capacity: venue.capacity,
+          availability: []
+        }
+      };
+    });
+
+    console.log('Generated schedule successfully:', scheduleWithVenues.length, 'valid items out of', rawSchedule.length, 'total');
+    
+    const scheduledCourses = scheduleWithVenues.length;
+    const conflictedCourses = courses.length - scheduledCourses;
     const successRate = Math.round((scheduledCourses / courses.length) * 100);
 
+    if (validSchedule.length < rawSchedule.length) {
+      console.warn(`Filtered out ${rawSchedule.length - validSchedule.length} invalid schedule items`);
+    }
+
     return {
-      schedule: data.schedule || [],
+      schedule: scheduleWithVenues,
       conflicts: data.conflicts || [],
       summary: {
         totalCourses: courses.length,
         scheduledCourses,
-        conflictedCourses: courses.length - scheduledCourses,
+        conflictedCourses,
         successRate
       },
       validationResult,

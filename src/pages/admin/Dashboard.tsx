@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Course, ScheduleItem, collegeStructure } from "@/lib/types";
 import { useCourses } from "@/hooks/useCourses";
@@ -36,14 +37,14 @@ const AdminDashboard = () => {
     try {
       if (userCollege) {
         const collegeDepartments = collegeStructure.find(c => c.college === userCollege)?.departments || [];
-        const filtered = courses.filter(course => collegeDepartments.includes(course.department));
+        const filtered = courses.filter(course => course && course.department && collegeDepartments.includes(course.department));
         setFilteredCourses(filtered);
       } else {
-        setFilteredCourses(courses);
+        setFilteredCourses(courses.filter(course => course && course.department));
       }
     } catch (error) {
       console.error('Error filtering courses:', error);
-      setFilteredCourses(courses);
+      setFilteredCourses(courses.filter(course => course && course.department));
     }
   }, [courses, userCollege]);
 
@@ -53,9 +54,18 @@ const AdminDashboard = () => {
       try {
         setIsLoadingSchedule(true);
         const existingSchedule = await fetchAdminSchedule();
-        setSchedule(existingSchedule);
-        // Check if any schedule items exist to determine published status
-        setIsSchedulePublished(existingSchedule.length > 0);
+        // Filter out any invalid schedule items
+        const validSchedule = existingSchedule.filter(item => 
+          item && 
+          item.code && 
+          item.name && 
+          item.lecturer &&
+          item.timeSlot &&
+          item.venue
+        );
+        console.log('Setting schedule in dashboard:', validSchedule.length, 'valid items out of', existingSchedule.length, 'total');
+        setSchedule(validSchedule);
+        setIsSchedulePublished(validSchedule.length > 0);
       } catch (error) {
         console.error('Error loading schedule:', error);
         toast({
@@ -147,9 +157,32 @@ const AdminDashboard = () => {
 
   const handleScheduleGenerated = (newSchedule: ScheduleItem[]) => {
     try {
-      console.log('Setting new schedule in dashboard:', newSchedule.length, 'items');
-      setSchedule(newSchedule);
+      // Filter out any invalid schedule items to prevent crashes
+      const validSchedule = newSchedule.filter(item => {
+        const isValid = item && 
+          item.code && 
+          item.name && 
+          item.lecturer &&
+          item.timeSlot &&
+          item.venue;
+        
+        if (!isValid) {
+          console.warn('Invalid schedule item filtered out:', item);
+        }
+        return isValid;
+      });
+
+      console.log('Setting new schedule in dashboard:', validSchedule.length, 'valid items out of', newSchedule.length, 'total');
+      setSchedule(validSchedule);
       setIsSchedulePublished(false); // New schedule is not published by default
+      
+      if (validSchedule.length < newSchedule.length) {
+        toast({
+          title: "Schedule Generated with Warnings",
+          description: `${validSchedule.length} valid courses scheduled. ${newSchedule.length - validSchedule.length} items were filtered out due to missing data.`,
+          variant: "default",
+        });
+      }
     } catch (error) {
       console.error('Error setting schedule:', error);
       toast({

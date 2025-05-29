@@ -11,6 +11,12 @@ interface CourseCardProps {
 }
 
 const CourseCard = ({ course, onEdit, onDelete }: CourseCardProps) => {
+  // Ensure we have valid course data to prevent crashes
+  if (!course || !course.code || !course.name) {
+    console.warn('Invalid course data:', course);
+    return null;
+  }
+
   return (
     <Card className="p-3 md:p-4">
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3">
@@ -19,22 +25,22 @@ const CourseCard = ({ course, onEdit, onDelete }: CourseCardProps) => {
             <h3 className="font-semibold text-sm md:text-base">{course.code}</h3>
             <div className="flex items-center gap-2 text-xs md:text-sm text-muted-foreground">
               <Users className="h-3 w-3" />
-              <span>{course.classSize} students</span>
+              <span>{course.classSize || 0} students</span>
             </div>
           </div>
           
           <p className="text-sm md:text-base font-medium truncate">{course.name}</p>
           
           <div className="space-y-1">
-            <p className="text-xs md:text-sm text-muted-foreground truncate">{course.lecturer}</p>
-            <p className="text-xs md:text-sm text-muted-foreground truncate">{course.department}</p>
+            <p className="text-xs md:text-sm text-muted-foreground truncate">{course.lecturer || 'No lecturer assigned'}</p>
+            <p className="text-xs md:text-sm text-muted-foreground truncate">{course.department || 'No department'}</p>
           </div>
           
           {course.preferredSlots && course.preferredSlots.length > 0 && (
             <div className="flex items-center gap-1 text-xs text-muted-foreground">
               <Clock className="h-3 w-3" />
               <span className="truncate">
-                Preferred: {course.preferredSlots[0].day} {course.preferredSlots[0].startTime}
+                Preferred: {course.preferredSlots[0]?.day} {course.preferredSlots[0]?.startTime}
               </span>
             </div>
           )}
