@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Course, ScheduleItem, Venue, TimeSlot } from "@/lib/types";
 import { useCourses } from "@/hooks/useCourses";
@@ -9,7 +8,8 @@ import Timetable from "@/components/Timetable";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { FileText, Users, GraduationCap, BookOpen } from "lucide-react";
+import { FileText, Users, GraduationCap, BookOpen, Plus, Trash2 } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const Index = () => {
   const [schedule, setSchedule] = useState<ScheduleItem[]>([]);
@@ -244,7 +244,7 @@ const Index = () => {
 
   if (isLoading) {
     return (
-      <div className="container mx-auto py-8 flex items-center justify-center">
+      <div className="container mx-auto py-8 flex items-center justify-center min-h-screen">
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
           <p className="mt-2 text-muted-foreground">Loading courses...</p>
@@ -254,49 +254,50 @@ const Index = () => {
   }
 
   return (
-    <div className="container mx-auto py-8 space-y-8">
+    <div className="container mx-auto py-4 md:py-8 space-y-6 md:space-y-8 px-4">
       <div className="space-y-4">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
-            <h1 className="text-3xl font-bold">Course Timetable</h1>
-            <p className="text-muted-foreground">
+            <h1 className="text-2xl md:text-3xl font-bold">Course Timetable</h1>
+            <p className="text-sm md:text-base text-muted-foreground">
               Manage and view your department's course schedule
             </p>
           </div>
-          <Button onClick={generateSchedule}>
+          <Button onClick={generateSchedule} className="w-full sm:w-auto">
             Generate Schedule
           </Button>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Card className="p-6 space-y-2">
+        {/* Mobile-responsive stats cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <Card className="p-4 md:p-6 space-y-2">
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Total Courses</p>
-                <h3 className="text-2xl font-bold">{courses.length}</h3>
-                <p className="text-sm text-muted-foreground">Courses in current schedule</p>
+                <p className="text-xs md:text-sm font-medium text-muted-foreground">Total Courses</p>
+                <h3 className="text-xl md:text-2xl font-bold">{courses.length}</h3>
+                <p className="text-xs md:text-sm text-muted-foreground">Courses in current schedule</p>
               </div>
               <BookOpen className="h-4 w-4 text-muted-foreground" />
             </div>
           </Card>
 
-          <Card className="p-6 space-y-2">
+          <Card className="p-4 md:p-6 space-y-2">
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Academic Levels</p>
-                <h3 className="text-2xl font-bold">{getAcademicLevels()}</h3>
-                <p className="text-sm text-muted-foreground">Different course levels</p>
+                <p className="text-xs md:text-sm font-medium text-muted-foreground">Academic Levels</p>
+                <h3 className="text-xl md:text-2xl font-bold">{getAcademicLevels()}</h3>
+                <p className="text-xs md:text-sm text-muted-foreground">Different course levels</p>
               </div>
               <GraduationCap className="h-4 w-4 text-muted-foreground" />
             </div>
           </Card>
 
-          <Card className="p-6 space-y-2">
+          <Card className="p-4 md:p-6 space-y-2">
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Instructors</p>
-                <h3 className="text-2xl font-bold">{getActiveInstructors()}</h3>
-                <p className="text-sm text-muted-foreground">Active instructors</p>
+                <p className="text-xs md:text-sm font-medium text-muted-foreground">Instructors</p>
+                <h3 className="text-xl md:text-2xl font-bold">{getActiveInstructors()}</h3>
+                <p className="text-xs md:text-sm text-muted-foreground">Active instructors</p>
               </div>
               <Users className="h-4 w-4 text-muted-foreground" />
             </div>
@@ -304,11 +305,17 @@ const Index = () => {
         </div>
       </div>
 
-      <div className="grid md:grid-cols-2 gap-8">
-        <div className="space-y-6">
+      {/* Mobile-responsive tabs layout */}
+      <Tabs defaultValue="schedule" className="space-y-4">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="schedule" className="text-xs md:text-sm">Schedule View</TabsTrigger>
+          <TabsTrigger value="courses" className="text-xs md:text-sm">Manage Courses</TabsTrigger>
+        </TabsList>
+        
+        <TabsContent value="schedule" className="space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-xl font-semibold">Course Schedule</h2>
-            <div className="space-x-2">
+            <h2 className="text-lg md:text-xl font-semibold">Course Schedule</h2>
+            <div className="hidden sm:flex space-x-2">
               <Button variant="outline" size="sm">
                 <FileText className="h-4 w-4 mr-2" />
                 CSV
@@ -319,30 +326,36 @@ const Index = () => {
               </Button>
             </div>
           </div>
-          <Timetable schedule={schedule} />
-        </div>
-
-        <div className="space-y-6">
-          <h2 className="text-xl font-semibold">Add Courses</h2>
-          <p className="text-sm text-muted-foreground">
+          <Card className="p-2 md:p-4">
+            <Timetable schedule={schedule} />
+          </Card>
+        </TabsContent>
+        
+        <TabsContent value="courses" className="space-y-6">
+          <h2 className="text-lg md:text-xl font-semibold">Add Courses</h2>
+          <p className="text-xs md:text-sm text-muted-foreground">
             Upload course lists to generate an AI-optimized timetable
           </p>
           
           <div className="space-y-6">
             <div className="space-y-4">
-              <h3 className="text-lg font-medium">Course Input Assistant</h3>
-              <PDFUploader onCoursesExtracted={handleCoursesExtracted} />
+              <h3 className="text-base md:text-lg font-medium">Course Input Assistant</h3>
+              <Card className="p-4">
+                <PDFUploader onCoursesExtracted={handleCoursesExtracted} />
+              </Card>
             </div>
 
             <div className="space-y-4">
-              <h3 className="text-lg font-medium">Manual Input</h3>
-              <AddCourseForm onSubmit={handleAddCourse} />
+              <h3 className="text-base md:text-lg font-medium">Manual Input</h3>
+              <Card className="p-4">
+                <AddCourseForm onSubmit={handleAddCourse} />
+              </Card>
             </div>
 
             {courses.length > 0 && (
               <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-medium">Current Courses</h3>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <h3 className="text-base md:text-lg font-medium">Current Courses</h3>
                   <Button
                     variant="destructive"
                     size="sm"
@@ -351,11 +364,13 @@ const Index = () => {
                         handleClearAllCourses();
                       }
                     }}
+                    className="w-full sm:w-auto"
                   >
+                    <Trash2 className="h-4 w-4 mr-2" />
                     Clear All
                   </Button>
                 </div>
-                <div className="grid gap-4">
+                <div className="grid gap-3 md:gap-4">
                   {courses.map((course) => (
                     <CourseCard
                       key={course.id}
@@ -368,8 +383,8 @@ const Index = () => {
               </div>
             )}
           </div>
-        </div>
-      </div>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };

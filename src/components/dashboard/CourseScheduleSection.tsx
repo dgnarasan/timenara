@@ -1,5 +1,4 @@
-
-import { FileText, Calendar, Minimize2, Maximize2 } from "lucide-react";
+import { FileText, Calendar, Minimize2, Maximize2, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Timetable from "@/components/Timetable";
 import { Card } from "@/components/ui/card";
@@ -8,6 +7,12 @@ import { useState } from "react";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
+import { 
+  DropdownMenu, 
+  DropdownMenuContent, 
+  DropdownMenuItem, 
+  DropdownMenuTrigger 
+} from "@/components/ui/dropdown-menu";
 
 interface CourseScheduleSectionProps {
   schedule: ScheduleItem[];
@@ -110,79 +115,112 @@ const CourseScheduleSection = ({ schedule, isPublished = false }: CourseSchedule
 
   return (
     <div
-      className={`space-y-6 animate-fade-in transition-all duration-300 ease-in-out ${
-        isExpanded ? "fixed inset-4 z-50 bg-background/95 backdrop-blur-sm p-6 rounded-lg" : ""
+      className={`space-y-4 md:space-y-6 animate-fade-in transition-all duration-300 ease-in-out ${
+        isExpanded ? "fixed inset-2 md:inset-4 z-50 bg-background/95 backdrop-blur-sm p-4 md:p-6 rounded-lg" : ""
       }`}
     >
-      <div className="flex items-center justify-between">
-        <div className="space-y-1.5">
-          <h2 className="text-2xl font-bold tracking-tight">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+        <div className="space-y-1">
+          <h2 className="text-xl md:text-2xl font-bold tracking-tight">
             Course Schedule
             {isPublished && (
-              <span className="ml-2 text-sm bg-green-100 text-green-800 px-2 py-1 rounded-full">
+              <span className="ml-2 text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full">
                 Published
               </span>
             )}
           </h2>
-          <p className="text-muted-foreground text-sm">
+          <p className="text-muted-foreground text-xs md:text-sm">
             View and manage your department's timetable
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={exportToCSV}
-            className="shadow-sm hover:bg-secondary/80 transition-all duration-200 font-medium"
-          >
-            <FileText className="h-4 w-4 mr-2" />
-            CSV
-          </Button>
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={exportToExcel}
-            className="shadow-sm hover:bg-secondary/80 transition-all duration-200 font-medium"
-          >
-            <FileText className="h-4 w-4 mr-2" />
-            Excel
-          </Button>
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={exportToPDF}
-            className="shadow-sm hover:bg-secondary/80 transition-all duration-200 font-medium"
-          >
-            <FileText className="h-4 w-4 mr-2" />
-            PDF
-          </Button>
+        
+        <div className="flex items-center gap-2 w-full sm:w-auto">
+          {/* Mobile export dropdown */}
+          <div className="sm:hidden flex-1">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="w-full">
+                  <Download className="h-4 w-4 mr-2" />
+                  Export
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="w-48">
+                <DropdownMenuItem onClick={exportToCSV}>
+                  <FileText className="h-4 w-4 mr-2" />
+                  Export as CSV
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={exportToExcel}>
+                  <FileText className="h-4 w-4 mr-2" />
+                  Export as Excel
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={exportToPDF}>
+                  <FileText className="h-4 w-4 mr-2" />
+                  Export as PDF
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+
+          {/* Desktop export buttons */}
+          <div className="hidden sm:flex items-center gap-2">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={exportToCSV}
+              className="shadow-sm hover:bg-secondary/80 transition-all duration-200 font-medium"
+            >
+              <FileText className="h-4 w-4 mr-2" />
+              CSV
+            </Button>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={exportToExcel}
+              className="shadow-sm hover:bg-secondary/80 transition-all duration-200 font-medium"
+            >
+              <FileText className="h-4 w-4 mr-2" />
+              Excel
+            </Button>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={exportToPDF}
+              className="shadow-sm hover:bg-secondary/80 transition-all duration-200 font-medium"
+            >
+              <FileText className="h-4 w-4 mr-2" />
+              PDF
+            </Button>
+          </div>
+          
           <Button
             variant="ghost"
             size="sm"
             onClick={() => setIsExpanded(!isExpanded)}
           >
             {isExpanded ? (
-              <Minimize2 className="h-5 w-5" />
+              <Minimize2 className="h-4 w-4 md:h-5 md:w-5" />
             ) : (
-              <Maximize2 className="h-5 w-5" />
+              <Maximize2 className="h-4 w-4 md:h-5 md:w-5" />
             )}
           </Button>
         </div>
       </div>
+      
       <Card
         className={`overflow-hidden border shadow-lg transition-all duration-300 ${
-          isExpanded ? "h-[calc(100vh-12rem)]" : ""
+          isExpanded ? "h-[calc(100vh-8rem)] md:h-[calc(100vh-12rem)]" : ""
         }`}
       >
-        <div className={`p-4 ${isExpanded ? "h-full" : ""}`}>
+        <div className={`p-2 md:p-4 ${isExpanded ? "h-full" : ""}`}>
           <Timetable schedule={schedule} />
         </div>
       </Card>
+      
       {schedule.length === 0 && (
-        <div className="text-center py-12 text-muted-foreground">
-          <Calendar className="h-12 w-12 mx-auto mb-4 opacity-20" />
-          <p className="text-base">No courses scheduled yet.</p>
-          <p className="text-sm mt-2 text-muted-foreground/80">
+        <div className="text-center py-8 md:py-12 text-muted-foreground">
+          <Calendar className="h-8 w-8 md:h-12 md:w-12 mx-auto mb-4 opacity-20" />
+          <p className="text-sm md:text-base">No courses scheduled yet.</p>
+          <p className="text-xs md:text-sm mt-2 text-muted-foreground/80">
             Generate a schedule or add courses manually to get started.
           </p>
         </div>

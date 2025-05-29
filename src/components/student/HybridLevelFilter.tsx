@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { ScheduleItem } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
@@ -30,14 +29,12 @@ const HybridLevelFilter = ({ schedule, onFilteredScheduleChange }: HybridLevelFi
   };
 
   const isCarryoverRelevant = (course: ScheduleItem): boolean => {
-    // Check if course is commonly taken by students from different levels
     const courseLevel = extractAcademicLevel(course.code);
     const baseCode = course.code.replace(/\d+/, '').trim();
     
-    // Common courses that span levels (GST, general electives, etc.)
     const crossLevelCourses = ['GST', 'ENG', 'MTH', 'STA', 'PHY', 'CHM'];
     return crossLevelCourses.some(prefix => baseCode.startsWith(prefix)) ||
-           course.department.includes('Education'); // Check if department contains "Education" instead of exact match
+           course.department.includes('Education');
   };
 
   const getLevelStats = (level: string) => {
@@ -60,7 +57,6 @@ const HybridLevelFilter = ({ schedule, onFilteredScheduleChange }: HybridLevelFi
       return selectedLevels.has(itemLevel);
     });
 
-    // Add carryover-relevant courses if enabled
     if (includeCarryoverCourses) {
       const carryoverCourses = schedule.filter(item => 
         !filtered.includes(item) && isCarryoverRelevant(item)
@@ -98,7 +94,6 @@ const HybridLevelFilter = ({ schedule, onFilteredScheduleChange }: HybridLevelFi
         newSelected.add('400 Level').add('500 Level');
         break;
       case 'carryover':
-        // Select all levels for extensive carryover students
         getAvailableLevels().forEach(level => newSelected.add(level));
         break;
     }
@@ -109,66 +104,72 @@ const HybridLevelFilter = ({ schedule, onFilteredScheduleChange }: HybridLevelFi
   const availableLevels = getAvailableLevels();
 
   return (
-    <Card className="p-4 space-y-4">
+    <Card className="p-3 md:p-4 space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold flex items-center gap-2">
-          <GraduationCap className="h-5 w-5" />
-          Hybrid Level Course Filter
+        <h3 className="text-base md:text-lg font-semibold flex items-center gap-2">
+          <GraduationCap className="h-4 w-4 md:h-5 md:w-5" />
+          <span className="hidden sm:inline">Hybrid Level Course Filter</span>
+          <span className="sm:hidden">Level Filter</span>
         </h3>
-        <Badge variant="outline">
-          {selectedLevels.size === 0 ? 'All Levels' : `${selectedLevels.size} Level${selectedLevels.size !== 1 ? 's' : ''}`}
+        <Badge variant="outline" className="text-xs">
+          {selectedLevels.size === 0 ? 'All' : `${selectedLevels.size} Level${selectedLevels.size !== 1 ? 's' : ''}`}
         </Badge>
       </div>
 
       <div className="space-y-3">
         <h4 className="text-sm font-medium">Quick Select:</h4>
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
           <Button
             variant="outline"
             size="sm"
             onClick={() => selectCommonCombinations('freshman')}
-            className="text-xs"
+            className="text-xs p-2 h-auto"
           >
-            Freshman (100-200)
+            <span className="hidden sm:inline">Freshman (100-200)</span>
+            <span className="sm:hidden">100-200</span>
           </Button>
           <Button
             variant="outline"
             size="sm"
             onClick={() => selectCommonCombinations('sophomore')}
-            className="text-xs"
+            className="text-xs p-2 h-auto"
           >
-            Sophomore (200-300)
+            <span className="hidden sm:inline">Sophomore (200-300)</span>
+            <span className="sm:hidden">200-300</span>
           </Button>
           <Button
             variant="outline"
             size="sm"
             onClick={() => selectCommonCombinations('junior')}
-            className="text-xs"
+            className="text-xs p-2 h-auto"
           >
-            Junior (300-400)
+            <span className="hidden sm:inline">Junior (300-400)</span>
+            <span className="sm:hidden">300-400</span>
           </Button>
           <Button
             variant="outline"
             size="sm"
             onClick={() => selectCommonCombinations('senior')}
-            className="text-xs"
+            className="text-xs p-2 h-auto"
           >
-            Senior (400-500)
+            <span className="hidden sm:inline">Senior (400-500)</span>
+            <span className="sm:hidden">400-500</span>
           </Button>
           <Button
             variant="outline"
             size="sm"
             onClick={() => selectCommonCombinations('carryover')}
-            className="text-xs"
+            className="text-xs p-2 h-auto col-span-2 sm:col-span-1"
           >
-            Carryover (All)
+            <span className="hidden sm:inline">Carryover (All)</span>
+            <span className="sm:hidden">All</span>
           </Button>
         </div>
       </div>
 
       <div className="space-y-3">
         <h4 className="text-sm font-medium">Custom Level Selection:</h4>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
           {availableLevels.map(level => {
             const stats = getLevelStats(level);
             return (
@@ -188,7 +189,7 @@ const HybridLevelFilter = ({ schedule, onFilteredScheduleChange }: HybridLevelFi
                   <label htmlFor={level} className="text-sm font-medium cursor-pointer">
                     {level}
                   </label>
-                  <div className="flex items-center gap-4 mt-1 text-xs text-muted-foreground">
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 mt-1 text-xs text-muted-foreground">
                     <span className="flex items-center gap-1">
                       <BookOpen className="h-3 w-3" />
                       {stats.courses} courses
@@ -218,19 +219,19 @@ const HybridLevelFilter = ({ schedule, onFilteredScheduleChange }: HybridLevelFi
             }
           }}
         />
-        <label htmlFor="carryover" className="text-sm cursor-pointer">
+        <label htmlFor="carryover" className="text-xs md:text-sm cursor-pointer">
           Include carryover-relevant courses (GST, general electives, shared courses)
         </label>
       </div>
 
-      <div className="flex justify-between items-center pt-2">
-        <div className="text-sm text-muted-foreground">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pt-2">
+        <div className="text-xs md:text-sm text-muted-foreground">
           {selectedLevels.size === 0 ? 
             `Showing all ${schedule.length} courses` : 
             `Will show courses from selected levels ${includeCarryoverCourses ? '+ carryover courses' : ''}`
           }
         </div>
-        <div className="space-x-2">
+        <div className="flex gap-2 w-full sm:w-auto">
           <Button
             variant="outline"
             size="sm"
@@ -238,10 +239,11 @@ const HybridLevelFilter = ({ schedule, onFilteredScheduleChange }: HybridLevelFi
               setSelectedLevels(new Set());
               onFilteredScheduleChange(schedule);
             }}
+            className="flex-1 sm:flex-none"
           >
             Clear All
           </Button>
-          <Button size="sm" onClick={applyFilter}>
+          <Button size="sm" onClick={applyFilter} className="flex-1 sm:flex-none">
             Apply Filter
           </Button>
         </div>
