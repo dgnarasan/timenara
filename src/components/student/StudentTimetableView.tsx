@@ -1,14 +1,14 @@
-
 import { useState, useEffect } from "react";
 import { Course, ScheduleItem, collegeStructure } from "@/lib/types";
 import CourseFilterBar, { FilterOptions } from "./CourseFilterBar";
 import CollegeTimetableFilter from "./CollegeTimetableFilter";
+import HybridLevelFilter from "./HybridLevelFilter";
 import Timetable from "../Timetable";
 import { useToast } from "@/hooks/use-toast";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
-import { Star, Grid, List as ListIcon, Filter } from "lucide-react";
+import { Star, Grid, List as ListIcon, Filter, GraduationCap } from "lucide-react";
 import { Button } from "../ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 
@@ -21,8 +21,9 @@ const StudentTimetableView = ({ schedule, viewMode = "timetable" }: StudentTimet
   const { toast } = useToast();
   const [filteredSchedule, setFilteredSchedule] = useState<ScheduleItem[]>(schedule);
   const [collegeFilteredSchedule, setCollegeFilteredSchedule] = useState<ScheduleItem[]>(schedule);
+  const [levelFilteredSchedule, setLevelFilteredSchedule] = useState<ScheduleItem[]>(schedule);
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
-  const [filterMode, setFilterMode] = useState<"advanced" | "college">("college");
+  const [filterMode, setFilterMode] = useState<"advanced" | "college" | "hybrid">("college");
   const [filters, setFilters] = useState<FilterOptions>({
     search: "",
     academicLevel: "",
@@ -63,41 +64,52 @@ const StudentTimetableView = ({ schedule, viewMode = "timetable" }: StudentTimet
     });
   };
 
-  // Advanced filtering logic
-  useEffect(() => {
-    if (filterMode === "advanced") {
-      const filtered = schedule.filter((item) => {
-        const matchesSearch =
-          filters.search === "" ||
-          item.code.toLowerCase().includes(filters.search.toLowerCase()) ||
-          item.name.toLowerCase().includes(filters.search.toLowerCase());
+  const applyCurrentFilter = () => {
+    switch (filterMode) {
+      case "advanced":
+        const filtered = schedule.filter((item) => {
+          const matchesSearch =
+            filters.search === "" ||
+            item.code.toLowerCase().includes(filters.search.toLowerCase()) ||
+            item.name.toLowerCase().includes(filters.search.toLowerCase());
 
-        const matchesLevel =
-          filters.academicLevel === "" ||
-          matchesAcademicLevel(item.code, filters.academicLevel);
+          const matchesLevel =
+            filters.academicLevel === "" ||
+            matchesAcademicLevel(item.code, filters.academicLevel);
 
-        const matchesLecturer =
-          filters.lecturer === "" || item.lecturer === filters.lecturer;
+          const matchesLecturer =
+            filters.lecturer === "" || item.lecturer === filters.lecturer;
 
-        const matchesTimeSlot = 
-          filters.timeSlot === "" || matchesTimeRange(item, filters.timeSlot);
-          
-        const matchesCollege = 
-          filters.college === "" || 
-          collegeStructure.find(c => c.college === filters.college)?.departments.includes(item.department);
-          
-        const matchesDepartment = 
-          filters.department === "" || item.department === filters.department;
+          const matchesTimeSlot = 
+            filters.timeSlot === "" || matchesTimeRange(item, filters.timeSlot);
+            
+          const matchesCollege = 
+            filters.college === "" || 
+            collegeStructure.find(c => c.college === filters.college)?.departments.includes(item.department);
+            
+          const matchesDepartment = 
+            filters.department === "" || item.department === filters.department;
 
-        return matchesSearch && matchesLevel && matchesLecturer && 
-               matchesTimeSlot && matchesCollege && matchesDepartment;
-      });
+          return matchesSearch && matchesLevel && matchesLecturer && 
+                 matchesTimeSlot && matchesCollege && matchesDepartment;
+        });
 
-      setFilteredSchedule(filtered);
-    } else {
-      setFilteredSchedule(collegeFilteredSchedule);
+        setFilteredSchedule(filtered);
+        break;
+      case "college":
+        setFilteredSchedule(collegeFilteredSchedule);
+        break;
+      case "hybrid":
+        setFilteredSchedule(levelFilteredSchedule);
+        break;
+      default:
+        setFilteredSchedule(schedule);
     }
-  }, [schedule, filters, filterMode, collegeFilteredSchedule]);
+  };
+
+  useEffect(() => {
+    applyCurrentFilter();
+  }, [schedule, filters, filterMode, collegeFilteredSchedule, levelFilteredSchedule]);
 
   const matchesAcademicLevel = (courseCode: string, levelFilter: string): boolean => {
     const match = courseCode.match(/\d/);
@@ -190,17 +202,23 @@ const StudentTimetableView = ({ schedule, viewMode = "timetable" }: StudentTimet
   };
 
   const clearAllFilters = () => {
-    if (filterMode === "advanced") {
-      setFilters({
-        search: "",
-        academicLevel: "",
-        lecturer: "",
-        timeSlot: "",
-        college: "",
-        department: "",
-      });
-    } else {
-      setCollegeFilteredSchedule(schedule);
+    switch (filterMode) {
+      case "advanced":
+        setFilters({
+          search: "",
+          academicLevel: "",
+          lecturer: "",
+          timeSlot: "",
+          college: "",
+          department: "",
+        });
+        break;
+      case "college":
+        setCollegeFilteredSchedule(schedule);
+        break;
+      case "hybrid":
+        setLevelFilteredSchedule(schedule);
+        break;
     }
   };
 
@@ -208,7 +226,7 @@ const StudentTimetableView = ({ schedule, viewMode = "timetable" }: StudentTimet
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div className="space-y-2">
-          <h2 className="text-xl font-semibold">College Timetable</h2>
+          <h2 className="text-xl font-semibold">Enhanced College Timetable</h2>
           <p className="text-sm text-muted-foreground">
             {favorites.size} courses favorited • {filteredSchedule.length} courses shown
           </p>
@@ -221,7 +239,16 @@ const StudentTimetableView = ({ schedule, viewMode = "timetable" }: StudentTimet
             className="gap-2"
           >
             <Grid className="h-4 w-4" />
-            College View
+            College
+          </Button>
+          <Button
+            variant={filterMode === "hybrid" ? "default" : "outline"}
+            onClick={() => setFilterMode("hybrid")}
+            size="sm"
+            className="gap-2"
+          >
+            <GraduationCap className="h-4 w-4" />
+            Hybrid Level
           </Button>
           <Button
             variant={filterMode === "advanced" ? "default" : "outline"}
@@ -230,14 +257,15 @@ const StudentTimetableView = ({ schedule, viewMode = "timetable" }: StudentTimet
             className="gap-2"
           >
             <Filter className="h-4 w-4" />
-            Advanced Filter
+            Advanced
           </Button>
         </div>
       </div>
 
-      <Tabs value={filterMode} onValueChange={(value) => setFilterMode(value as "advanced" | "college")}>
+      <Tabs value={filterMode} onValueChange={(value) => setFilterMode(value as "advanced" | "college" | "hybrid")}>
         <TabsList>
           <TabsTrigger value="college">College Filter</TabsTrigger>
+          <TabsTrigger value="hybrid">Hybrid Level Filter</TabsTrigger>
           <TabsTrigger value="advanced">Advanced Filter</TabsTrigger>
         </TabsList>
         
@@ -245,6 +273,13 @@ const StudentTimetableView = ({ schedule, viewMode = "timetable" }: StudentTimet
           <CollegeTimetableFilter
             schedule={schedule}
             onFilteredScheduleChange={setCollegeFilteredSchedule}
+          />
+        </TabsContent>
+        
+        <TabsContent value="hybrid" className="space-y-4">
+          <HybridLevelFilter
+            schedule={schedule}
+            onFilteredScheduleChange={setLevelFilteredSchedule}
           />
         </TabsContent>
         

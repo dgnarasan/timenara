@@ -1,4 +1,3 @@
-
 import { Course, Department, ScheduleItem, collegeStructure, College } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import {
@@ -25,6 +24,7 @@ import { saveSchedule } from "@/lib/db";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
 import ErrorReportDialog from "./ErrorReportDialog";
+import ConflictDetailsModal from "./ConflictDetailsModal";
 
 interface GenerateScheduleDialogProps {
   courses: Course[];
@@ -40,6 +40,9 @@ const GenerateScheduleDialog = ({ courses, onScheduleGenerated }: GenerateSchedu
   const [selectedCollege, setSelectedCollege] = useState<College | 'all'>('all');
   const [generationResult, setGenerationResult] = useState<GenerationResult | null>(null);
   const [showErrorReport, setShowErrorReport] = useState(false);
+  const [showConflictModal, setShowConflictModal] = useState(false);
+  const [enableFallbacks, setEnableFallbacks] = useState(true);
+  const [enableCourseGrouping, setEnableCourseGrouping] = useState(true);
   const { toast } = useToast();
 
   const getFilteredCourses = () => {
@@ -79,52 +82,30 @@ const GenerateScheduleDialog = ({ courses, onScheduleGenerated }: GenerateSchedu
     setGenerationResult(null);
 
     try {
-      console.log("Starting enhanced schedule generation with courses:", filteredCourses.length);
+      console.log("Starting enhanced schedule generation with:", {
+        coursesCount: filteredCourses.length,
+        enableFallbacks,
+        enableCourseGrouping
+      });
       
       // Start progress animation
       const progressInterval = setInterval(() => {
-        setProgress(prev => {
-          const newProgress = Math.min(prev + 5, 85);
-          console.log("Progress:", newProgress + "%");
-          return newProgress;
-        });
-      }, 200);
+        setProgress(prev => Math.min(prev + 8, 85));
+      }, 300);
 
-      console.log("Calling enhanced generateSchedule function...");
-      const result = await generateSchedule(filteredCourses);
-      
-      console.log("Enhanced schedule generation completed:", {
-        scheduleLength: result.schedule.length,
-        conflictsLength: result.conflicts.length,
-        successRate: result.summary.successRate
-      });
+      // Import and use enhanced generator
+      const { generateEnhancedSchedule } = await import("@/services/enhancedScheduleGenerator");
+      const result = await generateEnhancedSchedule(filteredCourses, enableFallbacks);
       
       clearInterval(progressInterval);
       setProgress(90);
       setGenerationResult(result);
 
-      if (result.conflicts.length > 0) {
-        console.log("Schedule conflicts found:", result.conflicts);
-        
-        // Show critical errors immediately
-        const criticalErrors = result.conflicts.filter(c => c.severity === 'critical');
-        if (criticalErrors.length > 0) {
-          criticalErrors.forEach(conflict => {
-            toast({
-              title: "Critical Error",
-              description: conflict.reason,
-              variant: "destructive",
-            });
-          });
-        }
-      }
-
       if (result.schedule.length > 0) {
-        console.log("Saving generated schedule to database...");
+        console.log("Enhanced schedule generated successfully");
         try {
           await saveSchedule(result.schedule, false);
           setProgress(100);
-          console.log("Generated schedule successfully, updating UI...");
           onScheduleGenerated(result.schedule);
           
           const scopeDescription = scheduleScope === 'college' && selectedCollege !== 'all' 
@@ -134,12 +115,12 @@ const GenerateScheduleDialog = ({ courses, onScheduleGenerated }: GenerateSchedu
             : 'across all departments';
 
           toast({
-            title: "Schedule Generated",
+            title: "Enhanced Schedule Generated",
             description: `Successfully scheduled ${result.schedule.length}/${result.summary.totalCourses} courses ${scopeDescription} (${result.summary.successRate}% success rate)`,
           });
 
-          if (result.conflicts.length > 0) {
-            setShowErrorReport(true);
+          if (result.conflicts.length > 0 || !result.preValidationPassed) {
+            setShowConflictModal(true);
           } else {
             setIsOpen(false);
           }
@@ -152,8 +133,8 @@ const GenerateScheduleDialog = ({ courses, onScheduleGenerated }: GenerateSchedu
           });
         }
       } else {
-        console.log("No schedule generated, showing error report");
-        setShowErrorReport(true);
+        console.log("No schedule generated, showing detailed conflict analysis");
+        setShowConflictModal(true);
         toast({
           title: "Generation Failed",
           description: `Could not generate a valid schedule. ${result.conflicts.length} issues found.`,
@@ -161,22 +142,28 @@ const GenerateScheduleDialog = ({ courses, onScheduleGenerated }: GenerateSchedu
         });
       }
     } catch (error) {
-      console.error('Error generating schedule:', error);
+      console.error('Error in enhanced generation:', error);
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to generate schedule",
+        description: error instanceof Error ? error.message : "Failed to generate enhanced schedule",
         variant: "destructive",
       });
     } finally {
       setIsLoading(false);
       setProgress(0);
-      console.log("Schedule generation process completed");
     }
   };
 
   const handleRetryGeneration = () => {
+    setShowConflictModal(false);
     setShowErrorReport(false);
     setGenerationResult(null);
+    handleGenerateAI();
+  };
+
+  const handleApplyFallbacks = () => {
+    setEnableFallbacks(true);
+    setShowConflictModal(false);
     handleGenerateAI();
   };
 
@@ -193,9 +180,9 @@ const GenerateScheduleDialog = ({ courses, onScheduleGenerated }: GenerateSchedu
         </DialogTrigger>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Generate AI Schedule</DialogTitle>
+            <DialogTitle>Enhanced AI Schedule Generator</DialogTitle>
             <DialogDescription>
-              Generate an AI-powered schedule with advanced conflict detection and detailed error reporting
+              Generate an AI-powered schedule with course grouping, pre-validation, and advanced conflict resolution
             </DialogDescription>
           </DialogHeader>
           <div className="py-4 space-y-6">
@@ -294,14 +281,44 @@ const GenerateScheduleDialog = ({ courses, onScheduleGenerated }: GenerateSchedu
             </div>
 
             <div className="space-y-3">
-              <h4 className="text-sm font-medium">Enhanced Error Detection</h4>
+              <h4 className="text-sm font-medium">Enhanced Features</h4>
+              <div className="space-y-3">
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id="enableGrouping"
+                    checked={enableCourseGrouping}
+                    onChange={(e) => setEnableCourseGrouping(e.target.checked)}
+                    className="rounded"
+                  />
+                  <label htmlFor="enableGrouping" className="text-sm">
+                    Auto-group shared courses (GST, MTH, etc.) into unified time blocks
+                  </label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id="enableFallbacks"
+                    checked={enableFallbacks}
+                    onChange={(e) => setEnableFallbacks(e.target.checked)}
+                    className="rounded"
+                  />
+                  <label htmlFor="enableFallbacks" className="text-sm">
+                    Enable fallback strategies (class splitting, alternative time slots)
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <h4 className="text-sm font-medium">Enhanced Capabilities</h4>
               <ul className="text-sm text-muted-foreground list-disc list-inside space-y-1 bg-blue-50 p-3 rounded-lg">
-                <li>Cross-departmental lecturer scheduling conflicts detection</li>
-                <li>Venue capacity vs class size validation</li>
-                <li>System connectivity and performance monitoring</li>
-                <li>Database integrity and venue availability checks</li>
-                <li>Lecturer workload distribution analysis</li>
-                <li>Detailed conflict categorization and resolution suggestions</li>
+                <li>Pre-generation validation with detailed error categorization</li>
+                <li>Auto-grouping of shared courses across departments</li>
+                <li>Cross-level conflict detection for carryover students</li>
+                <li>Intelligent fallback strategies with class splitting</li>
+                <li>Enhanced conflict modal with actionable suggestions</li>
+                <li>Advanced venue capacity and lecturer workload analysis</li>
               </ul>
             </div>
 
@@ -327,11 +344,24 @@ const GenerateScheduleDialog = ({ courses, onScheduleGenerated }: GenerateSchedu
               onClick={handleGenerateAI}
               disabled={isLoading}
             >
-              {isLoading ? "Generating..." : "Generate AI Schedule"}
+              {isLoading ? "Generating..." : "Generate Enhanced Schedule"}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ConflictDetailsModal
+        isOpen={showConflictModal}
+        onClose={() => {
+          setShowConflictModal(false);
+          setIsOpen(false);
+        }}
+        conflicts={generationResult?.conflicts || []}
+        validationErrors={generationResult?.validationResult?.errors}
+        validationWarnings={generationResult?.validationResult?.warnings}
+        onRetryGeneration={handleRetryGeneration}
+        onApplyFallbacks={!enableFallbacks ? handleApplyFallbacks : undefined}
+      />
 
       <ErrorReportDialog
         isOpen={showErrorReport}
