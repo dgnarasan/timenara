@@ -1,5 +1,5 @@
 
-import { Course, ScheduleItem } from "@/lib/types";
+import { Course, ScheduleItem, Venue } from "@/lib/types";
 import { supabase } from "@/integrations/supabase/client";
 import { performPreGenerationValidation, ValidationResult } from "@/utils/scheduling/preValidation";
 import { identifySharedCourses, shouldGroupCourses, calculateOptimalClassSize } from "@/utils/scheduling/courseGrouping";
@@ -21,15 +21,21 @@ export const generateEnhancedSchedule = async (
   console.log('Starting enhanced schedule generation with pre-validation...');
 
   try {
-    // Get venues from database
-    const { data: venues } = await supabase
+    // Get venues from database and ensure they have required properties
+    const { data: venueData } = await supabase
       .from('venues')
       .select('id, name, capacity')
       .limit(15);
 
-    if (!venues || venues.length === 0) {
+    if (!venueData || venueData.length === 0) {
       throw new Error('No venues available for scheduling');
     }
+
+    // Transform venues to include required availability property
+    const venues: Venue[] = venueData.map(venue => ({
+      ...venue,
+      availability: [] // Initialize with empty availability array
+    }));
 
     // Step 1: Pre-generation validation
     console.log('Performing pre-generation validation...');
@@ -46,7 +52,7 @@ export const generateEnhancedSchedule = async (
         conflicts: criticalErrors.map(error => ({
           course: error.affectedCourses[0] || {} as Course,
           reason: error.message,
-          conflictType: error.type,
+          conflictType: mapValidationErrorToConflictType(error.type),
           severity: error.severity,
           suggestion: error.suggestion
         })),
@@ -186,5 +192,21 @@ export const generateEnhancedSchedule = async (
       },
       preValidationPassed: false
     };
+  }
+};
+
+// Helper function to map validation error types to conflict types
+const mapValidationErrorToConflictType = (errorType: string): ScheduleConflict['conflictType'] => {
+  switch (errorType) {
+    case 'venue_capacity':
+      return 'venue';
+    case 'lecturer_overload':
+      return 'lecturer';
+    case 'cross_level_conflict':
+      return 'cross-departmental';
+    case 'missing_data':
+      return 'system-error';
+    default:
+      return 'resource';
   }
 };

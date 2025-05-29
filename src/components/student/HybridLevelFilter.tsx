@@ -37,7 +37,7 @@ const HybridLevelFilter = ({ schedule, onFilteredScheduleChange }: HybridLevelFi
     // Common courses that span levels (GST, general electives, etc.)
     const crossLevelCourses = ['GST', 'ENG', 'MTH', 'STA', 'PHY', 'CHM'];
     return crossLevelCourses.some(prefix => baseCode.startsWith(prefix)) ||
-           course.department === 'General Studies';
+           course.department.includes('Education'); // Check if department contains "Education" instead of exact match
   };
 
   const getLevelStats = (level: string) => {
@@ -176,7 +176,13 @@ const HybridLevelFilter = ({ schedule, onFilteredScheduleChange }: HybridLevelFi
                 <Checkbox
                   id={level}
                   checked={selectedLevels.has(level)}
-                  onCheckedChange={() => toggleLevel(level)}
+                  onCheckedChange={(checked) => {
+                    if (checked === true) {
+                      toggleLevel(level);
+                    } else if (checked === false) {
+                      toggleLevel(level);
+                    }
+                  }}
                 />
                 <div className="flex-1 min-w-0">
                   <label htmlFor={level} className="text-sm font-medium cursor-pointer">
@@ -204,7 +210,13 @@ const HybridLevelFilter = ({ schedule, onFilteredScheduleChange }: HybridLevelFi
         <Checkbox
           id="carryover"
           checked={includeCarryoverCourses}
-          onCheckedChange={setIncludeCarryoverCourses}
+          onCheckedChange={(checked) => {
+            if (checked === true) {
+              setIncludeCarryoverCourses(true);
+            } else if (checked === false) {
+              setIncludeCarryoverCourses(false);
+            }
+          }}
         />
         <label htmlFor="carryover" className="text-sm cursor-pointer">
           Include carryover-relevant courses (GST, general electives, shared courses)

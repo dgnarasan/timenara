@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/select";
 import { useState } from "react";
 import { generateSchedule, GenerationResult } from "@/services/scheduleGenerator";
+import { EnhancedGenerationResult } from "@/services/enhancedScheduleGenerator";
 import { saveSchedule } from "@/lib/db";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
@@ -38,7 +39,7 @@ const GenerateScheduleDialog = ({ courses, onScheduleGenerated }: GenerateSchedu
   const [scheduleScope, setScheduleScope] = useState<'department' | 'college' | 'all'>('department');
   const [selectedDepartment, setSelectedDepartment] = useState<Department | 'all'>('all');
   const [selectedCollege, setSelectedCollege] = useState<College | 'all'>('all');
-  const [generationResult, setGenerationResult] = useState<GenerationResult | null>(null);
+  const [generationResult, setGenerationResult] = useState<EnhancedGenerationResult | null>(null);
   const [showErrorReport, setShowErrorReport] = useState(false);
   const [showConflictModal, setShowConflictModal] = useState(false);
   const [enableFallbacks, setEnableFallbacks] = useState(true);
