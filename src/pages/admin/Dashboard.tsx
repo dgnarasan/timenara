@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from "react";
 import { Course, ScheduleItem, collegeStructure } from "@/lib/types";
 import { useCourses } from "@/hooks/useCourses";
@@ -13,7 +14,7 @@ import { fetchAdminSchedule, clearSchedule, publishSchedule } from "@/lib/db";
 import { Button } from "@/components/ui/button";
 import { LogOut, Calendar, Home, Trash2, Eye, EyeOff } from "lucide-react";
 
-// More flexible validation function
+// Simplified validation function that's more forgiving
 const isValidScheduleItem = (item: any): item is ScheduleItem => {
   console.log('Validating schedule item:', item);
   
@@ -23,22 +24,27 @@ const isValidScheduleItem = (item: any): item is ScheduleItem => {
     return false;
   }
 
-  // Required string fields
-  const requiredStringFields = ['id', 'code', 'name', 'lecturer', 'department'];
-  for (const field of requiredStringFields) {
+  // Essential fields for rendering
+  const requiredFields = ['id', 'code', 'name'];
+  for (const field of requiredFields) {
     if (!item[field] || typeof item[field] !== 'string') {
       console.log(`Invalid: missing or invalid ${field}:`, item[field]);
       return false;
     }
   }
 
-  // Required number field
-  if (typeof item.classSize !== 'number' || item.classSize <= 0) {
-    console.log('Invalid: classSize:', item.classSize);
+  // TimeSlot validation - essential for timetable display
+  if (!item.timeSlot || typeof item.timeSlot !== 'object') {
+    console.log('Invalid: timeSlot structure:', item.timeSlot);
     return false;
   }
 
-  // Venue validation - more flexible
+  if (!item.timeSlot.day || !item.timeSlot.startTime) {
+    console.log('Invalid: timeSlot missing day or startTime:', item.timeSlot);
+    return false;
+  }
+
+  // Venue validation - essential for display
   if (!item.venue || typeof item.venue !== 'object') {
     console.log('Invalid: venue structure:', item.venue);
     return false;
@@ -49,15 +55,20 @@ const isValidScheduleItem = (item: any): item is ScheduleItem => {
     return false;
   }
 
-  // TimeSlot validation - more flexible
-  if (!item.timeSlot || typeof item.timeSlot !== 'object') {
-    console.log('Invalid: timeSlot structure:', item.timeSlot);
-    return false;
+  // Provide defaults for optional fields instead of rejecting
+  if (!item.lecturer) {
+    console.log('Warning: lecturer missing, setting default');
+    item.lecturer = 'TBD';
   }
-
-  if (!item.timeSlot.day || !item.timeSlot.startTime) {
-    console.log('Invalid: timeSlot missing day or startTime:', item.timeSlot);
-    return false;
+  
+  if (!item.department) {
+    console.log('Warning: department missing, setting default');
+    item.department = 'Unknown Department';
+  }
+  
+  if (typeof item.classSize !== 'number' || item.classSize <= 0) {
+    console.log('Warning: classSize invalid, setting default');
+    item.classSize = 30;
   }
 
   console.log('Valid schedule item:', item.code);
@@ -236,7 +247,10 @@ const AdminDashboard = () => {
       console.log('Received new schedule with', newSchedule.length, 'items');
       console.log('First few items:', newSchedule.slice(0, 3));
       
-      // Validate the new schedule items
+      // Log the raw data to understand the structure
+      console.log('Raw schedule item structure:', JSON.stringify(newSchedule[0], null, 2));
+      
+      // Validate the new schedule items with more forgiving validation
       const validSchedule = validateScheduleItems(newSchedule);
       console.log(`Setting ${validSchedule.length} valid schedule items in dashboard`);
       
