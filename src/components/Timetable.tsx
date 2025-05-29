@@ -109,8 +109,7 @@ const Timetable = ({ schedule, favorites = new Set(), onToggleFavorite }: Timeta
     switch (duration) {
       case 1: return "bg-green-100 text-green-800";
       case 2: return "bg-blue-100 text-blue-800";
-      case 3: return "bg-purple-100 text-purple-800";
-      default: return "bg-gray-100 text-gray-800";
+      default: return "bg-gray-100 text-gray-800"; // This shouldn't happen with 1-2 hour limit
     }
   };
 
@@ -121,7 +120,7 @@ const Timetable = ({ schedule, favorites = new Set(), onToggleFavorite }: Timeta
         <div>
           <h3 className="text-lg md:text-xl font-bold text-primary">Flexible Weekly Timetable</h3>
           <p className="text-xs md:text-sm text-muted-foreground">
-            Showing <span className="font-semibold text-primary">{schedule.length}</span> courses with flexible durations (1-3 hours)
+            Showing <span className="font-semibold text-primary">{schedule.length}</span> courses with flexible durations (1-2 hours only)
           </p>
         </div>
         <div className="flex flex-col sm:flex-row gap-2">
@@ -160,7 +159,7 @@ const Timetable = ({ schedule, favorites = new Set(), onToggleFavorite }: Timeta
         </div>
       </div>
 
-      {/* Duration Legend */}
+      {/* Updated Duration Legend - removed 3-hour option */}
       <div className="bg-card rounded-lg p-3 md:p-4 border shadow-sm">
         <h4 className="text-sm font-semibold text-foreground mb-3">Class Duration Guide</h4>
         <div className="flex flex-wrap gap-2">
@@ -171,10 +170,6 @@ const Timetable = ({ schedule, favorites = new Set(), onToggleFavorite }: Timeta
           <div className="flex items-center gap-2 px-2 py-1 bg-blue-50 rounded">
             <div className="w-3 h-3 bg-blue-500 rounded"></div>
             <span className="text-xs">2 Hour Classes</span>
-          </div>
-          <div className="flex items-center gap-2 px-2 py-1 bg-purple-50 rounded">
-            <div className="w-3 h-3 bg-purple-500 rounded"></div>
-            <span className="text-xs">3 Hour Classes</span>
           </div>
         </div>
       </div>

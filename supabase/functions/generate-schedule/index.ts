@@ -34,8 +34,8 @@ interface ScheduleItem {
 function isValidTimeSlot(startTime: string, endTime: string): boolean {
   const start = parseInt(startTime.split(':')[0]);
   const end = parseInt(endTime.split(':')[0]);
-  // Updated to allow 8 AM to 5 PM range with flexible durations (1-3 hours)
-  return start >= 8 && end <= 17 && end > start && (end - start) <= 3;
+  // Updated to allow 8 AM to 5 PM range with 1-2 hour durations only
+  return start >= 8 && end <= 17 && end > start && (end - start) <= 2 && (end - start) >= 1;
 }
 
 function isValidScheduleItem(item: any): item is ScheduleItem {
@@ -96,13 +96,22 @@ function validateSchedule(schedule: ScheduleItem[]): { reason: string; courseId?
     }
   }
 
+  // Check for classes longer than 2 hours
   for (const item of schedule) {
     const startHour = parseInt(item.timeSlot.startTime.split(':')[0]);
     const endHour = parseInt(item.timeSlot.endTime.split(':')[0]);
+    const duration = endHour - startHour;
     
-    if (startHour < 9 || endHour > 17) {
+    if (startHour < 8 || endHour > 17) {
       conflicts.push({
         reason: `Course ${item.code} is scheduled outside business hours (${item.timeSlot.startTime} - ${item.timeSlot.endTime})`,
+        courseId: item.id
+      });
+    }
+    
+    if (duration > 2) {
+      conflicts.push({
+        reason: `Course ${item.code} has invalid duration (${duration} hours). Maximum allowed is 2 hours.`,
         courseId: item.id
       });
     }
@@ -147,12 +156,12 @@ serve(async (req) => {
 
     const systemPrompt = `You are an advanced scheduling system that generates optimal course schedules with flexible time slots.
 Generate a timetable that assigns courses to time slots following these rules:
-1. Classes can be 1, 2, or 3 hours long (flexible durations)
+1. Classes can ONLY be 1 or 2 hours long (NO 3-hour classes allowed)
 2. Time slots must be between 8:00 and 17:00 (8 AM to 5 PM), Monday to Friday only
 3. No lecturer should teach multiple classes at the same time
 4. Classes should be distributed evenly throughout the week
-5. Use flexible time slots like: 8:00-9:00, 9:00-11:00, 10:00-12:00, 12:00-14:00, 13:00-15:00, 14:00-16:00, 15:00-17:00, etc.
-6. Optimize for variety in class durations and start times while avoiding conflicts
+5. Use flexible time slots like: 8:00-9:00, 9:00-10:00, 10:00-11:00, 11:00-12:00, 12:00-13:00, 13:00-14:00, 14:00-15:00, 15:00-16:00, 16:00-17:00 (1-hour slots) and 8:00-10:00, 9:00-11:00, 10:00-12:00, 11:00-13:00, 12:00-14:00, 13:00-15:00, 14:00-16:00, 15:00-17:00 (2-hour slots)
+6. Optimize for variety in class durations (1-2 hours only) and start times while avoiding conflicts
 
 Return the schedule as a JSON array where each item contains:
 - id (from input)
@@ -163,26 +172,26 @@ Return the schedule as a JSON array where each item contains:
 - timeSlot: { 
     day: "Monday"|"Tuesday"|"Wednesday"|"Thursday"|"Friday", 
     startTime: "HH:00" format,
-    endTime: "HH:00" format (can be 1, 2, or 3 hours after startTime)
+    endTime: "HH:00" format (can be 1 or 2 hours after startTime, NEVER 3 hours)
   }
 
 Make sure each course gets scheduled and no lecturer has conflicting time slots.
-Distribute different class durations across the week for variety.
+Distribute different class durations (1-2 hours only) across the week for variety.
 Return ONLY the JSON array, no markdown formatting.`;
 
-    const userPrompt = `Generate a complete weekly schedule for ALL ${courses.length} courses with flexible durations:
+    const userPrompt = `Generate a complete weekly schedule for ALL ${courses.length} courses with 1-2 hour durations only:
 ${JSON.stringify(courses, null, 2)}
 
 Requirements:
 - Schedule ALL courses provided
-- Use flexible time slots (1-3 hour durations)
+- Use ONLY 1-2 hour time slots (NO 3-hour classes)
 - No lecturer conflicts
 - Distribute evenly across Monday-Friday
 - Use business hours 8:00-17:00 only
-- Vary class durations for optimal scheduling
-- Example valid time slots: 8:00-9:00, 9:00-11:00, 10:00-12:00, 12:00-14:00, 13:00-15:00, 14:00-16:00, 15:00-17:00`;
+- Vary class durations between 1-2 hours for optimal scheduling
+- Example valid time slots: 8:00-9:00, 9:00-10:00, 10:00-11:00, 8:00-10:00, 9:00-11:00, 10:00-12:00, etc.`;
 
-    console.log('Sending request to flexible scheduling service...');
+    console.log('Sending request to flexible scheduling service (1-2 hour classes only)...');
     
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -202,7 +211,7 @@ Requirements:
     });
 
     const rawResponse = await response.json();
-    console.log('Flexible scheduling service response received, tokens used:', rawResponse.usage?.total_tokens);
+    console.log('Flexible scheduling service response received (1-2 hour classes), tokens used:', rawResponse.usage?.total_tokens);
 
     if (!rawResponse.choices || !rawResponse.choices[0]?.message?.content) {
       console.error('Invalid service response structure:', rawResponse);
@@ -268,7 +277,7 @@ Requirements:
 
     const scheduleWithVenues = addVenuesFromDatabase(validScheduleItems, venues);
 
-    console.log('Generated valid flexible schedule with', scheduleWithVenues.length, 'items');
+    console.log('Generated valid flexible schedule (1-2 hour classes) with', scheduleWithVenues.length, 'items');
 
     return new Response(
       JSON.stringify({
@@ -280,13 +289,13 @@ Requirements:
     );
 
   } catch (error) {
-    console.error('Error in flexible schedule generation function:', error);
+    console.error('Error in flexible schedule generation function (1-2 hour classes):', error);
     return new Response(
       JSON.stringify({
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error occurred',
         schedule: [],
-        conflicts: [{ reason: error instanceof Error ? error.message : 'Failed to generate flexible schedule' }]
+        conflicts: [{ reason: error instanceof Error ? error.message : 'Failed to generate flexible schedule with 1-2 hour classes' }]
       }),
       {
         status: 500,

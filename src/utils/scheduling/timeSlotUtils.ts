@@ -1,11 +1,10 @@
-
 import { TimeSlot, Venue, ScheduleItem, Course } from "@/lib/types";
 
 export const HOURS_PER_DAY = 9; // 9 hours total (8:00-17:00)
 const MAX_CLASSES_PER_DAY = 4;
-const MAX_CONSECUTIVE_CLASSES = 3; // Allow up to 3 consecutive hours
+const MAX_CONSECUTIVE_CLASSES = 2; // Allow up to 2 consecutive hours (no 3-hour blocks)
 
-// Generate all possible flexible time slots within 8 AM to 5 PM
+// Generate all possible flexible time slots within 8 AM to 5 PM (1-2 hour classes only)
 export const generateFlexibleTimeSlots = (): string[] => {
   const slots = [];
   
@@ -14,14 +13,9 @@ export const generateFlexibleTimeSlots = (): string[] => {
     slots.push(`${hour}:00 - ${hour + 1}:00`);
   }
   
-  // 2-hour slots
+  // 2-hour slots only (removed 3-hour slots)
   for (let hour = 8; hour <= 15; hour++) {
     slots.push(`${hour}:00 - ${hour + 2}:00`);
-  }
-  
-  // 3-hour slots
-  for (let hour = 8; hour <= 14; hour++) {
-    slots.push(`${hour}:00 - ${hour + 3}:00`);
   }
   
   // Sort by start time and duration
@@ -104,14 +98,14 @@ export const findNextBestTimeSlot = (
   currentSchedule: ScheduleItem[],
   preferredDay?: string,
   attempt: number = 0,
-  courseDuration?: number // New parameter for course duration
+  courseDuration?: number // Limited to 1-2 hours only
 ): { timeSlot: TimeSlot; venue: Venue; isOptimal: boolean } | null => {
   const days = preferredDay 
     ? [preferredDay] 
     : ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
     
-  // Generate dynamic time slots based on course duration or use flexible options
-  const duration = courseDuration || 2; // Default to 2 hours
+  // Generate dynamic time slots based on course duration (1-2 hours only)
+  const duration = Math.min(courseDuration || 2, 2); // Cap at 2 hours maximum
   const timeSlots = [];
   
   for (let hour = 8; hour <= (17 - duration); hour++) {
@@ -188,8 +182,8 @@ export const generateAlternativeSchedule = (
   
   if (conflictIndex === -1) return newSchedule;
 
-  // Try different durations for flexibility
-  const possibleDurations = [1, 2, 3];
+  // Try only 1-2 hour durations (removed 3-hour option)
+  const possibleDurations = [1, 2];
   
   for (const duration of possibleDurations) {
     const assignment = findNextBestTimeSlot(
