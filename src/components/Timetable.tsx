@@ -25,12 +25,55 @@ const Timetable = ({ schedule, favorites = new Set(), onToggleFavorite }: Timeta
   const [viewType, setViewType] = useState<"grid" | "table">("grid");
   const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
 
+  // Validate schedule items before processing
+  const validateScheduleItem = (item: any): item is ScheduleItem => {
+    try {
+      return (
+        item &&
+        typeof item === 'object' &&
+        typeof item.id === 'string' &&
+        typeof item.code === 'string' &&
+        typeof item.name === 'string' &&
+        typeof item.lecturer === 'string' &&
+        typeof item.department === 'string' &&
+        typeof item.classSize === 'number' &&
+        item.timeSlot &&
+        typeof item.timeSlot.day === 'string' &&
+        typeof item.timeSlot.startTime === 'string' &&
+        typeof item.timeSlot.endTime === 'string' &&
+        item.venue &&
+        typeof item.venue.name === 'string'
+      );
+    } catch (error) {
+      console.warn('Error validating schedule item in timetable:', error);
+      return false;
+    }
+  };
+
+  // Filter out invalid schedule items
+  const validSchedule = useMemo(() => {
+    if (!Array.isArray(schedule)) {
+      console.warn('Schedule is not an array in Timetable component:', schedule);
+      return [];
+    }
+    
+    const filtered = schedule.filter(validateScheduleItem);
+    if (filtered.length !== schedule.length) {
+      console.warn(`Filtered out ${schedule.length - filtered.length} invalid items from schedule`);
+    }
+    return filtered;
+  }, [schedule]);
+
   // Get all unique time slots with their full ranges from the schedule
   const getUniqueTimeSlots = () => {
     const timeSlots = new Set<string>();
-    schedule.forEach(item => {
-      const timeRange = `${item.timeSlot.startTime} - ${item.timeSlot.endTime}`;
-      timeSlots.add(timeRange);
+    validSchedule.forEach(item => {
+      try {
+        const timeRange = `${item.timeSlot.startTime} - ${item.timeSlot.endTime}`;
+        timeSlots.add(timeRange);
+      } catch (error) {
+        console.warn('Error processing time slot for item:', item, error);
+      }
     });
     return Array.from(timeSlots).sort((a, b) => {
       const startA = parseInt(a.split(' - ')[0].split(':')[0]);
@@ -74,13 +117,18 @@ const Timetable = ({ schedule, favorites = new Set(), onToggleFavorite }: Timeta
         accent: "bg-gray-600" 
       };
     };
-  }, [schedule]); // Re-compute when schedule changes
+  }, [validSchedule]);
 
   const getScheduledItemsForSlot = (day: string, timeRange: string) => {
     const [startTime, endTime] = timeRange.split(' - ');
-    return schedule.filter((item) => {
-      const itemTimeRange = `${item.timeSlot.startTime} - ${item.timeSlot.endTime}`;
-      return item.timeSlot.day === day && itemTimeRange === timeRange;
+    return validSchedule.filter((item) => {
+      try {
+        const itemTimeRange = `${item.timeSlot.startTime} - ${item.timeSlot.endTime}`;
+        return item.timeSlot.day === day && itemTimeRange === timeRange;
+      } catch (error) {
+        console.warn('Error comparing time ranges for item:', item, error);
+        return false;
+      }
     });
   };
 
@@ -95,23 +143,42 @@ const Timetable = ({ schedule, favorites = new Set(), onToggleFavorite }: Timeta
 
   // Get unique departments for legend - memoized for performance
   const departments = useMemo(() => {
-    return Array.from(new Set(schedule.map(item => item.department).filter(Boolean)));
-  }, [schedule]);
+    return Array.from(new Set(validSchedule.map(item => item.department).filter(Boolean)));
+  }, [validSchedule]);
 
   const getDurationFromTimeRange = (timeRange: string): number => {
-    const [start, end] = timeRange.split(' - ');
-    const startHour = parseInt(start.split(':')[0]);
-    const endHour = parseInt(end.split(':')[0]);
-    return endHour - startHour;
+    try {
+      const [start, end] = timeRange.split(' - ');
+      const startHour = parseInt(start.split(':')[0]);
+      const endHour = parseInt(end.split(':')[0]);
+      return endHour - startHour;
+    } catch (error) {
+      console.warn('Error calculating duration from time range:', timeRange, error);
+      return 1; // Default to 1 hour
+    }
   };
 
   const getDurationBadgeColor = (duration: number): string => {
     switch (duration) {
       case 1: return "bg-green-100 text-green-800";
       case 2: return "bg-blue-100 text-blue-800";
-      default: return "bg-gray-100 text-gray-800"; // This shouldn't happen with 1-2 hour limit
+      default: return "bg-gray-100 text-gray-800";
     }
   };
+
+  // Early return if no valid schedule
+  if (!validSchedule || validSchedule.length === 0) {
+    return (
+      <div className="w-full space-y-4 md:space-y-6 animate-fade-in">
+        <div className="text-center py-12">
+          <h3 className="text-lg font-medium text-muted-foreground">No Schedule Available</h3>
+          <p className="text-sm text-muted-foreground mt-2">
+            Generate a schedule to view the timetable here.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   const renderGridView = () => (
     <div className="space-y-4 md:space-y-6">
@@ -120,7 +187,7 @@ const Timetable = ({ schedule, favorites = new Set(), onToggleFavorite }: Timeta
         <div>
           <h3 className="text-lg md:text-xl font-bold text-primary">Flexible Weekly Timetable</h3>
           <p className="text-xs md:text-sm text-muted-foreground">
-            Showing <span className="font-semibold text-primary">{schedule.length}</span> courses with flexible durations (1-2 hours only)
+            Showing <span className="font-semibold text-primary">{validSchedule.length}</span> courses with flexible durations (1-2 hours only)
           </p>
         </div>
         <div className="flex flex-col sm:flex-row gap-2">
@@ -203,7 +270,7 @@ const Timetable = ({ schedule, favorites = new Set(), onToggleFavorite }: Timeta
                     <span className="text-xs md:text-sm">TIME SLOT</span>
                   </th>
                   {days.map((day) => {
-                    const dayClasses = schedule.filter(item => item.timeSlot.day === day).length;
+                    const dayClasses = validSchedule.filter(item => item.timeSlot.day === day).length;
                     return (
                       <th
                         key={day}
@@ -358,7 +425,7 @@ const Timetable = ({ schedule, favorites = new Set(), onToggleFavorite }: Timeta
         <div>
           <h3 className="text-lg md:text-xl font-bold text-primary">Schedule List</h3>
           <p className="text-xs md:text-sm text-muted-foreground">
-            Showing <span className="font-semibold text-primary">{schedule.length}</span> courses with flexible durations
+            Showing <span className="font-semibold text-primary">{validSchedule.length}</span> courses with flexible durations
           </p>
         </div>
         <div className="flex gap-2">
@@ -402,7 +469,7 @@ const Timetable = ({ schedule, favorites = new Set(), onToggleFavorite }: Timeta
               </TableRow>
             </TableHeader>
             <TableBody>
-              {schedule.map((item, index) => {
+              {validSchedule.map((item, index) => {
                 const colors = getDepartmentColor(item.department || 'Default');
                 const duration = getDurationFromTimeRange(`${item.timeSlot.startTime} - ${item.timeSlot.endTime}`);
                 return (
@@ -445,7 +512,7 @@ const Timetable = ({ schedule, favorites = new Set(), onToggleFavorite }: Timeta
       {/* Enhanced Statistics */}
       <div className="grid grid-cols-2 md:grid-cols-6 gap-2 md:gap-4">
         <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-3 md:p-4 text-center border border-blue-200">
-          <div className="text-lg md:text-2xl font-bold text-blue-700">{schedule.length}</div>
+          <div className="text-lg md:text-2xl font-bold text-blue-700">{validSchedule.length}</div>
           <div className="text-xs text-blue-600 font-medium">Total Classes</div>
         </div>
         <div className="bg-gradient-to-br from-emerald-50 to-emerald-100 rounded-lg p-3 md:p-4 text-center border border-emerald-200">
@@ -454,7 +521,7 @@ const Timetable = ({ schedule, favorites = new Set(), onToggleFavorite }: Timeta
         </div>
         <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg p-3 md:p-4 text-center border border-purple-200">
           <div className="text-lg md:text-2xl font-bold text-purple-700">
-            {new Set(schedule.map(item => item.lecturer).filter(Boolean)).size}
+            {new Set(validSchedule.map(item => item.lecturer).filter(Boolean)).size}
           </div>
           <div className="text-xs text-purple-600 font-medium">Instructors</div>
         </div>
@@ -466,13 +533,13 @@ const Timetable = ({ schedule, favorites = new Set(), onToggleFavorite }: Timeta
         </div>
         <div className="bg-gradient-to-br from-pink-50 to-pink-100 rounded-lg p-3 md:p-4 text-center border border-pink-200">
           <div className="text-lg md:text-2xl font-bold text-pink-700">
-            {Math.round((schedule.length / (days.length * 9)) * 100)}%
+            {Math.round((validSchedule.length / (days.length * 9)) * 100)}%
           </div>
           <div className="text-xs text-pink-600 font-medium">Utilization</div>
         </div>
         <div className="bg-gradient-to-br from-indigo-50 to-indigo-100 rounded-lg p-3 md:p-4 text-center border border-indigo-200">
           <div className="text-lg md:text-2xl font-bold text-indigo-700">
-            {schedule.reduce((total, item) => {
+            {validSchedule.reduce((total, item) => {
               const duration = getDurationFromTimeRange(`${item.timeSlot.startTime} - ${item.timeSlot.endTime}`);
               return total + duration;
             }, 0)}
@@ -482,11 +549,11 @@ const Timetable = ({ schedule, favorites = new Set(), onToggleFavorite }: Timeta
       </div>
 
       {/* All Courses Summary */}
-      {schedule.length > 0 && (
+      {validSchedule.length > 0 && (
         <div className="bg-card rounded-lg p-3 md:p-4 border shadow-sm">
-          <h4 className="font-bold mb-3 text-primary">All Scheduled Courses ({schedule.length})</h4>
+          <h4 className="font-bold mb-3 text-primary">All Scheduled Courses ({validSchedule.length})</h4>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 max-h-60 overflow-y-auto">
-            {schedule.map((item) => {
+            {validSchedule.map((item) => {
               const colors = getDepartmentColor(item.department || 'Default');
               const duration = getDurationFromTimeRange(`${item.timeSlot.startTime} - ${item.timeSlot.endTime}`);
               return (
