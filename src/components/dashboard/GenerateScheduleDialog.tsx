@@ -9,23 +9,17 @@ import {
   DialogFooter,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectLabel,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { useState } from "react";
-import { generateSchedule, GenerationResult } from "@/services/scheduleGenerator";
 import { EnhancedGenerationResult } from "@/services/enhancedScheduleGenerator";
 import { saveSchedule } from "@/lib/db";
 import { useToast } from "@/hooks/use-toast";
-import { Badge } from "@/components/ui/badge";
 import ErrorReportDialog from "./ErrorReportDialog";
 import ConflictDetailsModal from "./ConflictDetailsModal";
+import ScheduleScopeSelector from "./schedule-generation/ScheduleScopeSelector";
+import ScheduleOverview from "./schedule-generation/ScheduleOverview";
+import GenerationFeatures from "./schedule-generation/GenerationFeatures";
+import GenerationCapabilities from "./schedule-generation/GenerationCapabilities";
+import GenerationProgress from "./schedule-generation/GenerationProgress";
 
 interface GenerateScheduleDialogProps {
   courses: Course[];
@@ -59,14 +53,6 @@ const GenerateScheduleDialog = ({ courses, onScheduleGenerated }: GenerateSchedu
   };
 
   const filteredCourses = getFilteredCourses();
-
-  const getDepartmentCounts = () => {
-    const counts: Record<string, number> = {};
-    filteredCourses.forEach(course => {
-      counts[course.department] = (counts[course.department] || 0) + 1;
-    });
-    return counts;
-  };
 
   const handleGenerateAI = async () => {
     if (filteredCourses.length === 0) {
@@ -187,155 +173,27 @@ const GenerateScheduleDialog = ({ courses, onScheduleGenerated }: GenerateSchedu
             </DialogDescription>
           </DialogHeader>
           <div className="py-3 space-y-4">
-            <div className="space-y-2">
-              <h4 className="text-sm font-medium">Schedule Scope</h4>
-              <Select
-                value={scheduleScope}
-                onValueChange={(value: 'department' | 'college' | 'all') => {
-                  setScheduleScope(value);
-                  setSelectedDepartment('all');
-                  setSelectedCollege('all');
-                }}
-              >
-                <SelectTrigger className="w-full h-9">
-                  <SelectValue placeholder="Select scope" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="department">Single Department</SelectItem>
-                  <SelectItem value="college">Entire College</SelectItem>
-                  <SelectItem value="all">All Colleges</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+            <ScheduleScopeSelector
+              scheduleScope={scheduleScope}
+              selectedDepartment={selectedDepartment}
+              selectedCollege={selectedCollege}
+              onScopeChange={setScheduleScope}
+              onDepartmentChange={setSelectedDepartment}
+              onCollegeChange={setSelectedCollege}
+            />
 
-            {scheduleScope === 'department' && (
-              <div className="space-y-2">
-                <h4 className="text-sm font-medium">Department</h4>
-                <Select
-                  value={selectedDepartment}
-                  onValueChange={(value: Department | 'all') => setSelectedDepartment(value)}
-                >
-                  <SelectTrigger className="w-full h-9">
-                    <SelectValue placeholder="Select a department" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Departments</SelectItem>
-                    {collegeStructure.map((collegeItem) => (
-                      <SelectGroup key={collegeItem.college}>
-                        <SelectLabel>{collegeItem.college.replace(/\s*\([^)]*\)/g, '')}</SelectLabel>
-                        {collegeItem.departments.map((dept) => (
-                          <SelectItem key={dept} value={dept}>
-                            {dept}
-                          </SelectItem>
-                        ))}
-                      </SelectGroup>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
+            <ScheduleOverview filteredCourses={filteredCourses} />
 
-            {scheduleScope === 'college' && (
-              <div className="space-y-2">
-                <h4 className="text-sm font-medium">College</h4>
-                <Select
-                  value={selectedCollege}
-                  onValueChange={(value: College | 'all') => setSelectedCollege(value)}
-                >
-                  <SelectTrigger className="w-full h-9">
-                    <SelectValue placeholder="Select a college" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Colleges</SelectItem>
-                    {collegeStructure.map((collegeItem) => (
-                      <SelectItem key={collegeItem.college} value={collegeItem.college}>
-                        {collegeItem.college.replace(/\s*\([^)]*\)/g, '')}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
+            <GenerationFeatures
+              enableCourseGrouping={enableCourseGrouping}
+              enableFallbacks={enableFallbacks}
+              onGroupingChange={setEnableCourseGrouping}
+              onFallbacksChange={setEnableFallbacks}
+            />
 
-            <div className="space-y-2">
-              <h4 className="text-sm font-medium">Overview</h4>
-              <div className="bg-muted/30 p-3 rounded-lg space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">Total Courses:</span>
-                  <Badge variant="secondary" className="text-xs">{filteredCourses.length}</Badge>
-                </div>
-                
-                {Object.keys(getDepartmentCounts()).length > 1 && (
-                  <div className="space-y-1">
-                    <span className="text-xs text-muted-foreground">Department Distribution:</span>
-                    <div className="grid grid-cols-1 gap-1 max-h-20 overflow-y-auto">
-                      {Object.entries(getDepartmentCounts()).map(([dept, count]) => (
-                        <div key={dept} className="flex items-center justify-between text-xs">
-                          <span className="truncate text-xs">{dept}</span>
-                          <Badge variant="outline" className="text-xs h-4">{count}</Badge>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
+            <GenerationCapabilities />
 
-            <div className="space-y-2">
-              <h4 className="text-sm font-medium">Features</h4>
-              <div className="space-y-2">
-                <div className="flex items-center space-x-2">
-                  <input
-                    type="checkbox"
-                    id="enableGrouping"
-                    checked={enableCourseGrouping}
-                    onChange={(e) => setEnableCourseGrouping(e.target.checked)}
-                    className="rounded w-4 h-4"
-                  />
-                  <label htmlFor="enableGrouping" className="text-xs">
-                    Auto-group shared courses (GST, MTH, etc.)
-                  </label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <input
-                    type="checkbox"
-                    id="enableFallbacks"
-                    checked={enableFallbacks}
-                    onChange={(e) => setEnableFallbacks(e.target.checked)}
-                    className="rounded w-4 h-4"
-                  />
-                  <label htmlFor="enableFallbacks" className="text-xs">
-                    Enable fallback strategies
-                  </label>
-                </div>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <h4 className="text-sm font-medium">Capabilities</h4>
-              <ul className="text-xs text-muted-foreground list-disc list-inside space-y-0.5 bg-blue-50 p-2 rounded-lg max-h-24 overflow-y-auto">
-                <li>Pre-generation validation</li>
-                <li>Auto-grouping of shared courses</li>
-                <li>Cross-level conflict detection</li>
-                <li>Intelligent fallback strategies</li>
-                <li>Enhanced conflict resolution</li>
-                <li>Venue capacity analysis</li>
-              </ul>
-            </div>
-
-            {isLoading && (
-              <div className="space-y-2">
-                <div className="h-1.5 bg-secondary rounded-full overflow-hidden">
-                  <div 
-                    className="h-full bg-primary transition-all duration-300"
-                    style={{ width: `${progress}%` }}
-                  />
-                </div>
-                <p className="text-xs text-muted-foreground text-center">
-                  Generating schedule ({progress}%)...
-                </p>
-              </div>
-            )}
+            <GenerationProgress isLoading={isLoading} progress={progress} />
           </div>
           <DialogFooter className="gap-2">
             <Button variant="outline" size="sm" onClick={() => setIsOpen(false)} disabled={isLoading}>
