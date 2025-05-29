@@ -1,4 +1,3 @@
-
 import React from "react";
 import { ScheduleItem } from "@/lib/types";
 import { Card } from "@/components/ui/card";
@@ -41,11 +40,12 @@ const Timetable = ({ schedule, favorites = new Set(), onToggleFavorite }: Timeta
     });
   };
 
-  // Generate all possible time slots for expanded view (2-hour slots)
+  // Generate all possible time slots for expanded view (2-hour slots from 8 AM to 5 PM)
   const generateAllTimeSlots = () => {
     const slots = [];
-    for (let hour = 8; hour <= 16; hour += 2) { // 2-hour intervals
-      slots.push(`${hour}:00 - ${hour + 2}:00`);
+    for (let hour = 8; hour <= 15; hour += 2) { // 8 AM to 3 PM (last slot ends at 5 PM)
+      const endHour = hour + 2;
+      slots.push(`${hour}:00 - ${endHour}:00`);
     }
     return slots;
   };

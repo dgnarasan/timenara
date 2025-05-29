@@ -69,7 +69,7 @@ const CourseScheduleSection = ({ schedule, isPublished = false }: CourseSchedule
 
     try {
       const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
-      const timeSlots = ["9:00", "11:00", "13:00", "15:00", "17:00"]; // 2-hour slots
+      const timeSlots = ["8:00", "10:00", "12:00", "14:00"]; // Updated to 8 AM - 5 PM range
 
       const data = [["Time", ...days]];
 
@@ -147,7 +147,7 @@ const CourseScheduleSection = ({ schedule, isPublished = false }: CourseSchedule
     try {
       const doc = new jsPDF();
       const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
-      const timeSlots = ["9:00", "11:00", "13:00", "15:00", "17:00"]; // 2-hour slots
+      const timeSlots = ["8:00", "10:00", "12:00", "14:00"]; // Updated to 8 AM - 5 PM range
 
       doc.setFontSize(16);
       doc.text("Course Timetable", 14, 15);

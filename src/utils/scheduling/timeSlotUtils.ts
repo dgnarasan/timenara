@@ -1,7 +1,7 @@
 
 import { TimeSlot, Venue, ScheduleItem, Course } from "@/lib/types";
 
-export const HOURS_PER_DAY = 5; // 5 time slots of 2 hours each (9:00-19:00)
+export const HOURS_PER_DAY = 5; // 5 time slots of 2 hours each (8:00-18:00)
 const MAX_CLASSES_PER_DAY = 4;
 const MAX_CONSECUTIVE_CLASSES = 2; // Since each class is 2 hours
 
@@ -63,8 +63,8 @@ export const findNextBestTimeSlot = (
   const days = preferredDay 
     ? [preferredDay] 
     : ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
-  // 2-hour time slots
-  const times = ["9:00", "11:00", "13:00", "15:00", "17:00"];
+  // 2-hour time slots from 8 AM to 3 PM (ending at 5 PM)
+  const times = ["8:00", "10:00", "12:00", "14:00"];
 
   // Sort days by current load to ensure balanced distribution
   const sortedDays = days.sort((a, b) => {
