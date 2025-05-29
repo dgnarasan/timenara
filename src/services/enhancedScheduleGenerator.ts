@@ -13,22 +13,78 @@ export interface EnhancedGenerationResult extends GenerationResult {
   preValidationPassed: boolean;
 }
 
-// Helper function to validate schedule items
+// Enhanced validation function to validate schedule items thoroughly
 const validateScheduleItem = (item: any): item is ScheduleItem => {
-  return (
-    item &&
-    typeof item.id === 'string' &&
-    typeof item.code === 'string' &&
-    typeof item.name === 'string' &&
-    typeof item.lecturer === 'string' &&
-    typeof item.classSize === 'number' &&
-    item.timeSlot &&
-    typeof item.timeSlot.day === 'string' &&
-    typeof item.timeSlot.startTime === 'string' &&
-    typeof item.timeSlot.endTime === 'string' &&
-    item.venue &&
-    typeof item.venue.name === 'string'
-  );
+  try {
+    return (
+      item &&
+      typeof item === 'object' &&
+      typeof item.id === 'string' &&
+      item.id.length > 0 &&
+      typeof item.code === 'string' &&
+      item.code.length > 0 &&
+      typeof item.name === 'string' &&
+      item.name.length > 0 &&
+      typeof item.lecturer === 'string' &&
+      item.lecturer.length > 0 &&
+      typeof item.department === 'string' &&
+      item.department.length > 0 &&
+      typeof item.classSize === 'number' &&
+      item.classSize > 0 &&
+      item.timeSlot &&
+      typeof item.timeSlot === 'object' &&
+      typeof item.timeSlot.day === 'string' &&
+      item.timeSlot.day.length > 0 &&
+      typeof item.timeSlot.startTime === 'string' &&
+      item.timeSlot.startTime.length > 0 &&
+      typeof item.timeSlot.endTime === 'string' &&
+      item.timeSlot.endTime.length > 0 &&
+      item.venue &&
+      typeof item.venue === 'object' &&
+      typeof item.venue.name === 'string' &&
+      item.venue.name.length > 0 &&
+      typeof item.venue.capacity === 'number' &&
+      item.venue.capacity > 0
+    );
+  } catch (error) {
+    console.warn('Error validating schedule item:', error, item);
+    return false;
+  }
+};
+
+// Function to sanitize and ensure all required properties exist
+const sanitizeScheduleItem = (item: any): ScheduleItem | null => {
+  try {
+    if (!item || typeof item !== 'object') return null;
+
+    // Create a properly structured schedule item with all required fields
+    const sanitized: ScheduleItem = {
+      id: String(item.id || `temp-${Math.random()}`),
+      code: String(item.code || 'UNKNOWN'),
+      name: String(item.name || 'Unknown Course'),
+      lecturer: String(item.lecturer || 'TBA'),
+      department: String(item.department || 'General'),
+      classSize: Number(item.classSize) || 0,
+      timeSlot: {
+        day: String(item.timeSlot?.day || 'Monday'),
+        startTime: String(item.timeSlot?.startTime || '09:00'),
+        endTime: String(item.timeSlot?.endTime || '10:00')
+      },
+      venue: {
+        id: String(item.venue?.id || `venue-${Math.random()}`),
+        name: String(item.venue?.name || 'TBA'),
+        capacity: Number(item.venue?.capacity) || 30,
+        availability: item.venue?.availability || []
+      },
+      preferredSlots: item.preferredSlots || [],
+      constraints: item.constraints || []
+    };
+
+    return sanitized;
+  } catch (error) {
+    console.warn('Error sanitizing schedule item:', error, item);
+    return null;
+  }
 };
 
 export const generateEnhancedSchedule = async (
@@ -39,6 +95,34 @@ export const generateEnhancedSchedule = async (
   console.log('Starting enhanced schedule generation with pre-validation...');
 
   try {
+    // Validate input courses first
+    const validCourses = courses.filter(course => {
+      return course && 
+             typeof course.code === 'string' && 
+             typeof course.name === 'string' && 
+             typeof course.lecturer === 'string';
+    });
+
+    if (validCourses.length === 0) {
+      console.warn('No valid courses provided for schedule generation');
+      return {
+        schedule: [],
+        conflicts: [],
+        summary: {
+          totalCourses: courses.length,
+          scheduledCourses: 0,
+          conflictedCourses: courses.length,
+          successRate: 0
+        },
+        validationResult: {
+          isValid: false,
+          errors: [],
+          warnings: []
+        },
+        preValidationPassed: false
+      };
+    }
+
     // Get venues from database and ensure they have required properties
     const { data: venueData } = await supabase
       .from('venues')
@@ -57,7 +141,7 @@ export const generateEnhancedSchedule = async (
 
     // Step 1: Pre-generation validation
     console.log('Performing pre-generation validation...');
-    const validationResult = performPreGenerationValidation(courses, venues);
+    const validationResult = performPreGenerationValidation(validCourses, venues);
     
     // Check if we have critical errors that prevent generation
     const criticalErrors = validationResult.errors.filter(e => 
@@ -75,9 +159,9 @@ export const generateEnhancedSchedule = async (
           suggestion: error.suggestion
         })),
         summary: {
-          totalCourses: courses.length,
+          totalCourses: validCourses.length,
           scheduledCourses: 0,
-          conflictedCourses: courses.length,
+          conflictedCourses: validCourses.length,
           successRate: 0
         },
         validationResult,
@@ -87,10 +171,10 @@ export const generateEnhancedSchedule = async (
 
     // Step 2: Course grouping for shared courses
     console.log('Analyzing course groups...');
-    const courseGroups = identifySharedCourses(courses);
+    const courseGroups = identifySharedCourses(validCourses);
     const sharedGroups = courseGroups.filter(shouldGroupCourses);
     
-    let processedCourses = [...courses];
+    let processedCourses = [...validCourses];
     
     // Group shared courses by assigning them optimal class sizes
     sharedGroups.forEach(group => {
@@ -150,15 +234,15 @@ export const generateEnhancedSchedule = async (
       return {
         schedule: [],
         conflicts: [{
-          course: courses[0] || {} as Course,
+          course: validCourses[0] || {} as Course,
           reason: error?.message || 'Enhanced generation failed',
           conflictType: 'system-error',
           severity: 'high'
         }],
         summary: {
-          totalCourses: courses.length,
+          totalCourses: validCourses.length,
           scheduledCourses: 0,
-          conflictedCourses: courses.length,
+          conflictedCourses: validCourses.length,
           successRate: 0
         },
         validationResult,
@@ -168,18 +252,28 @@ export const generateEnhancedSchedule = async (
       };
     }
 
-    // Validate and filter schedule items to prevent crashes
+    // Enhanced validation and sanitization of schedule items
     const rawSchedule = data.schedule || [];
-    const validSchedule = rawSchedule.filter((item: any) => {
+    console.log('Processing raw schedule items:', rawSchedule.length);
+
+    // First pass: sanitize all items
+    const sanitizedItems = rawSchedule
+      .map((item: any) => sanitizeScheduleItem(item))
+      .filter((item: ScheduleItem | null): item is ScheduleItem => item !== null);
+
+    console.log('Sanitized items:', sanitizedItems.length);
+
+    // Second pass: validate sanitized items
+    const validSchedule = sanitizedItems.filter((item: ScheduleItem) => {
       const isValid = validateScheduleItem(item);
       if (!isValid) {
-        console.warn('Invalid schedule item filtered out:', item);
+        console.warn('Invalid schedule item filtered out after sanitization:', item);
       }
       return isValid;
     });
 
-    const scheduleWithVenues = validSchedule.map((item: any) => {
-      // Ensure venue has a valid ID from our actual database venues
+    // Ensure venues have valid database IDs
+    const scheduleWithVenues = validSchedule.map((item: ScheduleItem) => {
       const venue = venues.find(v => v.capacity >= item.classSize) || venues[0];
       return {
         ...item,
@@ -192,21 +286,21 @@ export const generateEnhancedSchedule = async (
       };
     });
 
-    console.log('Generated schedule successfully:', scheduleWithVenues.length, 'valid items out of', rawSchedule.length, 'total');
+    console.log('Final valid schedule items:', scheduleWithVenues.length, 'out of', rawSchedule.length, 'raw items');
     
     const scheduledCourses = scheduleWithVenues.length;
-    const conflictedCourses = courses.length - scheduledCourses;
-    const successRate = Math.round((scheduledCourses / courses.length) * 100);
+    const conflictedCourses = validCourses.length - scheduledCourses;
+    const successRate = Math.round((scheduledCourses / validCourses.length) * 100);
 
-    if (validSchedule.length < rawSchedule.length) {
-      console.warn(`Filtered out ${rawSchedule.length - validSchedule.length} invalid schedule items`);
+    if (scheduleWithVenues.length < rawSchedule.length) {
+      console.warn(`Filtered out ${rawSchedule.length - scheduleWithVenues.length} invalid/incomplete schedule items`);
     }
 
     return {
       schedule: scheduleWithVenues,
       conflicts: data.conflicts || [],
       summary: {
-        totalCourses: courses.length,
+        totalCourses: validCourses.length,
         scheduledCourses,
         conflictedCourses,
         successRate
