@@ -12,6 +12,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { generateFlexibleTimeSlots } from "@/utils/scheduling/timeSlotUtils";
 
 interface TimetableProps {
   schedule: ScheduleItem[];
@@ -28,30 +29,28 @@ const Timetable = ({ schedule, favorites = new Set(), onToggleFavorite }: Timeta
   const getUniqueTimeSlots = () => {
     const timeSlots = new Set<string>();
     schedule.forEach(item => {
-      const startHour = parseInt(item.timeSlot.startTime.split(':')[0]);
-      const endHour = startHour + 2; // 2 hour duration
-      const timeRange = `${item.timeSlot.startTime} - ${endHour}:00`;
+      const timeRange = `${item.timeSlot.startTime} - ${item.timeSlot.endTime}`;
       timeSlots.add(timeRange);
     });
     return Array.from(timeSlots).sort((a, b) => {
       const startA = parseInt(a.split(' - ')[0].split(':')[0]);
       const startB = parseInt(b.split(' - ')[0].split(':')[0]);
-      return startA - startB;
+      if (startA !== startB) return startA - startB;
+      
+      // Sort by duration if start times are same
+      const endA = parseInt(a.split(' - ')[1].split(':')[0]);
+      const endB = parseInt(b.split(' - ')[1].split(':')[0]);
+      return (endA - startA) - (endB - startB);
     });
   };
 
-  // Generate all possible time slots for expanded view (2-hour slots from 8 AM to 5 PM)
-  const generateAllTimeSlots = () => {
-    const slots = [];
-    for (let hour = 8; hour <= 15; hour += 2) { // 8 AM to 3 PM (last slot ends at 5 PM)
-      const endHour = hour + 2;
-      slots.push(`${hour}:00 - ${endHour}:00`);
-    }
-    return slots;
+  // Generate all possible flexible time slots for expanded view
+  const generateAllFlexibleTimeSlots = () => {
+    return generateFlexibleTimeSlots();
   };
 
   const uniqueTimeSlots = getUniqueTimeSlots();
-  const allTimeSlots = generateAllTimeSlots();
+  const allTimeSlots = generateAllFlexibleTimeSlots();
   const displayTimeSlots = expandedView ? allTimeSlots : uniqueTimeSlots;
 
   // Enhanced department colors with better contrast - memoized to ensure consistency
@@ -78,12 +77,11 @@ const Timetable = ({ schedule, favorites = new Set(), onToggleFavorite }: Timeta
   }, [schedule]); // Re-compute when schedule changes
 
   const getScheduledItemsForSlot = (day: string, timeRange: string) => {
-    const [startTime] = timeRange.split(' - ');
-    return schedule.filter(
-      (item) =>
-        item.timeSlot.day === day &&
-        item.timeSlot.startTime === startTime
-    );
+    const [startTime, endTime] = timeRange.split(' - ');
+    return schedule.filter((item) => {
+      const itemTimeRange = `${item.timeSlot.startTime} - ${item.timeSlot.endTime}`;
+      return item.timeSlot.day === day && itemTimeRange === timeRange;
+    });
   };
 
   const getCourseLevel = (courseCode: string | undefined) => {
@@ -100,14 +98,30 @@ const Timetable = ({ schedule, favorites = new Set(), onToggleFavorite }: Timeta
     return Array.from(new Set(schedule.map(item => item.department).filter(Boolean)));
   }, [schedule]);
 
+  const getDurationFromTimeRange = (timeRange: string): number => {
+    const [start, end] = timeRange.split(' - ');
+    const startHour = parseInt(start.split(':')[0]);
+    const endHour = parseInt(end.split(':')[0]);
+    return endHour - startHour;
+  };
+
+  const getDurationBadgeColor = (duration: number): string => {
+    switch (duration) {
+      case 1: return "bg-green-100 text-green-800";
+      case 2: return "bg-blue-100 text-blue-800";
+      case 3: return "bg-purple-100 text-purple-800";
+      default: return "bg-gray-100 text-gray-800";
+    }
+  };
+
   const renderGridView = () => (
     <div className="space-y-4 md:space-y-6">
       {/* Enhanced Header */}
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between bg-gradient-to-r from-primary/5 to-primary/10 p-3 md:p-4 rounded-lg border">
         <div>
-          <h3 className="text-lg md:text-xl font-bold text-primary">Weekly Timetable</h3>
+          <h3 className="text-lg md:text-xl font-bold text-primary">Flexible Weekly Timetable</h3>
           <p className="text-xs md:text-sm text-muted-foreground">
-            Showing <span className="font-semibold text-primary">{schedule.length}</span> courses across <span className="font-semibold text-primary">{departments.length}</span> departments
+            Showing <span className="font-semibold text-primary">{schedule.length}</span> courses with flexible durations (1-3 hours)
           </p>
         </div>
         <div className="flex flex-col sm:flex-row gap-2">
@@ -146,6 +160,25 @@ const Timetable = ({ schedule, favorites = new Set(), onToggleFavorite }: Timeta
         </div>
       </div>
 
+      {/* Duration Legend */}
+      <div className="bg-card rounded-lg p-3 md:p-4 border shadow-sm">
+        <h4 className="text-sm font-semibold text-foreground mb-3">Class Duration Guide</h4>
+        <div className="flex flex-wrap gap-2">
+          <div className="flex items-center gap-2 px-2 py-1 bg-green-50 rounded">
+            <div className="w-3 h-3 bg-green-500 rounded"></div>
+            <span className="text-xs">1 Hour Classes</span>
+          </div>
+          <div className="flex items-center gap-2 px-2 py-1 bg-blue-50 rounded">
+            <div className="w-3 h-3 bg-blue-500 rounded"></div>
+            <span className="text-xs">2 Hour Classes</span>
+          </div>
+          <div className="flex items-center gap-2 px-2 py-1 bg-purple-50 rounded">
+            <div className="w-3 h-3 bg-purple-500 rounded"></div>
+            <span className="text-xs">3 Hour Classes</span>
+          </div>
+        </div>
+      </div>
+
       {/* Department Legend */}
       {departments.length > 1 && (
         <div className="bg-card rounded-lg p-3 md:p-4 border shadow-sm">
@@ -167,7 +200,7 @@ const Timetable = ({ schedule, favorites = new Set(), onToggleFavorite }: Timeta
       {/* Fixed Timetable Container with proper horizontal scrolling */}
       <div className="border rounded-lg shadow-lg bg-white">
         <div className="overflow-x-auto">
-          <div className="min-w-[800px]"> {/* Ensure minimum width for proper display */}
+          <div className="min-w-[800px]">
             <table className="w-full border-collapse">
               <thead className="sticky top-0 z-20">
                 <tr className="bg-gradient-to-r from-primary to-primary/90 text-white">
@@ -193,123 +226,128 @@ const Timetable = ({ schedule, favorites = new Set(), onToggleFavorite }: Timeta
                 </tr>
               </thead>
               <tbody>
-                {displayTimeSlots.map((timeRange, timeIndex) => (
-                  <tr key={timeRange} className={`${timeIndex % 2 === 0 ? "bg-muted/20" : "bg-white"} hover:bg-muted/40 transition-colors`}>
-                    <td className="p-2 md:p-3 border-r border-border text-xs md:text-sm font-bold text-center bg-muted/50 sticky left-0 z-10 shadow-sm">
-                      <div className="space-y-1">
-                        <div className="text-primary font-bold text-xs leading-tight">
-                          {timeRange.replace(' - ', '\n-\n').split('\n').map((line, i) => (
-                            <div key={i} className={i === 1 ? 'text-muted-foreground' : ''}>{line}</div>
-                          ))}
+                {displayTimeSlots.map((timeRange, timeIndex) => {
+                  const duration = getDurationFromTimeRange(timeRange);
+                  return (
+                    <tr key={timeRange} className={`${timeIndex % 2 === 0 ? "bg-muted/20" : "bg-white"} hover:bg-muted/40 transition-colors`}>
+                      <td className="p-2 md:p-3 border-r border-border text-xs md:text-sm font-bold text-center bg-muted/50 sticky left-0 z-10 shadow-sm">
+                        <div className="space-y-1">
+                          <div className="text-primary font-bold text-xs leading-tight">
+                            {timeRange.replace(' - ', '\n-\n').split('\n').map((line, i) => (
+                              <div key={i} className={i === 1 ? 'text-muted-foreground' : ''}>{line}</div>
+                            ))}
+                          </div>
+                          <div className={`text-xs px-1 py-0.5 rounded ${getDurationBadgeColor(duration)}`}>
+                            {duration}h
+                          </div>
                         </div>
-                      </div>
-                    </td>
-                    {days.map((day) => {
-                      const scheduledItems = getScheduledItemsForSlot(day, timeRange);
-                      return (
-                        <td
-                          key={`${day}-${timeRange}`}
-                          className="p-1 sm:p-2 md:p-3 border-r border-border align-top min-h-[100px] sm:min-h-[120px] md:min-h-[140px] relative"
-                        >
-                          <div className="space-y-1 sm:space-y-2">
-                            {scheduledItems.map((item) => {
-                              const colors = getDepartmentColor(item.department || 'Default');
-                              const startHour = parseInt(item.timeSlot.startTime.split(':')[0]);
-                              const endTime = `${startHour + 2}:00`;
-                              
-                              return (
-                                <Card
-                                  key={item.id}
-                                  className={`
-                                    ${colors.bg} ${colors.border} border-l-2 sm:border-l-4 
-                                    ${colors.accent.replace('bg-', 'border-l-')}
-                                    hover:shadow-md md:hover:shadow-lg transition-all duration-300 
-                                    p-1.5 sm:p-2 md:p-3 relative group cursor-pointer transform hover:scale-[1.02]
-                                  `}
-                                >
-                                  <div className="space-y-1 sm:space-y-2">
-                                    <div className="flex items-start justify-between gap-1 sm:gap-2">
-                                      <div className="flex-1 min-w-0">
-                                        <div className="flex flex-col sm:flex-row sm:items-center gap-1 mb-1">
-                                          <div className={`font-bold ${colors.text} text-xs sm:text-sm`}>
-                                            {item.code || 'N/A'}
+                      </td>
+                      {days.map((day) => {
+                        const scheduledItems = getScheduledItemsForSlot(day, timeRange);
+                        return (
+                          <td
+                            key={`${day}-${timeRange}`}
+                            className="p-1 sm:p-2 md:p-3 border-r border-border align-top min-h-[100px] sm:min-h-[120px] md:min-h-[140px] relative"
+                          >
+                            <div className="space-y-1 sm:space-y-2">
+                              {scheduledItems.map((item) => {
+                                const colors = getDepartmentColor(item.department || 'Default');
+                                const itemDuration = getDurationFromTimeRange(`${item.timeSlot.startTime} - ${item.timeSlot.endTime}`);
+                                
+                                return (
+                                  <Card
+                                    key={item.id}
+                                    className={`
+                                      ${colors.bg} ${colors.border} border-l-2 sm:border-l-4 
+                                      ${colors.accent.replace('bg-', 'border-l-')}
+                                      hover:shadow-md md:hover:shadow-lg transition-all duration-300 
+                                      p-1.5 sm:p-2 md:p-3 relative group cursor-pointer transform hover:scale-[1.02]
+                                    `}
+                                  >
+                                    <div className="space-y-1 sm:space-y-2">
+                                      <div className="flex items-start justify-between gap-1 sm:gap-2">
+                                        <div className="flex-1 min-w-0">
+                                          <div className="flex flex-col sm:flex-row sm:items-center gap-1 mb-1">
+                                            <div className={`font-bold ${colors.text} text-xs sm:text-sm`}>
+                                              {item.code || 'N/A'}
+                                            </div>
+                                            <div className={`px-1 py-0.5 rounded text-xs font-medium ${getDurationBadgeColor(itemDuration)}`}>
+                                              {itemDuration}h
+                                            </div>
                                           </div>
-                                          <div className="bg-white/80 px-1 py-0.5 rounded text-xs font-medium text-muted-foreground hidden sm:block">
-                                            L{getCourseLevel(item.code)}
+                                          
+                                          <div className="text-xs text-muted-foreground font-medium mb-1 sm:mb-2 line-clamp-2">
+                                            {item.name || 'Course Name'}
                                           </div>
                                         </div>
                                         
-                                        <div className="text-xs text-muted-foreground font-medium mb-1 sm:mb-2 line-clamp-2">
-                                          {item.name || 'Course Name'}
-                                        </div>
-                                      </div>
-                                      
-                                      {onToggleFavorite && (
-                                        <Button
-                                          variant="ghost"
-                                          size="icon"
-                                          className="h-5 w-5 sm:h-6 sm:w-6 opacity-0 group-hover:opacity-100 transition-opacity"
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            onToggleFavorite(item.id);
-                                          }}
-                                        >
-                                          <Star
-                                            className={`h-3 w-3 ${
-                                              favorites.has(item.id)
-                                                ? "fill-yellow-400 text-yellow-400"
-                                                : "text-muted-foreground"
-                                            }`}
-                                          />
-                                        </Button>
-                                      )}
-                                    </div>
-
-                                    <div className="space-y-1">
-                                      <div className="flex items-center gap-1 text-muted-foreground">
-                                        <Users className="h-2.5 w-2.5 sm:h-3 sm:w-3 flex-shrink-0" />
-                                        <span className="truncate text-xs font-medium">{item.lecturer || 'TBD'}</span>
-                                      </div>
-                                      
-                                      <div className="flex items-center gap-1 text-muted-foreground">
-                                        <MapPin className="h-2.5 w-2.5 sm:h-3 sm:w-3 flex-shrink-0" />
-                                        <span className="truncate text-xs">{item.venue?.name || 'TBD'}</span>
-                                      </div>
-
-                                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
-                                        <div className="flex items-center gap-1 text-muted-foreground">
-                                          <Clock className="h-2.5 w-2.5 sm:h-3 sm:w-3 flex-shrink-0" />
-                                          <span className="text-xs">
-                                            {item.timeSlot?.startTime || 'TBD'} - {endTime}
-                                          </span>
-                                        </div>
-                                        
-                                        {item.classSize && (
-                                          <div className="bg-white/90 px-1 py-0.5 rounded text-xs font-medium text-muted-foreground">
-                                            {item.classSize}
-                                          </div>
+                                        {onToggleFavorite && (
+                                          <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-5 w-5 sm:h-6 sm:w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              onToggleFavorite(item.id);
+                                            }}
+                                          >
+                                            <Star
+                                              className={`h-3 w-3 ${
+                                                favorites.has(item.id)
+                                                  ? "fill-yellow-400 text-yellow-400"
+                                                  : "text-muted-foreground"
+                                              }`}
+                                            />
+                                          </Button>
                                         )}
                                       </div>
-                                    </div>
-                                  </div>
 
-                                  {/* Department indicator */}
-                                  <div className={`absolute top-1 right-1 sm:top-2 sm:right-2 w-2 h-2 sm:w-3 sm:h-3 rounded-full ${colors.accent} shadow-sm`} />
-                                </Card>
-                              );
-                            })}
-                            
-                            {scheduledItems.length === 0 && (
-                              <div className="h-12 sm:h-16 flex items-center justify-center text-muted-foreground/50 text-xs border border-dashed border-muted-foreground/20 rounded">
-                                No classes
-                              </div>
-                            )}
-                          </div>
-                        </td>
-                      );
-                    })}
-                  </tr>
-                ))}
+                                      <div className="space-y-1">
+                                        <div className="flex items-center gap-1 text-muted-foreground">
+                                          <Users className="h-2.5 w-2.5 sm:h-3 sm:w-3 flex-shrink-0" />
+                                          <span className="truncate text-xs font-medium">{item.lecturer || 'TBD'}</span>
+                                        </div>
+                                        
+                                        <div className="flex items-center gap-1 text-muted-foreground">
+                                          <MapPin className="h-2.5 w-2.5 sm:h-3 sm:w-3 flex-shrink-0" />
+                                          <span className="truncate text-xs">{item.venue?.name || 'TBD'}</span>
+                                        </div>
+
+                                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
+                                          <div className="flex items-center gap-1 text-muted-foreground">
+                                            <Clock className="h-2.5 w-2.5 sm:h-3 sm:w-3 flex-shrink-0" />
+                                            <span className="text-xs">
+                                              {item.timeSlot?.startTime || 'TBD'} - {item.timeSlot?.endTime || 'TBD'}
+                                            </span>
+                                          </div>
+                                          
+                                          {item.classSize && (
+                                            <div className="bg-white/90 px-1 py-0.5 rounded text-xs font-medium text-muted-foreground">
+                                              {item.classSize}
+                                            </div>
+                                          )}
+                                        </div>
+                                      </div>
+                                    </div>
+
+                                    {/* Department indicator */}
+                                    <div className={`absolute top-1 right-1 sm:top-2 sm:right-2 w-2 h-2 sm:w-3 sm:h-3 rounded-full ${colors.accent} shadow-sm`} />
+                                  </Card>
+                                );
+                              })}
+                              
+                              {scheduledItems.length === 0 && (
+                                <div className="h-12 sm:h-16 flex items-center justify-center text-muted-foreground/50 text-xs border border-dashed border-muted-foreground/20 rounded">
+                                  No classes
+                                </div>
+                              )}
+                            </div>
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -325,7 +363,7 @@ const Timetable = ({ schedule, favorites = new Set(), onToggleFavorite }: Timeta
         <div>
           <h3 className="text-lg md:text-xl font-bold text-primary">Schedule List</h3>
           <p className="text-xs md:text-sm text-muted-foreground">
-            Showing <span className="font-semibold text-primary">{schedule.length}</span> courses
+            Showing <span className="font-semibold text-primary">{schedule.length}</span> courses with flexible durations
           </p>
         </div>
         <div className="flex gap-2">
@@ -363,6 +401,7 @@ const Timetable = ({ schedule, favorites = new Set(), onToggleFavorite }: Timeta
                 <TableHead className="text-white font-bold text-xs md:text-sm hidden md:table-cell">Department</TableHead>
                 <TableHead className="text-white font-bold text-xs md:text-sm">Day</TableHead>
                 <TableHead className="text-white font-bold text-xs md:text-sm">Time</TableHead>
+                <TableHead className="text-white font-bold text-xs md:text-sm">Duration</TableHead>
                 <TableHead className="text-white font-bold text-xs md:text-sm hidden sm:table-cell">Venue</TableHead>
                 <TableHead className="text-white font-bold text-xs md:text-sm hidden lg:table-cell">Students</TableHead>
               </TableRow>
@@ -370,8 +409,7 @@ const Timetable = ({ schedule, favorites = new Set(), onToggleFavorite }: Timeta
             <TableBody>
               {schedule.map((item, index) => {
                 const colors = getDepartmentColor(item.department || 'Default');
-                const startHour = parseInt(item.timeSlot.startTime.split(':')[0]);
-                const endTime = `${startHour + 2}:00`;
+                const duration = getDurationFromTimeRange(`${item.timeSlot.startTime} - ${item.timeSlot.endTime}`);
                 return (
                   <TableRow key={item.id} className={`${index % 2 === 0 ? 'bg-muted/20' : 'bg-white'} hover:bg-muted/40`}>
                     <TableCell className="font-bold text-primary text-xs md:text-sm">{item.code}</TableCell>
@@ -387,7 +425,12 @@ const Timetable = ({ schedule, favorites = new Set(), onToggleFavorite }: Timeta
                       </div>
                     </TableCell>
                     <TableCell className="font-medium text-xs md:text-sm">{item.timeSlot.day.slice(0, 3)}</TableCell>
-                    <TableCell className="text-xs md:text-sm">{item.timeSlot.startTime} - {endTime}</TableCell>
+                    <TableCell className="text-xs md:text-sm">{item.timeSlot.startTime} - {item.timeSlot.endTime}</TableCell>
+                    <TableCell className="text-center">
+                      <span className={`px-2 py-1 rounded text-xs font-medium ${getDurationBadgeColor(duration)}`}>
+                        {duration}h
+                      </span>
+                    </TableCell>
                     <TableCell className="hidden sm:table-cell text-xs md:text-sm">{item.venue?.name || 'TBD'}</TableCell>
                     <TableCell className="text-center font-medium text-xs md:text-sm hidden lg:table-cell">{item.classSize}</TableCell>
                   </TableRow>
@@ -405,7 +448,7 @@ const Timetable = ({ schedule, favorites = new Set(), onToggleFavorite }: Timeta
       {viewType === "grid" ? renderGridView() : renderTableView()}
 
       {/* Enhanced Statistics */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-2 md:gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-6 gap-2 md:gap-4">
         <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-3 md:p-4 text-center border border-blue-200">
           <div className="text-lg md:text-2xl font-bold text-blue-700">{schedule.length}</div>
           <div className="text-xs text-blue-600 font-medium">Total Classes</div>
@@ -428,9 +471,18 @@ const Timetable = ({ schedule, favorites = new Set(), onToggleFavorite }: Timeta
         </div>
         <div className="bg-gradient-to-br from-pink-50 to-pink-100 rounded-lg p-3 md:p-4 text-center border border-pink-200">
           <div className="text-lg md:text-2xl font-bold text-pink-700">
-            {Math.round((schedule.length / (days.length * allTimeSlots.length)) * 100)}%
+            {Math.round((schedule.length / (days.length * 9)) * 100)}%
           </div>
           <div className="text-xs text-pink-600 font-medium">Utilization</div>
+        </div>
+        <div className="bg-gradient-to-br from-indigo-50 to-indigo-100 rounded-lg p-3 md:p-4 text-center border border-indigo-200">
+          <div className="text-lg md:text-2xl font-bold text-indigo-700">
+            {schedule.reduce((total, item) => {
+              const duration = getDurationFromTimeRange(`${item.timeSlot.startTime} - ${item.timeSlot.endTime}`);
+              return total + duration;
+            }, 0)}
+          </div>
+          <div className="text-xs text-indigo-600 font-medium">Total Hours</div>
         </div>
       </div>
 
@@ -441,10 +493,12 @@ const Timetable = ({ schedule, favorites = new Set(), onToggleFavorite }: Timeta
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 max-h-60 overflow-y-auto">
             {schedule.map((item) => {
               const colors = getDepartmentColor(item.department || 'Default');
+              const duration = getDurationFromTimeRange(`${item.timeSlot.startTime} - ${item.timeSlot.endTime}`);
               return (
                 <div key={item.id} className="flex items-center gap-2 p-2 bg-muted/30 rounded-md border text-xs md:text-sm hover:bg-muted/50 transition-colors">
                   <div className={`w-3 h-3 rounded-full ${colors.accent} flex-shrink-0`} />
                   <span className="font-bold text-primary">{item.code}</span>
+                  <span className={`px-1 py-0.5 text-xs rounded ${getDurationBadgeColor(duration)}`}>{duration}h</span>
                   <span className="text-muted-foreground truncate text-xs">{item.name}</span>
                 </div>
               );

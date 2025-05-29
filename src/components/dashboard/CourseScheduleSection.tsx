@@ -1,4 +1,3 @@
-
 import { FileText, Calendar, Minimize2, Maximize2, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Timetable from "@/components/Timetable";
@@ -61,6 +60,20 @@ const CourseScheduleSection = ({ schedule, isPublished = false }: CourseSchedule
   // Get validated schedule
   const validSchedule = validateAndFilterSchedule(schedule);
 
+  // Get all unique time ranges from the schedule for dynamic export
+  const getUniqueTimeRanges = () => {
+    const timeRanges = new Set<string>();
+    validSchedule.forEach(item => {
+      const timeRange = `${item.timeSlot.startTime} - ${item.timeSlot.endTime}`;
+      timeRanges.add(timeRange);
+    });
+    return Array.from(timeRanges).sort((a, b) => {
+      const startA = parseInt(a.split(' - ')[0].split(':')[0]);
+      const startB = parseInt(b.split(' - ')[0].split(':')[0]);
+      return startA - startB;
+    });
+  };
+
   const exportToExcel = () => {
     if (validSchedule.length === 0) {
       console.warn('No valid schedule items to export');
@@ -69,19 +82,18 @@ const CourseScheduleSection = ({ schedule, isPublished = false }: CourseSchedule
 
     try {
       const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
-      const timeSlots = ["8:00", "10:00", "12:00", "14:00"]; // Updated to 8 AM - 5 PM range
+      const timeRanges = getUniqueTimeRanges();
 
       const data = [["Time", ...days]];
 
-      timeSlots.forEach(time => {
-        const startHour = parseInt(time.split(':')[0]);
-        const endTime = `${startHour + 2}:00`;
-        const timeDisplay = `${time} - ${endTime}`;
-        
-        const row = [timeDisplay];
+      timeRanges.forEach(timeRange => {
+        const row = [timeRange];
         days.forEach(day => {
           const items = validSchedule.filter(
-            item => item.timeSlot?.day === day && item.timeSlot?.startTime === time
+            item => {
+              const itemTimeRange = `${item.timeSlot.startTime} - ${item.timeSlot.endTime}`;
+              return item.timeSlot?.day === day && itemTimeRange === timeRange;
+            }
           );
           row.push(items.map(item => 
             `${item.code || 'N/A'}\n${item.name || 'N/A'}\n${item.lecturer || 'N/A'}\n${item.venue?.name || 'N/A'}`
@@ -92,7 +104,7 @@ const CourseScheduleSection = ({ schedule, isPublished = false }: CourseSchedule
 
       const ws = XLSX.utils.aoa_to_sheet(data);
       const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, "Timetable");
+      XLSX.utils.book_append_sheet(wb, ws, "Flexible Timetable");
 
       const columnWidths = data[0].map((_, i) => ({
         wch: Math.max(...data.map(row => 
@@ -101,7 +113,7 @@ const CourseScheduleSection = ({ schedule, isPublished = false }: CourseSchedule
       }));
       ws["!cols"] = columnWidths;
 
-      XLSX.writeFile(wb, "timetable.xlsx");
+      XLSX.writeFile(wb, "flexible_timetable.xlsx");
     } catch (error) {
       console.error('Error exporting to Excel:', error);
     }
@@ -115,12 +127,10 @@ const CourseScheduleSection = ({ schedule, isPublished = false }: CourseSchedule
 
     try {
       const data = validSchedule.map(item => {
-        const startHour = parseInt(item.timeSlot?.startTime?.split(':')[0] || '9');
-        const endTime = `${startHour + 2}:00`;
-        
         return {
           Day: item.timeSlot?.day || 'N/A',
-          Time: `${item.timeSlot?.startTime || 'N/A'} - ${endTime}`,
+          Time: `${item.timeSlot?.startTime || 'N/A'} - ${item.timeSlot?.endTime || 'N/A'}`,
+          Duration: `${getDurationFromTimeRange(`${item.timeSlot?.startTime} - ${item.timeSlot?.endTime}`)}h`,
           "Course Code": item.code || 'N/A',
           "Course Name": item.name || 'N/A',
           Lecturer: item.lecturer || 'N/A',
@@ -131,8 +141,8 @@ const CourseScheduleSection = ({ schedule, isPublished = false }: CourseSchedule
 
       const ws = XLSX.utils.json_to_sheet(data);
       const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, "Schedule Data");
-      XLSX.writeFile(wb, "schedule_data.csv");
+      XLSX.utils.book_append_sheet(wb, ws, "Flexible Schedule Data");
+      XLSX.writeFile(wb, "flexible_schedule_data.csv");
     } catch (error) {
       console.error('Error exporting to CSV:', error);
     }
@@ -147,21 +157,20 @@ const CourseScheduleSection = ({ schedule, isPublished = false }: CourseSchedule
     try {
       const doc = new jsPDF();
       const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
-      const timeSlots = ["8:00", "10:00", "12:00", "14:00"]; // Updated to 8 AM - 5 PM range
+      const timeRanges = getUniqueTimeRanges();
 
       doc.setFontSize(16);
-      doc.text("Course Timetable", 14, 15);
+      doc.text("Flexible Course Timetable", 14, 15);
       doc.setFontSize(10);
 
-      const tableData = timeSlots.map(time => {
-        const startHour = parseInt(time.split(':')[0]);
-        const endTime = `${startHour + 2}:00`;
-        const timeDisplay = `${time} - ${endTime}`;
-        
-        const row = [timeDisplay];
+      const tableData = timeRanges.map(timeRange => {
+        const row = [timeRange];
         days.forEach(day => {
           const items = validSchedule.filter(
-            item => item.timeSlot?.day === day && item.timeSlot?.startTime === time
+            item => {
+              const itemTimeRange = `${item.timeSlot.startTime} - ${item.timeSlot.endTime}`;
+              return item.timeSlot?.day === day && itemTimeRange === timeRange;
+            }
           );
           row.push(items.map(item => 
             `${item.code || 'N/A'}\n${item.name || 'N/A'}\n${item.venue?.name || 'N/A'}`
@@ -186,10 +195,17 @@ const CourseScheduleSection = ({ schedule, isPublished = false }: CourseSchedule
         theme: "grid",
       });
 
-      doc.save("timetable.pdf");
+      doc.save("flexible_timetable.pdf");
     } catch (error) {
       console.error('Error exporting to PDF:', error);
     }
+  };
+
+  const getDurationFromTimeRange = (timeRange: string): number => {
+    const [start, end] = timeRange.split(' - ');
+    const startHour = parseInt(start.split(':')[0]);
+    const endHour = parseInt(end.split(':')[0]);
+    return endHour - startHour;
   };
 
   return (
@@ -201,7 +217,7 @@ const CourseScheduleSection = ({ schedule, isPublished = false }: CourseSchedule
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <div className="space-y-1">
           <h2 className="text-xl md:text-2xl font-bold tracking-tight">
-            Course Schedule
+            Flexible Course Schedule
             {isPublished && (
               <span className="ml-2 text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full">
                 Published
@@ -209,7 +225,7 @@ const CourseScheduleSection = ({ schedule, isPublished = false }: CourseSchedule
             )}
           </h2>
           <p className="text-muted-foreground text-xs md:text-sm">
-            View and manage your department's timetable (2-hour lectures)
+            View and manage your department's flexible timetable (1-3 hour lectures, 8 AM - 5 PM)
           </p>
         </div>
         
@@ -303,7 +319,7 @@ const CourseScheduleSection = ({ schedule, isPublished = false }: CourseSchedule
           <Calendar className="h-8 w-8 md:h-12 md:w-12 mx-auto mb-4 opacity-20" />
           <p className="text-sm md:text-base">No courses scheduled yet.</p>
           <p className="text-xs md:text-sm mt-2 text-muted-foreground/80">
-            Generate a schedule or add courses manually to get started.
+            Generate a flexible schedule or add courses manually to get started.
           </p>
         </div>
       )}

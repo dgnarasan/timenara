@@ -1,9 +1,40 @@
 
 import { TimeSlot, Venue, ScheduleItem, Course } from "@/lib/types";
 
-export const HOURS_PER_DAY = 5; // 5 time slots of 2 hours each (8:00-18:00)
+export const HOURS_PER_DAY = 9; // 9 hours total (8:00-17:00)
 const MAX_CLASSES_PER_DAY = 4;
-const MAX_CONSECUTIVE_CLASSES = 2; // Since each class is 2 hours
+const MAX_CONSECUTIVE_CLASSES = 3; // Allow up to 3 consecutive hours
+
+// Generate all possible flexible time slots within 8 AM to 5 PM
+export const generateFlexibleTimeSlots = (): string[] => {
+  const slots = [];
+  
+  // 1-hour slots
+  for (let hour = 8; hour < 17; hour++) {
+    slots.push(`${hour}:00 - ${hour + 1}:00`);
+  }
+  
+  // 2-hour slots
+  for (let hour = 8; hour <= 15; hour++) {
+    slots.push(`${hour}:00 - ${hour + 2}:00`);
+  }
+  
+  // 3-hour slots
+  for (let hour = 8; hour <= 14; hour++) {
+    slots.push(`${hour}:00 - ${hour + 3}:00`);
+  }
+  
+  // Sort by start time and duration
+  return slots.sort((a, b) => {
+    const startA = parseInt(a.split(':')[0]);
+    const startB = parseInt(b.split(':')[0]);
+    if (startA !== startB) return startA - startB;
+    
+    const durationA = parseInt(a.split(' - ')[1].split(':')[0]) - startA;
+    const durationB = parseInt(b.split(' - ')[1].split(':')[0]) - startB;
+    return durationA - durationB;
+  });
+};
 
 export const hasConsecutiveClasses = (
   lecturer: string,
@@ -14,19 +45,22 @@ export const hasConsecutiveClasses = (
     (item) => item.lecturer === lecturer && item.timeSlot.day === timeSlot.day
   );
   
-  const currentHour = parseInt(timeSlot.startTime);
-  let consecutiveCount = 1;
-  let consecutiveHours: number[] = [currentHour];
-
+  const currentStart = parseInt(timeSlot.startTime.split(':')[0]);
+  const currentEnd = parseInt(timeSlot.endTime.split(':')[0]);
+  
+  let totalConsecutiveHours = currentEnd - currentStart;
+  
   lecturerClasses.forEach((item) => {
-    const itemHour = parseInt(item.timeSlot.startTime);
-    if (Math.abs(itemHour - currentHour) <= 2) { // 2-hour gap check
-      consecutiveCount++;
-      consecutiveHours.push(itemHour);
+    const itemStart = parseInt(item.timeSlot.startTime.split(':')[0]);
+    const itemEnd = parseInt(item.timeSlot.endTime.split(':')[0]);
+    
+    // Check if times are adjacent or overlapping
+    if (itemEnd === currentStart || itemStart === currentEnd) {
+      totalConsecutiveHours += (itemEnd - itemStart);
     }
   });
 
-  return consecutiveCount > MAX_CONSECUTIVE_CLASSES;
+  return totalConsecutiveHours > MAX_CONSECUTIVE_CLASSES;
 };
 
 export const hasConflict = (
@@ -35,12 +69,23 @@ export const hasConflict = (
   lecturer: string,
   existingSchedule: ScheduleItem[]
 ): boolean => {
-  return existingSchedule.some(
-    (item) =>
-      item.timeSlot.day === timeSlot.day &&
-      item.timeSlot.startTime === timeSlot.startTime &&
-      (item.venue.id === venue.id || item.lecturer === lecturer)
-  );
+  const newStart = parseInt(timeSlot.startTime.split(':')[0]);
+  const newEnd = parseInt(timeSlot.endTime.split(':')[0]);
+  
+  return existingSchedule.some((item) => {
+    if (item.timeSlot.day !== timeSlot.day) return false;
+    
+    const existingStart = parseInt(item.timeSlot.startTime.split(':')[0]);
+    const existingEnd = parseInt(item.timeSlot.endTime.split(':')[0]);
+    
+    // Check for time overlap
+    const timeOverlap = newStart < existingEnd && existingStart < newEnd;
+    
+    // Check for venue or lecturer conflict
+    const resourceConflict = item.venue.id === venue.id || item.lecturer === lecturer;
+    
+    return timeOverlap && resourceConflict;
+  });
 };
 
 export const getDayLoad = (
@@ -58,13 +103,23 @@ export const findNextBestTimeSlot = (
   lecturer: string,
   currentSchedule: ScheduleItem[],
   preferredDay?: string,
-  attempt: number = 0
+  attempt: number = 0,
+  courseDuration?: number // New parameter for course duration
 ): { timeSlot: TimeSlot; venue: Venue; isOptimal: boolean } | null => {
   const days = preferredDay 
     ? [preferredDay] 
     : ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
-  // 2-hour time slots from 8 AM to 3 PM (ending at 5 PM)
-  const times = ["8:00", "10:00", "12:00", "14:00"];
+    
+  // Generate dynamic time slots based on course duration or use flexible options
+  const duration = courseDuration || 2; // Default to 2 hours
+  const timeSlots = [];
+  
+  for (let hour = 8; hour <= (17 - duration); hour++) {
+    timeSlots.push({
+      startTime: `${hour}:00`,
+      endTime: `${hour + duration}:00`
+    });
+  }
 
   // Sort days by current load to ensure balanced distribution
   const sortedDays = days.sort((a, b) => {
@@ -79,16 +134,15 @@ export const findNextBestTimeSlot = (
       continue;
     }
 
-    for (const startTime of times) {
+    for (const slot of timeSlots) {
       // Sort venues by capacity to optimize room allocation
       const sortedVenues = [...venues].sort((a, b) => a.capacity - b.capacity);
 
       for (const venue of sortedVenues) {
-        const startHour = parseInt(startTime.split(':')[0]);
         const timeSlot: TimeSlot = {
           day: day as TimeSlot["day"],
-          startTime,
-          endTime: `${startHour + 2}:00`,
+          startTime: slot.startTime,
+          endTime: slot.endTime,
         };
 
         if (!hasConflict(timeSlot, venue, lecturer, currentSchedule) &&
@@ -101,18 +155,17 @@ export const findNextBestTimeSlot = (
 
   // If no optimal slot found and this is the first attempt, try with relaxed constraints
   if (attempt === 0) {
-    return findNextBestTimeSlot(venues, lecturer, currentSchedule, preferredDay, 1);
+    return findNextBestTimeSlot(venues, lecturer, currentSchedule, preferredDay, 1, courseDuration);
   }
 
   // As a last resort, find any available slot
   for (const day of sortedDays) {
-    for (const startTime of times) {
+    for (const slot of timeSlots) {
       for (const venue of venues) {
-        const startHour = parseInt(startTime.split(':')[0]);
         const timeSlot: TimeSlot = {
           day: day as TimeSlot["day"],
-          startTime,
-          endTime: `${startHour + 2}:00`,
+          startTime: slot.startTime,
+          endTime: slot.endTime,
         };
 
         if (!hasConflict(timeSlot, venue, lecturer, currentSchedule)) {
@@ -135,18 +188,27 @@ export const generateAlternativeSchedule = (
   
   if (conflictIndex === -1) return newSchedule;
 
-  const assignment = findNextBestTimeSlot(
-    venues,
-    conflictingCourse.lecturer,
-    newSchedule.filter((_, i) => i !== conflictIndex)
-  );
+  // Try different durations for flexibility
+  const possibleDurations = [1, 2, 3];
+  
+  for (const duration of possibleDurations) {
+    const assignment = findNextBestTimeSlot(
+      venues,
+      conflictingCourse.lecturer,
+      newSchedule.filter((_, i) => i !== conflictIndex),
+      undefined,
+      0,
+      duration
+    );
 
-  if (assignment) {
-    newSchedule[conflictIndex] = {
-      ...conflictingCourse,
-      venue: assignment.venue,
-      timeSlot: assignment.timeSlot,
-    };
+    if (assignment) {
+      newSchedule[conflictIndex] = {
+        ...conflictingCourse,
+        venue: assignment.venue,
+        timeSlot: assignment.timeSlot,
+      };
+      return newSchedule;
+    }
   }
 
   return newSchedule;
