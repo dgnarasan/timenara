@@ -1,4 +1,3 @@
-
 import React from "react";
 import { ScheduleItem } from "@/lib/types";
 import { Card } from "@/components/ui/card";
@@ -20,21 +19,26 @@ interface TimetableProps {
   onToggleFavorite?: (courseId: string) => void;
 }
 
-// Validation function for schedule items
+// More flexible validation function for timetable
 const isValidScheduleItem = (item: any): item is ScheduleItem => {
-  return (
-    item &&
-    typeof item === 'object' &&
-    typeof item.id === 'string' &&
-    typeof item.code === 'string' &&
-    typeof item.name === 'string' &&
-    typeof item.lecturer === 'string' &&
-    item.venue &&
-    typeof item.venue.name === 'string' &&
-    item.timeSlot &&
-    typeof item.timeSlot.day === 'string' &&
-    typeof item.timeSlot.startTime === 'string'
-  );
+  console.log('Timetable validating item:', item);
+  
+  if (!item || typeof item !== 'object') {
+    console.log('Timetable: Invalid - not an object');
+    return false;
+  }
+
+  // Only check for essential fields needed for rendering
+  const hasEssentialFields = item.id && item.code && item.name && 
+    item.timeSlot && item.timeSlot.day && item.timeSlot.startTime;
+
+  if (!hasEssentialFields) {
+    console.log('Timetable: Missing essential fields');
+    return false;
+  }
+
+  console.log('Timetable: Item is valid');
+  return true;
 };
 
 const Timetable = ({ schedule, favorites = new Set(), onToggleFavorite }: TimetableProps) => {
@@ -44,13 +48,21 @@ const Timetable = ({ schedule, favorites = new Set(), onToggleFavorite }: Timeta
 
   // Filter out invalid schedule items to prevent rendering errors
   const validSchedule = React.useMemo(() => {
+    console.log('Timetable: Processing schedule with', schedule?.length || 0, 'items');
+    
     if (!Array.isArray(schedule)) {
-      console.warn('Schedule is not an array:', schedule);
+      console.warn('Timetable: Schedule is not an array:', schedule);
       return [];
     }
     
-    const filtered = schedule.filter(isValidScheduleItem);
+    const filtered = schedule.filter((item, index) => {
+      console.log(`Timetable: Checking item ${index}:`, item);
+      return isValidScheduleItem(item);
+    });
+    
     const invalidCount = schedule.length - filtered.length;
+    
+    console.log(`Timetable: ${filtered.length} valid, ${invalidCount} invalid items`);
     
     if (invalidCount > 0) {
       console.warn(`Timetable: Filtered out ${invalidCount} invalid schedule items`);

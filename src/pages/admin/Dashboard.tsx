@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from "react";
 import { Course, ScheduleItem, collegeStructure } from "@/lib/types";
 import { useCourses } from "@/hooks/useCourses";
@@ -14,39 +13,78 @@ import { fetchAdminSchedule, clearSchedule, publishSchedule } from "@/lib/db";
 import { Button } from "@/components/ui/button";
 import { LogOut, Calendar, Home, Trash2, Eye, EyeOff } from "lucide-react";
 
-// Validation function to ensure schedule item has required properties
+// More flexible validation function
 const isValidScheduleItem = (item: any): item is ScheduleItem => {
-  return (
-    item &&
-    typeof item === 'object' &&
-    typeof item.id === 'string' &&
-    typeof item.code === 'string' &&
-    typeof item.name === 'string' &&
-    typeof item.lecturer === 'string' &&
-    typeof item.department === 'string' &&
-    item.venue &&
-    typeof item.venue === 'object' &&
-    typeof item.venue.id === 'string' &&
-    typeof item.venue.name === 'string' &&
-    typeof item.venue.capacity === 'number' &&
-    item.timeSlot &&
-    typeof item.timeSlot === 'object' &&
-    typeof item.timeSlot.day === 'string' &&
-    typeof item.timeSlot.startTime === 'string' &&
-    typeof item.timeSlot.endTime === 'string' &&
-    typeof item.classSize === 'number'
-  );
+  console.log('Validating schedule item:', item);
+  
+  // Basic structure check
+  if (!item || typeof item !== 'object') {
+    console.log('Invalid: not an object');
+    return false;
+  }
+
+  // Required string fields
+  const requiredStringFields = ['id', 'code', 'name', 'lecturer', 'department'];
+  for (const field of requiredStringFields) {
+    if (!item[field] || typeof item[field] !== 'string') {
+      console.log(`Invalid: missing or invalid ${field}:`, item[field]);
+      return false;
+    }
+  }
+
+  // Required number field
+  if (typeof item.classSize !== 'number' || item.classSize <= 0) {
+    console.log('Invalid: classSize:', item.classSize);
+    return false;
+  }
+
+  // Venue validation - more flexible
+  if (!item.venue || typeof item.venue !== 'object') {
+    console.log('Invalid: venue structure:', item.venue);
+    return false;
+  }
+
+  if (!item.venue.id || !item.venue.name) {
+    console.log('Invalid: venue missing id or name:', item.venue);
+    return false;
+  }
+
+  // TimeSlot validation - more flexible
+  if (!item.timeSlot || typeof item.timeSlot !== 'object') {
+    console.log('Invalid: timeSlot structure:', item.timeSlot);
+    return false;
+  }
+
+  if (!item.timeSlot.day || !item.timeSlot.startTime) {
+    console.log('Invalid: timeSlot missing day or startTime:', item.timeSlot);
+    return false;
+  }
+
+  console.log('Valid schedule item:', item.code);
+  return true;
 };
 
 // Function to filter and validate schedule items
 const validateScheduleItems = (scheduleItems: any[]): ScheduleItem[] => {
+  console.log('Validating schedule items array:', scheduleItems);
+  
   if (!Array.isArray(scheduleItems)) {
     console.warn('Schedule items is not an array:', scheduleItems);
     return [];
   }
 
-  const validItems = scheduleItems.filter(isValidScheduleItem);
+  console.log(`Starting validation of ${scheduleItems.length} items`);
+  
+  const validItems = scheduleItems.filter((item, index) => {
+    console.log(`Validating item ${index + 1}:`, item);
+    const isValid = isValidScheduleItem(item);
+    console.log(`Item ${index + 1} is ${isValid ? 'valid' : 'invalid'}`);
+    return isValid;
+  });
+  
   const invalidCount = scheduleItems.length - validItems.length;
+  
+  console.log(`Validation complete: ${validItems.length} valid, ${invalidCount} invalid`);
   
   if (invalidCount > 0) {
     console.warn(`Filtered out ${invalidCount} invalid schedule items`);
@@ -95,6 +133,7 @@ const AdminDashboard = () => {
       try {
         setIsLoadingSchedule(true);
         const existingSchedule = await fetchAdminSchedule();
+        console.log('Loaded existing schedule from DB:', existingSchedule);
         
         // Validate and filter schedule items
         const validSchedule = validateScheduleItems(existingSchedule);
@@ -195,6 +234,7 @@ const AdminDashboard = () => {
   const handleScheduleGenerated = useCallback((newSchedule: ScheduleItem[]) => {
     try {
       console.log('Received new schedule with', newSchedule.length, 'items');
+      console.log('First few items:', newSchedule.slice(0, 3));
       
       // Validate the new schedule items
       const validSchedule = validateScheduleItems(newSchedule);
@@ -203,12 +243,18 @@ const AdminDashboard = () => {
       // Use setTimeout to prevent React rendering conflicts
       setTimeout(() => {
         setSchedule(validSchedule);
-        setIsSchedulePublished(false); // New schedule is not published by default
+        setIsSchedulePublished(false);
         
         if (validSchedule.length > 0) {
           toast({
             title: "Schedule Updated",
             description: `Successfully loaded ${validSchedule.length} courses`,
+          });
+        } else {
+          toast({
+            title: "No Valid Schedule Items",
+            description: "All schedule items were filtered out. Check console for validation details.",
+            variant: "destructive",
           });
         }
       }, 100);
