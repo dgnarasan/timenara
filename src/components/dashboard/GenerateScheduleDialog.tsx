@@ -89,12 +89,36 @@ const GenerateScheduleDialog = ({ courses, onScheduleGenerated }: GenerateSchedu
       setProgress(90);
       setGenerationResult(result);
 
+      console.log("Generation result received:", {
+        scheduleLength: result.schedule.length,
+        hasConflicts: result.conflicts.length > 0,
+        preValidationPassed: result.preValidationPassed,
+        successRate: result.summary.successRate
+      });
+
       if (result.schedule.length > 0) {
-        console.log("Enhanced schedule generated successfully");
+        console.log("Enhanced schedule generated successfully, saving to database...");
         try {
           await saveSchedule(result.schedule, false);
           setProgress(100);
-          onScheduleGenerated(result.schedule);
+          
+          console.log("Schedule saved successfully, calling onScheduleGenerated...");
+          
+          // Add a small delay and use a try-catch around the callback
+          setTimeout(() => {
+            try {
+              console.log("About to call onScheduleGenerated with schedule:", result.schedule.length, "items");
+              onScheduleGenerated(result.schedule);
+              console.log("onScheduleGenerated called successfully");
+            } catch (callbackError) {
+              console.error("Error in onScheduleGenerated callback:", callbackError);
+              toast({
+                title: "Warning",
+                description: "Schedule generated but there was an issue updating the display. Please refresh the page.",
+                variant: "default",
+              });
+            }
+          }, 100);
           
           const scopeDescription = scheduleScope === 'college' && selectedCollege !== 'all' 
             ? `for ${selectedCollege.replace(/\s*\([^)]*\)/g, '')}`
@@ -108,12 +132,13 @@ const GenerateScheduleDialog = ({ courses, onScheduleGenerated }: GenerateSchedu
           });
 
           // Only show conflict modal if generation actually failed or there are critical issues
-          // Don't show it for successful generations with minor conflicts that were resolved
           const hasCriticalFailures = result.schedule.length === 0 || !result.preValidationPassed;
           
           if (hasCriticalFailures) {
+            console.log("Critical failures detected, showing conflict modal");
             setShowConflictModal(true);
           } else {
+            console.log("Generation successful, closing dialog");
             // Close the dialog since generation was successful
             setIsOpen(false);
           }

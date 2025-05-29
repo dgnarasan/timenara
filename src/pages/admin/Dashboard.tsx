@@ -280,7 +280,16 @@ const AdminDashboard = () => {
 
   const handleScheduleGenerated = (newSchedule: ScheduleItem[]) => {
     try {
-      console.log('Handling newly generated schedule. Input:', newSchedule?.length || 0, 'items');
+      console.log('=== HANDLE SCHEDULE GENERATED START ===');
+      console.log('Input schedule:', {
+        isArray: Array.isArray(newSchedule),
+        length: newSchedule?.length || 0,
+        firstItem: newSchedule?.[0] ? {
+          id: newSchedule[0].id,
+          code: newSchedule[0].code,
+          name: newSchedule[0].name
+        } : null
+      });
       
       if (!Array.isArray(newSchedule)) {
         console.error('Invalid schedule format received:', typeof newSchedule, newSchedule);
@@ -304,17 +313,25 @@ const AdminDashboard = () => {
         return;
       }
 
+      console.log('Validating schedule items...');
       const validSchedule = filterAndValidateSchedule(newSchedule);
+      console.log('Validation complete:', {
+        inputLength: newSchedule.length,
+        validLength: validSchedule.length,
+        filteredOut: newSchedule.length - validSchedule.length
+      });
 
-      console.log('Setting new schedule in dashboard:', validSchedule.length, 'valid items out of', newSchedule.length, 'total');
-      
+      console.log('Setting schedule state...');
       setSchedule(prevSchedule => {
-        console.log('Previous schedule length:', prevSchedule.length);
-        console.log('New schedule length:', validSchedule.length);
+        console.log('Schedule state update:', {
+          previousLength: prevSchedule.length,
+          newLength: validSchedule.length
+        });
         return validSchedule;
       });
       
       setIsSchedulePublished(false);
+      console.log('Schedule state set successfully');
       
       if (validSchedule.length < newSchedule.length) {
         const filteredCount = newSchedule.length - validSchedule.length;
@@ -335,9 +352,16 @@ const AdminDashboard = () => {
           variant: "destructive",
         });
       }
+      console.log('=== HANDLE SCHEDULE GENERATED END ===');
     } catch (error) {
-      console.error('Critical error in handleScheduleGenerated:', error);
+      console.error('=== CRITICAL ERROR in handleScheduleGenerated ===', error);
+      console.error('Error stack:', error.stack);
+      console.error('Input that caused error:', newSchedule);
+      
+      // Set empty schedule to prevent further errors
       setSchedule([]);
+      setIsSchedulePublished(false);
+      
       toast({
         title: "Error",
         description: "Failed to process generated schedule. Please try again.",
