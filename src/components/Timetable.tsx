@@ -4,7 +4,7 @@ import { ScheduleItem } from "@/lib/types";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Star, Users, MapPin, Clock, ChevronDown, ChevronUp, Grid3x3, List } from "lucide-react";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import {
   Table,
   TableBody,
@@ -54,8 +54,8 @@ const Timetable = ({ schedule, favorites = new Set(), onToggleFavorite }: Timeta
   const allTimeSlots = generateAllTimeSlots();
   const displayTimeSlots = expandedView ? allTimeSlots : uniqueTimeSlots;
 
-  // Enhanced department colors with better contrast
-  const getDepartmentColor = (department: string) => {
+  // Enhanced department colors with better contrast - memoized to ensure consistency
+  const getDepartmentColor = useMemo(() => {
     const colorMap: Record<string, { bg: string; border: string; text: string; accent: string }> = {
       'Computer Science': { bg: "bg-blue-50", border: "border-blue-300", text: "text-blue-900", accent: "bg-blue-600" },
       'Software Engineering': { bg: "bg-emerald-50", border: "border-emerald-300", text: "text-emerald-900", accent: "bg-emerald-600" },
@@ -67,13 +67,15 @@ const Timetable = ({ schedule, favorites = new Set(), onToggleFavorite }: Timeta
       'Industrial Chemistry': { bg: "bg-teal-50", border: "border-teal-300", text: "text-teal-900", accent: "bg-teal-600" },
     };
 
-    return colorMap[department] || { 
-      bg: "bg-gray-50", 
-      border: "border-gray-300", 
-      text: "text-gray-900", 
-      accent: "bg-gray-600" 
+    return (department: string) => {
+      return colorMap[department] || { 
+        bg: "bg-gray-50", 
+        border: "border-gray-300", 
+        text: "text-gray-900", 
+        accent: "bg-gray-600" 
+      };
     };
-  };
+  }, [schedule]); // Re-compute when schedule changes
 
   const getScheduledItemsForSlot = (day: string, timeRange: string) => {
     const [startTime] = timeRange.split(' - ');
@@ -93,8 +95,10 @@ const Timetable = ({ schedule, favorites = new Set(), onToggleFavorite }: Timeta
     return match ? `${match[0]}00` : "N/A";
   };
 
-  // Get unique departments for legend
-  const departments = Array.from(new Set(schedule.map(item => item.department).filter(Boolean)));
+  // Get unique departments for legend - memoized for performance
+  const departments = useMemo(() => {
+    return Array.from(new Set(schedule.map(item => item.department).filter(Boolean)));
+  }, [schedule]);
 
   const renderGridView = () => (
     <div className="space-y-4 md:space-y-6">
