@@ -1,3 +1,4 @@
+
 import React from "react";
 import { ScheduleItem } from "@/lib/types";
 import { Card } from "@/components/ui/card";
@@ -25,65 +26,115 @@ const Timetable = ({ schedule, favorites = new Set(), onToggleFavorite }: Timeta
   const [viewType, setViewType] = useState<"grid" | "table">("grid");
   const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
 
-  // Validate schedule items before processing
-  const validateScheduleItem = (item: any): item is ScheduleItem => {
+  // Enhanced validation for schedule items with detailed logging
+  const validateScheduleItem = (item: any, index: number): item is ScheduleItem => {
     try {
-      return (
-        item &&
-        typeof item === 'object' &&
-        typeof item.id === 'string' &&
-        typeof item.code === 'string' &&
-        typeof item.name === 'string' &&
-        typeof item.lecturer === 'string' &&
-        typeof item.department === 'string' &&
-        typeof item.classSize === 'number' &&
-        item.timeSlot &&
-        typeof item.timeSlot.day === 'string' &&
-        typeof item.timeSlot.startTime === 'string' &&
-        typeof item.timeSlot.endTime === 'string' &&
-        item.venue &&
-        typeof item.venue.name === 'string'
-      );
+      // First check if item exists and is an object
+      if (!item || typeof item !== 'object') {
+        console.warn(`Timetable: Schedule item at index ${index} is not an object:`, item);
+        return false;
+      }
+
+      // Check all required string fields
+      const stringFields = ['id', 'code', 'name', 'lecturer', 'department'];
+      for (const field of stringFields) {
+        if (!item[field] || typeof item[field] !== 'string' || item[field].trim() === '') {
+          console.warn(`Timetable: Schedule item at index ${index} has invalid ${field}:`, item[field], 'Full item:', item);
+          return false;
+        }
+      }
+
+      // Check classSize
+      if (typeof item.classSize !== 'number' || item.classSize <= 0) {
+        console.warn(`Timetable: Schedule item at index ${index} has invalid classSize:`, item.classSize);
+        return false;
+      }
+
+      // Validate timeSlot structure
+      if (!item.timeSlot || typeof item.timeSlot !== 'object') {
+        console.warn(`Timetable: Schedule item at index ${index} has no timeSlot:`, item.timeSlot);
+        return false;
+      }
+
+      const timeSlotFields = ['day', 'startTime', 'endTime'];
+      for (const field of timeSlotFields) {
+        if (!item.timeSlot[field] || typeof item.timeSlot[field] !== 'string' || item.timeSlot[field].trim() === '') {
+          console.warn(`Timetable: Schedule item at index ${index} has invalid timeSlot.${field}:`, item.timeSlot[field]);
+          return false;
+        }
+      }
+
+      // Validate venue structure
+      if (!item.venue || typeof item.venue !== 'object' || !item.venue.name || typeof item.venue.name !== 'string' || item.venue.name.trim() === '') {
+        console.warn(`Timetable: Schedule item at index ${index} has invalid venue:`, item.venue);
+        return false;
+      }
+
+      return true;
     } catch (error) {
-      console.warn('Error validating schedule item in timetable:', error);
+      console.warn(`Timetable: Error validating schedule item at index ${index}:`, error, 'Item:', item);
       return false;
     }
   };
 
-  // Filter out invalid schedule items
+  // Filter out invalid schedule items with comprehensive validation
   const validSchedule = useMemo(() => {
+    console.log('Timetable: Starting validation of schedule with', schedule?.length || 0, 'items');
+    
     if (!Array.isArray(schedule)) {
-      console.warn('Schedule is not an array in Timetable component:', schedule);
+      console.warn('Timetable: Schedule is not an array:', schedule);
       return [];
     }
     
-    const filtered = schedule.filter(validateScheduleItem);
+    const filtered = schedule
+      .map((item, index) => ({ item, index })) // Track original index for logging
+      .filter(({ item, index }) => {
+        const isValid = validateScheduleItem(item, index);
+        if (!isValid) {
+          console.warn(`Timetable: Filtered out invalid item at index ${index}:`, item);
+        }
+        return isValid;
+      })
+      .map(({ item }) => item);
+    
+    console.log(`Timetable: Validation complete. Valid items: ${filtered.length} out of ${schedule.length}`);
+    
     if (filtered.length !== schedule.length) {
-      console.warn(`Filtered out ${schedule.length - filtered.length} invalid items from schedule`);
+      console.warn(`Timetable: Filtered out ${schedule.length - filtered.length} invalid items from schedule`);
     }
+    
     return filtered;
   }, [schedule]);
 
   // Get all unique time slots with their full ranges from the schedule
   const getUniqueTimeSlots = () => {
     const timeSlots = new Set<string>();
-    validSchedule.forEach(item => {
+    validSchedule.forEach((item, index) => {
       try {
-        const timeRange = `${item.timeSlot.startTime} - ${item.timeSlot.endTime}`;
-        timeSlots.add(timeRange);
+        if (item?.timeSlot?.startTime && item?.timeSlot?.endTime) {
+          const timeRange = `${item.timeSlot.startTime} - ${item.timeSlot.endTime}`;
+          timeSlots.add(timeRange);
+        } else {
+          console.warn(`Timetable: Item at index ${index} has invalid time slot:`, item?.timeSlot);
+        }
       } catch (error) {
-        console.warn('Error processing time slot for item:', item, error);
+        console.warn(`Timetable: Error processing time slot for item at index ${index}:`, item, error);
       }
     });
     return Array.from(timeSlots).sort((a, b) => {
-      const startA = parseInt(a.split(' - ')[0].split(':')[0]);
-      const startB = parseInt(b.split(' - ')[0].split(':')[0]);
-      if (startA !== startB) return startA - startB;
-      
-      // Sort by duration if start times are same
-      const endA = parseInt(a.split(' - ')[1].split(':')[0]);
-      const endB = parseInt(b.split(' - ')[1].split(':')[0]);
-      return (endA - startA) - (endB - startB);
+      try {
+        const startA = parseInt(a.split(' - ')[0].split(':')[0]);
+        const startB = parseInt(b.split(' - ')[0].split(':')[0]);
+        if (startA !== startB) return startA - startB;
+        
+        // Sort by duration if start times are same
+        const endA = parseInt(a.split(' - ')[1].split(':')[0]);
+        const endB = parseInt(b.split(' - ')[1].split(':')[0]);
+        return (endA - startA) - (endB - startB);
+      } catch (error) {
+        console.warn('Timetable: Error sorting time slots:', error);
+        return 0;
+      }
     });
   };
 
@@ -120,16 +171,24 @@ const Timetable = ({ schedule, favorites = new Set(), onToggleFavorite }: Timeta
   }, [validSchedule]);
 
   const getScheduledItemsForSlot = (day: string, timeRange: string) => {
-    const [startTime, endTime] = timeRange.split(' - ');
-    return validSchedule.filter((item) => {
-      try {
-        const itemTimeRange = `${item.timeSlot.startTime} - ${item.timeSlot.endTime}`;
-        return item.timeSlot.day === day && itemTimeRange === timeRange;
-      } catch (error) {
-        console.warn('Error comparing time ranges for item:', item, error);
-        return false;
-      }
-    });
+    try {
+      const [startTime, endTime] = timeRange.split(' - ');
+      return validSchedule.filter((item) => {
+        try {
+          if (!item?.timeSlot?.startTime || !item?.timeSlot?.endTime || !item?.timeSlot?.day) {
+            return false;
+          }
+          const itemTimeRange = `${item.timeSlot.startTime} - ${item.timeSlot.endTime}`;
+          return item.timeSlot.day === day && itemTimeRange === timeRange;
+        } catch (error) {
+          console.warn('Timetable: Error comparing time ranges for item:', item, error);
+          return false;
+        }
+      });
+    } catch (error) {
+      console.warn('Timetable: Error in getScheduledItemsForSlot:', error);
+      return [];
+    }
   };
 
   const getCourseLevel = (courseCode: string | undefined) => {
@@ -143,7 +202,7 @@ const Timetable = ({ schedule, favorites = new Set(), onToggleFavorite }: Timeta
 
   // Get unique departments for legend - memoized for performance
   const departments = useMemo(() => {
-    return Array.from(new Set(validSchedule.map(item => item.department).filter(Boolean)));
+    return Array.from(new Set(validSchedule.map(item => item?.department).filter(Boolean)));
   }, [validSchedule]);
 
   const getDurationFromTimeRange = (timeRange: string): number => {
@@ -153,7 +212,7 @@ const Timetable = ({ schedule, favorites = new Set(), onToggleFavorite }: Timeta
       const endHour = parseInt(end.split(':')[0]);
       return endHour - startHour;
     } catch (error) {
-      console.warn('Error calculating duration from time range:', timeRange, error);
+      console.warn('Timetable: Error calculating duration from time range:', timeRange, error);
       return 1; // Default to 1 hour
     }
   };
@@ -270,7 +329,7 @@ const Timetable = ({ schedule, favorites = new Set(), onToggleFavorite }: Timeta
                     <span className="text-xs md:text-sm">TIME SLOT</span>
                   </th>
                   {days.map((day) => {
-                    const dayClasses = validSchedule.filter(item => item.timeSlot.day === day).length;
+                    const dayClasses = validSchedule.filter(item => item?.timeSlot?.day === day).length;
                     return (
                       <th
                         key={day}
@@ -313,6 +372,12 @@ const Timetable = ({ schedule, favorites = new Set(), onToggleFavorite }: Timeta
                           >
                             <div className="space-y-1 sm:space-y-2">
                               {scheduledItems.map((item) => {
+                                // Additional safety check for item
+                                if (!item || !item.id || !item.code) {
+                                  console.warn('Timetable: Skipping invalid item in render:', item);
+                                  return null;
+                                }
+
                                 const colors = getDepartmentColor(item.department || 'Default');
                                 const itemDuration = getDurationFromTimeRange(`${item.timeSlot.startTime} - ${item.timeSlot.endTime}`);
                                 
@@ -470,6 +535,12 @@ const Timetable = ({ schedule, favorites = new Set(), onToggleFavorite }: Timeta
             </TableHeader>
             <TableBody>
               {validSchedule.map((item, index) => {
+                // Additional safety check for item in table view
+                if (!item || !item.id || !item.code) {
+                  console.warn('Timetable: Skipping invalid item in table view:', item);
+                  return null;
+                }
+
                 const colors = getDepartmentColor(item.department || 'Default');
                 const duration = getDurationFromTimeRange(`${item.timeSlot.startTime} - ${item.timeSlot.endTime}`);
                 return (
@@ -521,7 +592,7 @@ const Timetable = ({ schedule, favorites = new Set(), onToggleFavorite }: Timeta
         </div>
         <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg p-3 md:p-4 text-center border border-purple-200">
           <div className="text-lg md:text-2xl font-bold text-purple-700">
-            {new Set(validSchedule.map(item => item.lecturer).filter(Boolean)).size}
+            {new Set(validSchedule.map(item => item?.lecturer).filter(Boolean)).size}
           </div>
           <div className="text-xs text-purple-600 font-medium">Instructors</div>
         </div>
@@ -554,6 +625,11 @@ const Timetable = ({ schedule, favorites = new Set(), onToggleFavorite }: Timeta
           <h4 className="font-bold mb-3 text-primary">All Scheduled Courses ({validSchedule.length})</h4>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 max-h-60 overflow-y-auto">
             {validSchedule.map((item) => {
+              // Additional safety check for summary section
+              if (!item || !item.id || !item.code) {
+                return null;
+              }
+
               const colors = getDepartmentColor(item.department || 'Default');
               const duration = getDurationFromTimeRange(`${item.timeSlot.startTime} - ${item.timeSlot.endTime}`);
               return (
