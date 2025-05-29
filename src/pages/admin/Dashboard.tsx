@@ -20,6 +20,7 @@ const AdminDashboard = () => {
   const [isLoadingSchedule, setIsLoadingSchedule] = useState(true);
   const [isPublishing, setIsPublishing] = useState(false);
   const [isSchedulePublished, setIsSchedulePublished] = useState(false);
+  const [isClearingSchedule, setIsClearingSchedule] = useState(false);
   const {
     courses,
     isLoading,
@@ -332,20 +333,32 @@ const AdminDashboard = () => {
   const handleClearSchedule = async () => {
     if (window.confirm("Are you sure you want to clear the entire schedule? This action cannot be undone.")) {
       try {
+        setIsClearingSchedule(true);
+        console.log('🗑️ Dashboard: Starting to clear schedule...');
+        
+        // Clear the database first
         await clearSchedule();
+        console.log('✅ Dashboard: Database cleared successfully');
+        
+        // Then update the local state atomically
         setSchedule([]);
         setIsSchedulePublished(false);
+        
+        console.log('✅ Dashboard: Local state cleared successfully');
+        
         toast({
           title: "Schedule Cleared",
           description: "All schedule entries have been removed.",
         });
       } catch (error) {
-        console.error('Error clearing schedule:', error);
+        console.error('❌ Dashboard: Error clearing schedule:', error);
         toast({
           title: "Error",
           description: "Failed to clear schedule. Please try again.",
           variant: "destructive",
         });
+      } finally {
+        setIsClearingSchedule(false);
       }
     }
   };
@@ -366,7 +379,8 @@ const AdminDashboard = () => {
   console.log('🎨 Dashboard: Final render with schedule:', {
     scheduleLength: schedule.length,
     filteredCoursesLength: filteredCourses.length,
-    allValid: schedule.every(item => isValidScheduleItem(item))
+    allValid: schedule.every(item => isValidScheduleItem(item)),
+    isClearingSchedule
   });
 
   return (
@@ -398,7 +412,7 @@ const AdminDashboard = () => {
               <Calendar className="h-4 w-4" />
               Student View
             </Button>
-            {schedule.length > 0 && (
+            {schedule.length > 0 && !isClearingSchedule && (
               <>
                 <Button 
                   variant={isSchedulePublished ? "default" : "outline"}
@@ -415,9 +429,10 @@ const AdminDashboard = () => {
                   size="sm" 
                   className="gap-2"
                   onClick={handleClearSchedule}
+                  disabled={isClearingSchedule}
                 >
                   <Trash2 className="h-4 w-4" />
-                  Clear Schedule
+                  {isClearingSchedule ? "Clearing..." : "Clear Schedule"}
                 </Button>
               </>
             )}
