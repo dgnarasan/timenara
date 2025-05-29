@@ -22,91 +22,140 @@ interface TimetableProps {
 }
 
 const Timetable = ({ schedule, favorites = new Set(), onToggleFavorite }: TimetableProps) => {
+  console.log('🔍 Timetable component received schedule:', {
+    isArray: Array.isArray(schedule),
+    length: schedule?.length || 0,
+    firstItem: schedule?.[0],
+    allItems: schedule
+  });
+
+  // Early validation - stop everything if schedule is invalid
+  if (!schedule) {
+    console.warn('❌ Timetable: Schedule is null/undefined');
+    return (
+      <div className="w-full space-y-4 md:space-y-6 animate-fade-in">
+        <div className="text-center py-12">
+          <h3 className="text-lg font-medium text-muted-foreground">No Schedule Data</h3>
+          <p className="text-sm text-muted-foreground mt-2">
+            Schedule data is not available.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!Array.isArray(schedule)) {
+    console.warn('❌ Timetable: Schedule is not an array:', typeof schedule, schedule);
+    return (
+      <div className="w-full space-y-4 md:space-y-6 animate-fade-in">
+        <div className="text-center py-12">
+          <h3 className="text-lg font-medium text-muted-foreground">Invalid Schedule Format</h3>
+          <p className="text-sm text-muted-foreground mt-2">
+            Schedule data format is invalid.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   const [expandedView, setExpandedView] = useState(false);
   const [viewType, setViewType] = useState<"grid" | "table">("grid");
   const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
 
-  // Enhanced validation for schedule items with detailed logging
-  const validateScheduleItem = (item: any, index: number): item is ScheduleItem => {
+  // Simplified and more defensive validation
+  const isValidScheduleItem = (item: any, index: number): item is ScheduleItem => {
+    console.log(`🔍 Validating item ${index}:`, item);
+    
     try {
-      // First check if item exists and is an object
+      // Basic existence check
       if (!item || typeof item !== 'object') {
-        console.warn(`Timetable: Schedule item at index ${index} is not an object:`, item);
+        console.warn(`❌ Item ${index}: Not an object:`, item);
         return false;
       }
 
-      // Check all required string fields
+      // Check essential string fields
       const stringFields = ['id', 'code', 'name', 'lecturer', 'department'];
       for (const field of stringFields) {
         if (!item[field] || typeof item[field] !== 'string' || item[field].trim() === '') {
-          console.warn(`Timetable: Schedule item at index ${index} has invalid ${field}:`, item[field], 'Full item:', item);
+          console.warn(`❌ Item ${index}: Invalid ${field}:`, item[field]);
           return false;
         }
       }
 
       // Check classSize
       if (typeof item.classSize !== 'number' || item.classSize <= 0) {
-        console.warn(`Timetable: Schedule item at index ${index} has invalid classSize:`, item.classSize);
+        console.warn(`❌ Item ${index}: Invalid classSize:`, item.classSize);
         return false;
       }
 
-      // Validate timeSlot structure
+      // Check timeSlot
       if (!item.timeSlot || typeof item.timeSlot !== 'object') {
-        console.warn(`Timetable: Schedule item at index ${index} has no timeSlot:`, item.timeSlot);
+        console.warn(`❌ Item ${index}: No timeSlot:`, item.timeSlot);
         return false;
       }
 
-      const timeSlotFields = ['day', 'startTime', 'endTime'];
-      for (const field of timeSlotFields) {
-        if (!item.timeSlot[field] || typeof item.timeSlot[field] !== 'string' || item.timeSlot[field].trim() === '') {
-          console.warn(`Timetable: Schedule item at index ${index} has invalid timeSlot.${field}:`, item.timeSlot[field]);
-          return false;
-        }
-      }
-
-      // Validate venue structure
-      if (!item.venue || typeof item.venue !== 'object' || !item.venue.name || typeof item.venue.name !== 'string' || item.venue.name.trim() === '') {
-        console.warn(`Timetable: Schedule item at index ${index} has invalid venue:`, item.venue);
+      if (!item.timeSlot.day || !item.timeSlot.startTime || !item.timeSlot.endTime) {
+        console.warn(`❌ Item ${index}: Invalid timeSlot properties:`, item.timeSlot);
         return false;
       }
 
+      // Check venue
+      if (!item.venue || typeof item.venue !== 'object' || !item.venue.name) {
+        console.warn(`❌ Item ${index}: Invalid venue:`, item.venue);
+        return false;
+      }
+
+      console.log(`✅ Item ${index}: Valid`);
       return true;
     } catch (error) {
-      console.warn(`Timetable: Error validating schedule item at index ${index}:`, error, 'Item:', item);
+      console.warn(`❌ Item ${index}: Validation error:`, error);
       return false;
     }
   };
 
-  // Filter out invalid schedule items with comprehensive validation
+  // Validate and filter schedule items
   const validSchedule = useMemo(() => {
-    console.log('Timetable: Starting validation of schedule with', schedule?.length || 0, 'items');
+    console.log('🔍 Starting schedule validation...');
     
-    if (!Array.isArray(schedule)) {
-      console.warn('Timetable: Schedule is not an array:', schedule);
+    try {
+      const filtered = schedule
+        .map((item, index) => ({ item, index }))
+        .filter(({ item, index }) => {
+          const isValid = isValidScheduleItem(item, index);
+          if (!isValid) {
+            console.warn(`🚫 Filtering out invalid item at index ${index}:`, item);
+          }
+          return isValid;
+        })
+        .map(({ item }) => item);
+      
+      console.log(`✅ Validation complete: ${filtered.length} valid items out of ${schedule.length}`);
+      return filtered;
+    } catch (error) {
+      console.error('❌ Error during validation:', error);
       return [];
     }
-    
-    const filtered = schedule
-      .map((item, index) => ({ item, index })) // Track original index for logging
-      .filter(({ item, index }) => {
-        const isValid = validateScheduleItem(item, index);
-        if (!isValid) {
-          console.warn(`Timetable: Filtered out invalid item at index ${index}:`, item);
-        }
-        return isValid;
-      })
-      .map(({ item }) => item);
-    
-    console.log(`Timetable: Validation complete. Valid items: ${filtered.length} out of ${schedule.length}`);
-    
-    if (filtered.length !== schedule.length) {
-      console.warn(`Timetable: Filtered out ${schedule.length - filtered.length} invalid items from schedule`);
-    }
-    
-    return filtered;
   }, [schedule]);
 
-  // Get all unique time slots with their full ranges from the schedule
+  // If no valid schedule items, show empty state
+  if (validSchedule.length === 0) {
+    console.warn('⚠️ No valid schedule items after validation');
+    return (
+      <div className="w-full space-y-4 md:space-y-6 animate-fade-in">
+        <div className="text-center py-12">
+          <h3 className="text-lg font-medium text-muted-foreground">No Valid Schedule Items</h3>
+          <p className="text-sm text-muted-foreground mt-2">
+            {schedule.length > 0 
+              ? `${schedule.length} items were found but none are valid for display.`
+              : 'No schedule items to display.'
+            }
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Get unique time slots with safety checks
   const getUniqueTimeSlots = () => {
     const timeSlots = new Set<string>();
     validSchedule.forEach((item, index) => {
@@ -115,39 +164,22 @@ const Timetable = ({ schedule, favorites = new Set(), onToggleFavorite }: Timeta
           const timeRange = `${item.timeSlot.startTime} - ${item.timeSlot.endTime}`;
           timeSlots.add(timeRange);
         } else {
-          console.warn(`Timetable: Item at index ${index} has invalid time slot:`, item?.timeSlot);
+          console.warn(`⚠️ Item ${index} has invalid time slot:`, item?.timeSlot);
         }
       } catch (error) {
-        console.warn(`Timetable: Error processing time slot for item at index ${index}:`, item, error);
+        console.warn(`❌ Error processing time slot for item ${index}:`, error);
       }
     });
-    return Array.from(timeSlots).sort((a, b) => {
-      try {
-        const startA = parseInt(a.split(' - ')[0].split(':')[0]);
-        const startB = parseInt(b.split(' - ')[0].split(':')[0]);
-        if (startA !== startB) return startA - startB;
-        
-        // Sort by duration if start times are same
-        const endA = parseInt(a.split(' - ')[1].split(':')[0]);
-        const endB = parseInt(b.split(' - ')[1].split(':')[0]);
-        return (endA - startA) - (endB - startB);
-      } catch (error) {
-        console.warn('Timetable: Error sorting time slots:', error);
-        return 0;
-      }
-    });
-  };
-
-  // Generate all possible flexible time slots for expanded view
-  const generateAllFlexibleTimeSlots = () => {
-    return generateFlexibleTimeSlots();
+    return Array.from(timeSlots).sort();
   };
 
   const uniqueTimeSlots = getUniqueTimeSlots();
-  const allTimeSlots = generateAllFlexibleTimeSlots();
+  const allTimeSlots = generateFlexibleTimeSlots();
   const displayTimeSlots = expandedView ? allTimeSlots : uniqueTimeSlots;
 
-  // Enhanced department colors with better contrast - memoized to ensure consistency
+  console.log('🔍 Time slots:', { unique: uniqueTimeSlots.length, all: allTimeSlots.length, display: displayTimeSlots.length });
+
+  // Department colors with safety
   const getDepartmentColor = useMemo(() => {
     const colorMap: Record<string, { bg: string; border: string; text: string; accent: string }> = {
       'Computer Science': { bg: "bg-blue-50", border: "border-blue-300", text: "text-blue-900", accent: "bg-blue-600" },
@@ -168,11 +200,10 @@ const Timetable = ({ schedule, favorites = new Set(), onToggleFavorite }: Timeta
         accent: "bg-gray-600" 
       };
     };
-  }, [validSchedule]);
+  }, []);
 
   const getScheduledItemsForSlot = (day: string, timeRange: string) => {
     try {
-      const [startTime, endTime] = timeRange.split(' - ');
       return validSchedule.filter((item) => {
         try {
           if (!item?.timeSlot?.startTime || !item?.timeSlot?.endTime || !item?.timeSlot?.day) {
@@ -181,29 +212,15 @@ const Timetable = ({ schedule, favorites = new Set(), onToggleFavorite }: Timeta
           const itemTimeRange = `${item.timeSlot.startTime} - ${item.timeSlot.endTime}`;
           return item.timeSlot.day === day && itemTimeRange === timeRange;
         } catch (error) {
-          console.warn('Timetable: Error comparing time ranges for item:', item, error);
+          console.warn('❌ Error comparing time ranges for item:', item, error);
           return false;
         }
       });
     } catch (error) {
-      console.warn('Timetable: Error in getScheduledItemsForSlot:', error);
+      console.warn('❌ Error in getScheduledItemsForSlot:', error);
       return [];
     }
   };
-
-  const getCourseLevel = (courseCode: string | undefined) => {
-    if (!courseCode || typeof courseCode !== 'string') {
-      return "N/A";
-    }
-    
-    const match = courseCode.match(/\d/);
-    return match ? `${match[0]}00` : "N/A";
-  };
-
-  // Get unique departments for legend - memoized for performance
-  const departments = useMemo(() => {
-    return Array.from(new Set(validSchedule.map(item => item?.department).filter(Boolean)));
-  }, [validSchedule]);
 
   const getDurationFromTimeRange = (timeRange: string): number => {
     try {
@@ -212,8 +229,8 @@ const Timetable = ({ schedule, favorites = new Set(), onToggleFavorite }: Timeta
       const endHour = parseInt(end.split(':')[0]);
       return endHour - startHour;
     } catch (error) {
-      console.warn('Timetable: Error calculating duration from time range:', timeRange, error);
-      return 1; // Default to 1 hour
+      console.warn('❌ Error calculating duration:', timeRange, error);
+      return 1;
     }
   };
 
@@ -225,31 +242,245 @@ const Timetable = ({ schedule, favorites = new Set(), onToggleFavorite }: Timeta
     }
   };
 
-  // Early return if no valid schedule
-  if (!validSchedule || validSchedule.length === 0) {
+  const departments = useMemo(() => {
+    return Array.from(new Set(validSchedule.map(item => item?.department).filter(Boolean)));
+  }, [validSchedule]);
+
+  console.log('🔍 About to render with:', {
+    validScheduleLength: validSchedule.length,
+    departments: departments.length,
+    displayTimeSlots: displayTimeSlots.length,
+    viewType
+  });
+
+  const renderGridView = () => {
+    console.log('🔍 Rendering grid view...');
+    
     return (
-      <div className="w-full space-y-4 md:space-y-6 animate-fade-in">
-        <div className="text-center py-12">
-          <h3 className="text-lg font-medium text-muted-foreground">No Schedule Available</h3>
-          <p className="text-sm text-muted-foreground mt-2">
-            Generate a schedule to view the timetable here.
-          </p>
+      <div className="space-y-4 md:space-y-6">
+        {/* Header */}
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between bg-gradient-to-r from-primary/5 to-primary/10 p-3 md:p-4 rounded-lg border">
+          <div>
+            <h3 className="text-lg md:text-xl font-bold text-primary">Flexible Weekly Timetable</h3>
+            <p className="text-xs md:text-sm text-muted-foreground">
+              Showing <span className="font-semibold text-primary">{validSchedule.length}</span> courses with flexible durations
+            </p>
+          </div>
+          <div className="flex flex-col sm:flex-row gap-2">
+            <div className="flex gap-2">
+              <Button
+                variant={viewType === "grid" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setViewType("grid")}
+                className="gap-2 flex-1 sm:flex-none"
+              >
+                <Grid3x3 className="h-4 w-4" />
+                <span className="hidden sm:inline">Grid View</span>
+                <span className="sm:hidden">Grid</span>
+              </Button>
+              <Button
+                variant={viewType === "table" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setViewType("table")}
+                className="gap-2 flex-1 sm:flex-none"
+              >
+                <List className="h-4 w-4" />
+                <span className="hidden sm:inline">List View</span>
+                <span className="sm:hidden">List</span>
+              </Button>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setExpandedView(!expandedView)}
+              className="gap-2"
+            >
+              {expandedView ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+              <span className="hidden sm:inline">{expandedView ? "Show Scheduled Only" : "Show All Time Slots"}</span>
+              <span className="sm:hidden">{expandedView ? "Less" : "More"}</span>
+            </Button>
+          </div>
+        </div>
+
+        {/* Timetable Grid */}
+        <div className="border rounded-lg shadow-lg bg-white">
+          <div className="overflow-x-auto">
+            <div className="min-w-[800px]">
+              <table className="w-full border-collapse">
+                <thead className="sticky top-0 z-20">
+                  <tr className="bg-gradient-to-r from-primary to-primary/90 text-white">
+                    <th className="p-2 md:p-4 text-left font-bold border-r border-primary-foreground/20 w-32 md:w-40 sticky left-0 bg-primary z-30">
+                      <span className="text-xs md:text-sm">TIME SLOT</span>
+                    </th>
+                    {days.map((day) => {
+                      const dayClasses = validSchedule.filter(item => item?.timeSlot?.day === day).length;
+                      return (
+                        <th
+                          key={day}
+                          className="p-2 md:p-4 text-center font-bold border-r border-primary-foreground/20 min-w-[180px] md:min-w-[220px]"
+                        >
+                          <div className="space-y-1">
+                            <div className="text-xs md:text-sm font-bold">{day.slice(0, 3).toUpperCase()}</div>
+                            <div className="text-xs opacity-80 hidden sm:block">
+                              {dayClasses > 0 ? `${dayClasses} classes` : 'No classes'}
+                            </div>
+                          </div>
+                        </th>
+                      );
+                    })}
+                  </tr>
+                </thead>
+                <tbody>
+                  {displayTimeSlots.map((timeRange, timeIndex) => {
+                    const duration = getDurationFromTimeRange(timeRange);
+                    return (
+                      <tr key={timeRange} className={`${timeIndex % 2 === 0 ? "bg-muted/20" : "bg-white"} hover:bg-muted/40 transition-colors`}>
+                        <td className="p-2 md:p-3 border-r border-border text-xs md:text-sm font-bold text-center bg-muted/50 sticky left-0 z-10 shadow-sm">
+                          <div className="space-y-1">
+                            <div className="text-primary font-bold text-xs leading-tight">
+                              {timeRange.replace(' - ', '\n-\n').split('\n').map((line, i) => (
+                                <div key={i} className={i === 1 ? 'text-muted-foreground' : ''}>{line}</div>
+                              ))}
+                            </div>
+                            <div className={`text-xs px-1 py-0.5 rounded ${getDurationBadgeColor(duration)}`}>
+                              {duration}h
+                            </div>
+                          </div>
+                        </td>
+                        {days.map((day) => {
+                          const scheduledItems = getScheduledItemsForSlot(day, timeRange);
+                          return (
+                            <td
+                              key={`${day}-${timeRange}`}
+                              className="p-1 sm:p-2 md:p-3 border-r border-border align-top min-h-[100px] sm:min-h-[120px] md:min-h-[140px] relative"
+                            >
+                              <div className="space-y-1 sm:space-y-2">
+                                {scheduledItems.map((item) => {
+                                  console.log('🔍 Rendering item in grid:', { id: item?.id, code: item?.code });
+                                  
+                                  // Extra safety check before rendering
+                                  if (!item || !item.id || !item.code) {
+                                    console.warn('⚠️ Skipping invalid item in render:', item);
+                                    return null;
+                                  }
+
+                                  const colors = getDepartmentColor(item.department || 'Default');
+                                  const itemDuration = getDurationFromTimeRange(`${item.timeSlot.startTime} - ${item.timeSlot.endTime}`);
+                                  
+                                  return (
+                                    <Card
+                                      key={item.id}
+                                      className={`
+                                        ${colors.bg} ${colors.border} border-l-2 sm:border-l-4 
+                                        ${colors.accent.replace('bg-', 'border-l-')}
+                                        hover:shadow-md md:hover:shadow-lg transition-all duration-300 
+                                        p-1.5 sm:p-2 md:p-3 relative group cursor-pointer transform hover:scale-[1.02]
+                                      `}
+                                    >
+                                      <div className="space-y-1 sm:space-y-2">
+                                        <div className="flex items-start justify-between gap-1 sm:gap-2">
+                                          <div className="flex-1 min-w-0">
+                                            <div className="flex flex-col sm:flex-row sm:items-center gap-1 mb-1">
+                                              <div className={`font-bold ${colors.text} text-xs sm:text-sm`}>
+                                                {item.code}
+                                              </div>
+                                              <div className={`px-1 py-0.5 rounded text-xs font-medium ${getDurationBadgeColor(itemDuration)}`}>
+                                                {itemDuration}h
+                                              </div>
+                                            </div>
+                                            
+                                            <div className="text-xs text-muted-foreground font-medium mb-1 sm:mb-2 line-clamp-2">
+                                              {item.name}
+                                            </div>
+                                          </div>
+                                          
+                                          {onToggleFavorite && (
+                                            <Button
+                                              variant="ghost"
+                                              size="icon"
+                                              className="h-5 w-5 sm:h-6 sm:w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                onToggleFavorite(item.id);
+                                              }}
+                                            >
+                                              <Star
+                                                className={`h-3 w-3 ${
+                                                  favorites.has(item.id)
+                                                    ? "fill-yellow-400 text-yellow-400"
+                                                    : "text-muted-foreground"
+                                                }`}
+                                              />
+                                            </Button>
+                                          )}
+                                        </div>
+
+                                        <div className="space-y-1">
+                                          <div className="flex items-center gap-1 text-muted-foreground">
+                                            <Users className="h-2.5 w-2.5 sm:h-3 sm:w-3 flex-shrink-0" />
+                                            <span className="truncate text-xs font-medium">{item.lecturer}</span>
+                                          </div>
+                                          
+                                          <div className="flex items-center gap-1 text-muted-foreground">
+                                            <MapPin className="h-2.5 w-2.5 sm:h-3 sm:w-3 flex-shrink-0" />
+                                            <span className="truncate text-xs">{item.venue?.name}</span>
+                                          </div>
+
+                                          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
+                                            <div className="flex items-center gap-1 text-muted-foreground">
+                                              <Clock className="h-2.5 w-2.5 sm:h-3 sm:w-3 flex-shrink-0" />
+                                              <span className="text-xs">
+                                                {item.timeSlot?.startTime} - {item.timeSlot?.endTime}
+                                              </span>
+                                            </div>
+                                            
+                                            {item.classSize && (
+                                              <div className="bg-white/90 px-1 py-0.5 rounded text-xs font-medium text-muted-foreground">
+                                                {item.classSize}
+                                              </div>
+                                            )}
+                                          </div>
+                                        </div>
+                                      </div>
+
+                                      <div className={`absolute top-1 right-1 sm:top-2 sm:right-2 w-2 h-2 sm:w-3 sm:h-3 rounded-full ${colors.accent} shadow-sm`} />
+                                    </Card>
+                                  );
+                                })}
+                                
+                                {scheduledItems.length === 0 && (
+                                  <div className="h-12 sm:h-16 flex items-center justify-center text-muted-foreground/50 text-xs border border-dashed border-muted-foreground/20 rounded">
+                                    No classes
+                                  </div>
+                                )}
+                              </div>
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
       </div>
     );
-  }
+  };
 
-  const renderGridView = () => (
-    <div className="space-y-4 md:space-y-6">
-      {/* Enhanced Header */}
-      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between bg-gradient-to-r from-primary/5 to-primary/10 p-3 md:p-4 rounded-lg border">
-        <div>
-          <h3 className="text-lg md:text-xl font-bold text-primary">Flexible Weekly Timetable</h3>
-          <p className="text-xs md:text-sm text-muted-foreground">
-            Showing <span className="font-semibold text-primary">{validSchedule.length}</span> courses with flexible durations (1-2 hours only)
-          </p>
-        </div>
-        <div className="flex flex-col sm:flex-row gap-2">
+  const renderTableView = () => {
+    console.log('🔍 Rendering table view...');
+    
+    return (
+      <div className="space-y-4">
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between bg-gradient-to-r from-primary/5 to-primary/10 p-3 md:p-4 rounded-lg border">
+          <div>
+            <h3 className="text-lg md:text-xl font-bold text-primary">Schedule List</h3>
+            <p className="text-xs md:text-sm text-muted-foreground">
+              Showing <span className="font-semibold text-primary">{validSchedule.length}</span> courses
+            </p>
+          </div>
           <div className="flex gap-2">
             <Button
               variant={viewType === "grid" ? "default" : "outline"}
@@ -272,315 +503,77 @@ const Timetable = ({ schedule, favorites = new Set(), onToggleFavorite }: Timeta
               <span className="sm:hidden">List</span>
             </Button>
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setExpandedView(!expandedView)}
-            className="gap-2"
-          >
-            {expandedView ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-            <span className="hidden sm:inline">{expandedView ? "Show Scheduled Only" : "Show All Time Slots"}</span>
-            <span className="sm:hidden">{expandedView ? "Less" : "More"}</span>
-          </Button>
         </div>
-      </div>
 
-      {/* Updated Duration Legend - removed 3-hour option */}
-      <div className="bg-card rounded-lg p-3 md:p-4 border shadow-sm">
-        <h4 className="text-sm font-semibold text-foreground mb-3">Class Duration Guide</h4>
-        <div className="flex flex-wrap gap-2">
-          <div className="flex items-center gap-2 px-2 py-1 bg-green-50 rounded">
-            <div className="w-3 h-3 bg-green-500 rounded"></div>
-            <span className="text-xs">1 Hour Classes</span>
-          </div>
-          <div className="flex items-center gap-2 px-2 py-1 bg-blue-50 rounded">
-            <div className="w-3 h-3 bg-blue-500 rounded"></div>
-            <span className="text-xs">2 Hour Classes</span>
-          </div>
-        </div>
-      </div>
+        <div className="border rounded-lg shadow-sm bg-white overflow-hidden">
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-primary hover:bg-primary">
+                  <TableHead className="text-white font-bold text-xs md:text-sm">Code</TableHead>
+                  <TableHead className="text-white font-bold text-xs md:text-sm">Course</TableHead>
+                  <TableHead className="text-white font-bold text-xs md:text-sm hidden sm:table-cell">Lecturer</TableHead>
+                  <TableHead className="text-white font-bold text-xs md:text-sm hidden md:table-cell">Department</TableHead>
+                  <TableHead className="text-white font-bold text-xs md:text-sm">Day</TableHead>
+                  <TableHead className="text-white font-bold text-xs md:text-sm">Time</TableHead>
+                  <TableHead className="text-white font-bold text-xs md:text-sm">Duration</TableHead>
+                  <TableHead className="text-white font-bold text-xs md:text-sm hidden sm:table-cell">Venue</TableHead>
+                  <TableHead className="text-white font-bold text-xs md:text-sm hidden lg:table-cell">Students</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {validSchedule.map((item, index) => {
+                  console.log('🔍 Rendering item in table:', { id: item?.id, code: item?.code, index });
+                  
+                  // Extra safety check before rendering
+                  if (!item || !item.id || !item.code) {
+                    console.warn('⚠️ Skipping invalid item in table render:', item);
+                    return null;
+                  }
 
-      {/* Department Legend */}
-      {departments.length > 1 && (
-        <div className="bg-card rounded-lg p-3 md:p-4 border shadow-sm">
-          <h4 className="text-sm font-semibold text-foreground mb-3">Department Color Guide</h4>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 md:gap-3">
-            {departments.map((dept) => {
-              const colors = getDepartmentColor(dept);
-              return (
-                <div key={dept} className="flex items-center gap-2 p-2 bg-muted/30 rounded">
-                  <div className={`w-3 h-3 md:w-4 md:h-4 rounded-full ${colors.accent} shadow-sm flex-shrink-0`} />
-                  <span className="text-xs font-medium truncate" title={dept}>{dept}</span>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* Fixed Timetable Container with proper horizontal scrolling */}
-      <div className="border rounded-lg shadow-lg bg-white">
-        <div className="overflow-x-auto">
-          <div className="min-w-[800px]">
-            <table className="w-full border-collapse">
-              <thead className="sticky top-0 z-20">
-                <tr className="bg-gradient-to-r from-primary to-primary/90 text-white">
-                  <th className="p-2 md:p-4 text-left font-bold border-r border-primary-foreground/20 w-32 md:w-40 sticky left-0 bg-primary z-30">
-                    <span className="text-xs md:text-sm">TIME SLOT</span>
-                  </th>
-                  {days.map((day) => {
-                    const dayClasses = validSchedule.filter(item => item?.timeSlot?.day === day).length;
-                    return (
-                      <th
-                        key={day}
-                        className="p-2 md:p-4 text-center font-bold border-r border-primary-foreground/20 min-w-[180px] md:min-w-[220px]"
-                      >
-                        <div className="space-y-1">
-                          <div className="text-xs md:text-sm font-bold">{day.slice(0, 3).toUpperCase()}</div>
-                          <div className="text-xs opacity-80 hidden sm:block">
-                            {dayClasses > 0 ? `${dayClasses} classes` : 'No classes'}
-                          </div>
-                        </div>
-                      </th>
-                    );
-                  })}
-                </tr>
-              </thead>
-              <tbody>
-                {displayTimeSlots.map((timeRange, timeIndex) => {
-                  const duration = getDurationFromTimeRange(timeRange);
+                  const colors = getDepartmentColor(item.department || 'Default');
+                  const duration = getDurationFromTimeRange(`${item.timeSlot.startTime} - ${item.timeSlot.endTime}`);
                   return (
-                    <tr key={timeRange} className={`${timeIndex % 2 === 0 ? "bg-muted/20" : "bg-white"} hover:bg-muted/40 transition-colors`}>
-                      <td className="p-2 md:p-3 border-r border-border text-xs md:text-sm font-bold text-center bg-muted/50 sticky left-0 z-10 shadow-sm">
-                        <div className="space-y-1">
-                          <div className="text-primary font-bold text-xs leading-tight">
-                            {timeRange.replace(' - ', '\n-\n').split('\n').map((line, i) => (
-                              <div key={i} className={i === 1 ? 'text-muted-foreground' : ''}>{line}</div>
-                            ))}
-                          </div>
-                          <div className={`text-xs px-1 py-0.5 rounded ${getDurationBadgeColor(duration)}`}>
-                            {duration}h
-                          </div>
+                    <TableRow key={item.id} className={`${index % 2 === 0 ? 'bg-muted/20' : 'bg-white'} hover:bg-muted/40`}>
+                      <TableCell className="font-bold text-primary text-xs md:text-sm">{item.code}</TableCell>
+                      <TableCell className="font-medium text-xs md:text-sm">
+                        <div className="sm:hidden text-xs text-muted-foreground mt-1">{item.lecturer}</div>
+                        {item.name}
+                      </TableCell>
+                      <TableCell className="hidden sm:table-cell text-xs md:text-sm">{item.lecturer}</TableCell>
+                      <TableCell className="hidden md:table-cell">
+                        <div className="flex items-center gap-2">
+                          <div className={`w-3 h-3 rounded-full ${colors.accent}`} />
+                          <span className="text-xs md:text-sm">{item.department}</span>
                         </div>
-                      </td>
-                      {days.map((day) => {
-                        const scheduledItems = getScheduledItemsForSlot(day, timeRange);
-                        return (
-                          <td
-                            key={`${day}-${timeRange}`}
-                            className="p-1 sm:p-2 md:p-3 border-r border-border align-top min-h-[100px] sm:min-h-[120px] md:min-h-[140px] relative"
-                          >
-                            <div className="space-y-1 sm:space-y-2">
-                              {scheduledItems.map((item) => {
-                                // Additional safety check for item
-                                if (!item || !item.id || !item.code) {
-                                  console.warn('Timetable: Skipping invalid item in render:', item);
-                                  return null;
-                                }
-
-                                const colors = getDepartmentColor(item.department || 'Default');
-                                const itemDuration = getDurationFromTimeRange(`${item.timeSlot.startTime} - ${item.timeSlot.endTime}`);
-                                
-                                return (
-                                  <Card
-                                    key={item.id}
-                                    className={`
-                                      ${colors.bg} ${colors.border} border-l-2 sm:border-l-4 
-                                      ${colors.accent.replace('bg-', 'border-l-')}
-                                      hover:shadow-md md:hover:shadow-lg transition-all duration-300 
-                                      p-1.5 sm:p-2 md:p-3 relative group cursor-pointer transform hover:scale-[1.02]
-                                    `}
-                                  >
-                                    <div className="space-y-1 sm:space-y-2">
-                                      <div className="flex items-start justify-between gap-1 sm:gap-2">
-                                        <div className="flex-1 min-w-0">
-                                          <div className="flex flex-col sm:flex-row sm:items-center gap-1 mb-1">
-                                            <div className={`font-bold ${colors.text} text-xs sm:text-sm`}>
-                                              {item.code || 'N/A'}
-                                            </div>
-                                            <div className={`px-1 py-0.5 rounded text-xs font-medium ${getDurationBadgeColor(itemDuration)}`}>
-                                              {itemDuration}h
-                                            </div>
-                                          </div>
-                                          
-                                          <div className="text-xs text-muted-foreground font-medium mb-1 sm:mb-2 line-clamp-2">
-                                            {item.name || 'Course Name'}
-                                          </div>
-                                        </div>
-                                        
-                                        {onToggleFavorite && (
-                                          <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            className="h-5 w-5 sm:h-6 sm:w-6 opacity-0 group-hover:opacity-100 transition-opacity"
-                                            onClick={(e) => {
-                                              e.stopPropagation();
-                                              onToggleFavorite(item.id);
-                                            }}
-                                          >
-                                            <Star
-                                              className={`h-3 w-3 ${
-                                                favorites.has(item.id)
-                                                  ? "fill-yellow-400 text-yellow-400"
-                                                  : "text-muted-foreground"
-                                              }`}
-                                            />
-                                          </Button>
-                                        )}
-                                      </div>
-
-                                      <div className="space-y-1">
-                                        <div className="flex items-center gap-1 text-muted-foreground">
-                                          <Users className="h-2.5 w-2.5 sm:h-3 sm:w-3 flex-shrink-0" />
-                                          <span className="truncate text-xs font-medium">{item.lecturer || 'TBD'}</span>
-                                        </div>
-                                        
-                                        <div className="flex items-center gap-1 text-muted-foreground">
-                                          <MapPin className="h-2.5 w-2.5 sm:h-3 sm:w-3 flex-shrink-0" />
-                                          <span className="truncate text-xs">{item.venue?.name || 'TBD'}</span>
-                                        </div>
-
-                                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
-                                          <div className="flex items-center gap-1 text-muted-foreground">
-                                            <Clock className="h-2.5 w-2.5 sm:h-3 sm:w-3 flex-shrink-0" />
-                                            <span className="text-xs">
-                                              {item.timeSlot?.startTime || 'TBD'} - {item.timeSlot?.endTime || 'TBD'}
-                                            </span>
-                                          </div>
-                                          
-                                          {item.classSize && (
-                                            <div className="bg-white/90 px-1 py-0.5 rounded text-xs font-medium text-muted-foreground">
-                                              {item.classSize}
-                                            </div>
-                                          )}
-                                        </div>
-                                      </div>
-                                    </div>
-
-                                    {/* Department indicator */}
-                                    <div className={`absolute top-1 right-1 sm:top-2 sm:right-2 w-2 h-2 sm:w-3 sm:h-3 rounded-full ${colors.accent} shadow-sm`} />
-                                  </Card>
-                                );
-                              })}
-                              
-                              {scheduledItems.length === 0 && (
-                                <div className="h-12 sm:h-16 flex items-center justify-center text-muted-foreground/50 text-xs border border-dashed border-muted-foreground/20 rounded">
-                                  No classes
-                                </div>
-                              )}
-                            </div>
-                          </td>
-                        );
-                      })}
-                    </tr>
+                      </TableCell>
+                      <TableCell className="font-medium text-xs md:text-sm">{item.timeSlot.day.slice(0, 3)}</TableCell>
+                      <TableCell className="text-xs md:text-sm">{item.timeSlot.startTime} - {item.timeSlot.endTime}</TableCell>
+                      <TableCell className="text-center">
+                        <span className={`px-2 py-1 rounded text-xs font-medium ${getDurationBadgeColor(duration)}`}>
+                          {duration}h
+                        </span>
+                      </TableCell>
+                      <TableCell className="hidden sm:table-cell text-xs md:text-sm">{item.venue?.name}</TableCell>
+                      <TableCell className="text-center font-medium text-xs md:text-sm hidden lg:table-cell">{item.classSize}</TableCell>
+                    </TableRow>
                   );
                 })}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           </div>
         </div>
       </div>
-    </div>
-  );
+    );
+  };
 
-  const renderTableView = () => (
-    <div className="space-y-4">
-      {/* View Toggle Header for Table View */}
-      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between bg-gradient-to-r from-primary/5 to-primary/10 p-3 md:p-4 rounded-lg border">
-        <div>
-          <h3 className="text-lg md:text-xl font-bold text-primary">Schedule List</h3>
-          <p className="text-xs md:text-sm text-muted-foreground">
-            Showing <span className="font-semibold text-primary">{validSchedule.length}</span> courses with flexible durations
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Button
-            variant={viewType === "grid" ? "default" : "outline"}
-            size="sm"
-            onClick={() => setViewType("grid")}
-            className="gap-2 flex-1 sm:flex-none"
-          >
-            <Grid3x3 className="h-4 w-4" />
-            <span className="hidden sm:inline">Grid View</span>
-            <span className="sm:hidden">Grid</span>
-          </Button>
-          <Button
-            variant={viewType === "table" ? "default" : "outline"}
-            size="sm"
-            onClick={() => setViewType("table")}
-            className="gap-2 flex-1 sm:flex-none"
-          >
-            <List className="h-4 w-4" />
-            <span className="hidden sm:inline">List View</span>
-            <span className="sm:hidden">List</span>
-          </Button>
-        </div>
-      </div>
-
-      <div className="border rounded-lg shadow-sm bg-white overflow-hidden">
-        <div className="overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow className="bg-primary hover:bg-primary">
-                <TableHead className="text-white font-bold text-xs md:text-sm">Code</TableHead>
-                <TableHead className="text-white font-bold text-xs md:text-sm">Course</TableHead>
-                <TableHead className="text-white font-bold text-xs md:text-sm hidden sm:table-cell">Lecturer</TableHead>
-                <TableHead className="text-white font-bold text-xs md:text-sm hidden md:table-cell">Department</TableHead>
-                <TableHead className="text-white font-bold text-xs md:text-sm">Day</TableHead>
-                <TableHead className="text-white font-bold text-xs md:text-sm">Time</TableHead>
-                <TableHead className="text-white font-bold text-xs md:text-sm">Duration</TableHead>
-                <TableHead className="text-white font-bold text-xs md:text-sm hidden sm:table-cell">Venue</TableHead>
-                <TableHead className="text-white font-bold text-xs md:text-sm hidden lg:table-cell">Students</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {validSchedule.map((item, index) => {
-                // Additional safety check for item in table view
-                if (!item || !item.id || !item.code) {
-                  console.warn('Timetable: Skipping invalid item in table view:', item);
-                  return null;
-                }
-
-                const colors = getDepartmentColor(item.department || 'Default');
-                const duration = getDurationFromTimeRange(`${item.timeSlot.startTime} - ${item.timeSlot.endTime}`);
-                return (
-                  <TableRow key={item.id} className={`${index % 2 === 0 ? 'bg-muted/20' : 'bg-white'} hover:bg-muted/40`}>
-                    <TableCell className="font-bold text-primary text-xs md:text-sm">{item.code}</TableCell>
-                    <TableCell className="font-medium text-xs md:text-sm">
-                      <div className="sm:hidden text-xs text-muted-foreground mt-1">{item.lecturer}</div>
-                      {item.name}
-                    </TableCell>
-                    <TableCell className="hidden sm:table-cell text-xs md:text-sm">{item.lecturer}</TableCell>
-                    <TableCell className="hidden md:table-cell">
-                      <div className="flex items-center gap-2">
-                        <div className={`w-3 h-3 rounded-full ${colors.accent}`} />
-                        <span className="text-xs md:text-sm">{item.department}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="font-medium text-xs md:text-sm">{item.timeSlot.day.slice(0, 3)}</TableCell>
-                    <TableCell className="text-xs md:text-sm">{item.timeSlot.startTime} - {item.timeSlot.endTime}</TableCell>
-                    <TableCell className="text-center">
-                      <span className={`px-2 py-1 rounded text-xs font-medium ${getDurationBadgeColor(duration)}`}>
-                        {duration}h
-                      </span>
-                    </TableCell>
-                    <TableCell className="hidden sm:table-cell text-xs md:text-sm">{item.venue?.name || 'TBD'}</TableCell>
-                    <TableCell className="text-center font-medium text-xs md:text-sm hidden lg:table-cell">{item.classSize}</TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </div>
-      </div>
-    </div>
-  );
+  console.log('🔍 Rendering main component with viewType:', viewType);
 
   return (
     <div className="w-full space-y-4 md:space-y-6 animate-fade-in">
       {viewType === "grid" ? renderGridView() : renderTableView()}
 
-      {/* Enhanced Statistics */}
+      {/* Statistics */}
       <div className="grid grid-cols-2 md:grid-cols-6 gap-2 md:gap-4">
         <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-3 md:p-4 text-center border border-blue-200">
           <div className="text-lg md:text-2xl font-bold text-blue-700">{validSchedule.length}</div>
@@ -618,32 +611,6 @@ const Timetable = ({ schedule, favorites = new Set(), onToggleFavorite }: Timeta
           <div className="text-xs text-indigo-600 font-medium">Total Hours</div>
         </div>
       </div>
-
-      {/* All Courses Summary */}
-      {validSchedule.length > 0 && (
-        <div className="bg-card rounded-lg p-3 md:p-4 border shadow-sm">
-          <h4 className="font-bold mb-3 text-primary">All Scheduled Courses ({validSchedule.length})</h4>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 max-h-60 overflow-y-auto">
-            {validSchedule.map((item) => {
-              // Additional safety check for summary section
-              if (!item || !item.id || !item.code) {
-                return null;
-              }
-
-              const colors = getDepartmentColor(item.department || 'Default');
-              const duration = getDurationFromTimeRange(`${item.timeSlot.startTime} - ${item.timeSlot.endTime}`);
-              return (
-                <div key={item.id} className="flex items-center gap-2 p-2 bg-muted/30 rounded-md border text-xs md:text-sm hover:bg-muted/50 transition-colors">
-                  <div className={`w-3 h-3 rounded-full ${colors.accent} flex-shrink-0`} />
-                  <span className="font-bold text-primary">{item.code}</span>
-                  <span className={`px-1 py-0.5 text-xs rounded ${getDurationBadgeColor(duration)}`}>{duration}h</span>
-                  <span className="text-muted-foreground truncate text-xs">{item.name}</span>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
     </div>
   );
 };

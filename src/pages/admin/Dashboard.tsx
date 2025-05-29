@@ -32,10 +32,17 @@ const AdminDashboard = () => {
   const { signOut, userCollege } = useAuth();
   const navigate = useNavigate();
 
+  console.log('🔍 Dashboard: Current schedule state:', {
+    isArray: Array.isArray(schedule),
+    length: schedule?.length || 0,
+    firstItem: schedule?.[0],
+    scheduleType: typeof schedule
+  });
+
   // Enhanced validation for schedule items with detailed logging
   const isValidScheduleItem = (item: any): item is ScheduleItem => {
     if (!item || typeof item !== 'object') {
-      console.warn('Schedule item is not an object:', item);
+      console.warn('Dashboard: Schedule item is not an object:', item);
       return false;
     }
 
@@ -43,20 +50,20 @@ const AdminDashboard = () => {
     
     for (const field of requiredFields) {
       if (!item[field]) {
-        console.warn(`Schedule item missing required field '${field}':`, item);
+        console.warn(`Dashboard: Schedule item missing required field '${field}':`, item);
         return false;
       }
     }
 
     // Validate timeSlot structure
     if (!item.timeSlot.day || !item.timeSlot.startTime || !item.timeSlot.endTime) {
-      console.warn('Schedule item has invalid timeSlot:', item.timeSlot);
+      console.warn('Dashboard: Schedule item has invalid timeSlot:', item.timeSlot);
       return false;
     }
 
     // Validate venue structure
     if (!item.venue.name) {
-      console.warn('Schedule item has invalid venue:', item.venue);
+      console.warn('Dashboard: Schedule item has invalid venue:', item.venue);
       return false;
     }
 
@@ -66,7 +73,7 @@ const AdminDashboard = () => {
   // Enhanced validation for courses
   const isValidCourse = (course: any): course is Course => {
     if (!course || typeof course !== 'object') {
-      console.warn('Course is not an object:', course);
+      console.warn('Dashboard: Course is not an object:', course);
       return false;
     }
 
@@ -74,7 +81,7 @@ const AdminDashboard = () => {
     
     for (const field of requiredFields) {
       if (!course[field]) {
-        console.warn(`Course missing required field '${field}':`, course);
+        console.warn(`Dashboard: Course missing required field '${field}':`, course);
         return false;
       }
     }
@@ -85,20 +92,20 @@ const AdminDashboard = () => {
   // Filter courses based on admin's college
   useEffect(() => {
     try {
-      console.log('Filtering courses, total courses:', courses.length);
+      console.log('Dashboard: Filtering courses, total courses:', courses.length);
       const validCourses = courses.filter(isValidCourse);
-      console.log('Valid courses after filtering:', validCourses.length);
+      console.log('Dashboard: Valid courses after filtering:', validCourses.length);
       
       if (userCollege) {
         const collegeDepartments = collegeStructure.find(c => c.college === userCollege)?.departments || [];
         const filtered = validCourses.filter(course => collegeDepartments.includes(course.department));
-        console.log('Courses filtered by college:', filtered.length);
+        console.log('Dashboard: Courses filtered by college:', filtered.length);
         setFilteredCourses(filtered);
       } else {
         setFilteredCourses(validCourses);
       }
     } catch (error) {
-      console.error('Error filtering courses:', error);
+      console.error('Dashboard: Error filtering courses:', error);
       setFilteredCourses([]);
     }
   }, [courses, userCollege]);
@@ -108,22 +115,23 @@ const AdminDashboard = () => {
     const loadSchedule = async () => {
       try {
         setIsLoadingSchedule(true);
-        console.log('Loading schedule from database...');
+        console.log('Dashboard: Loading schedule from database...');
         const existingSchedule = await fetchAdminSchedule();
-        console.log('Raw schedule from database:', existingSchedule);
+        console.log('Dashboard: Raw schedule from database:', existingSchedule);
         
         if (Array.isArray(existingSchedule)) {
           const validSchedule = existingSchedule.filter(isValidScheduleItem);
-          console.log('Valid schedule items:', validSchedule.length, 'out of', existingSchedule.length);
+          console.log('Dashboard: Valid schedule items:', validSchedule.length, 'out of', existingSchedule.length);
+          console.log('Dashboard: Setting schedule state to:', validSchedule);
           setSchedule(validSchedule);
           setIsSchedulePublished(validSchedule.length > 0);
         } else {
-          console.log('No schedule found or invalid format');
+          console.log('Dashboard: No schedule found or invalid format');
           setSchedule([]);
           setIsSchedulePublished(false);
         }
       } catch (error) {
-        console.error('Error loading schedule:', error);
+        console.error('Dashboard: Error loading schedule:', error);
         setSchedule([]);
         toast({
           title: "Error",
@@ -212,10 +220,15 @@ const AdminDashboard = () => {
 
   const handleScheduleGenerated = (newSchedule: ScheduleItem[]) => {
     try {
-      console.log('Processing generated schedule:', newSchedule?.length || 0, 'items');
+      console.log('🔍 Dashboard: Processing generated schedule:', {
+        isArray: Array.isArray(newSchedule),
+        length: newSchedule?.length || 0,
+        firstItem: newSchedule?.[0],
+        allItems: newSchedule
+      });
       
       if (!Array.isArray(newSchedule)) {
-        console.error('Invalid schedule format received:', typeof newSchedule);
+        console.error('Dashboard: Invalid schedule format received:', typeof newSchedule);
         toast({
           title: "Error",
           description: "Invalid schedule format received. Please try again.",
@@ -228,15 +241,18 @@ const AdminDashboard = () => {
       const validSchedule = newSchedule.filter((item, index) => {
         const isValid = isValidScheduleItem(item);
         if (!isValid) {
-          console.warn(`Invalid schedule item at index ${index}:`, item);
+          console.warn(`Dashboard: Invalid schedule item at index ${index}:`, item);
         }
         return isValid;
       });
       
-      console.log('Valid schedule items after filtering:', validSchedule.length, 'out of', newSchedule.length);
+      console.log('🔍 Dashboard: Valid schedule items after filtering:', validSchedule.length, 'out of', newSchedule.length);
+      console.log('🔍 Dashboard: About to set schedule state to:', validSchedule);
       
       setSchedule(validSchedule);
       setIsSchedulePublished(false);
+      
+      console.log('🔍 Dashboard: Schedule state updated');
       
       if (validSchedule.length > 0) {
         toast({
@@ -251,7 +267,7 @@ const AdminDashboard = () => {
         });
       }
     } catch (error) {
-      console.error('Error processing generated schedule:', error);
+      console.error('Dashboard: Error processing generated schedule:', error);
       setSchedule([]);
       setIsSchedulePublished(false);
       toast({
@@ -331,8 +347,12 @@ const AdminDashboard = () => {
   }
 
   // Add logging before rendering
-  console.log('Rendering dashboard with schedule:', schedule.length, 'items');
-  console.log('Filtered courses:', filteredCourses.length, 'items');
+  console.log('🔍 Dashboard: Rendering dashboard with:', {
+    scheduleLength: schedule.length,
+    filteredCoursesLength: filteredCourses.length,
+    scheduleType: typeof schedule,
+    isScheduleArray: Array.isArray(schedule)
+  });
 
   return (
     <div className="container mx-auto py-8 min-h-screen bg-background">
