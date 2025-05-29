@@ -29,7 +29,9 @@ const Timetable = ({ schedule, favorites = new Set(), onToggleFavorite }: Timeta
   const getUniqueTimeSlots = () => {
     const timeSlots = new Set<string>();
     schedule.forEach(item => {
-      const timeRange = `${item.timeSlot.startTime} - ${item.timeSlot.endTime}`;
+      const startHour = parseInt(item.timeSlot.startTime.split(':')[0]);
+      const endHour = startHour + 2; // 2 hour duration
+      const timeRange = `${item.timeSlot.startTime} - ${endHour}:00`;
       timeSlots.add(timeRange);
     });
     return Array.from(timeSlots).sort((a, b) => {
@@ -39,11 +41,11 @@ const Timetable = ({ schedule, favorites = new Set(), onToggleFavorite }: Timeta
     });
   };
 
-  // Generate all possible time slots for expanded view
+  // Generate all possible time slots for expanded view (2-hour slots)
   const generateAllTimeSlots = () => {
     const slots = [];
-    for (let hour = 8; hour <= 19; hour++) {
-      slots.push(`${hour}:00 - ${hour + 1}:00`);
+    for (let hour = 8; hour <= 16; hour += 2) { // 2-hour intervals
+      slots.push(`${hour}:00 - ${hour + 2}:00`);
     }
     return slots;
   };
@@ -74,12 +76,11 @@ const Timetable = ({ schedule, favorites = new Set(), onToggleFavorite }: Timeta
   };
 
   const getScheduledItemsForSlot = (day: string, timeRange: string) => {
-    const [startTime, endTime] = timeRange.split(' - ');
+    const [startTime] = timeRange.split(' - ');
     return schedule.filter(
       (item) =>
         item.timeSlot.day === day &&
-        item.timeSlot.startTime === startTime &&
-        item.timeSlot.endTime === endTime
+        item.timeSlot.startTime === startTime
     );
   };
 
@@ -159,14 +160,14 @@ const Timetable = ({ schedule, favorites = new Set(), onToggleFavorite }: Timeta
         </div>
       )}
 
-      {/* Mobile-optimized Timetable Container */}
-      <div className="border rounded-lg shadow-lg bg-white overflow-hidden">
+      {/* Fixed Timetable Container with proper horizontal scrolling */}
+      <div className="border rounded-lg shadow-lg bg-white">
         <div className="overflow-x-auto">
-          <div className="min-w-[320px] sm:min-w-[600px] lg:min-w-[1000px]">
+          <div className="min-w-[800px]"> {/* Ensure minimum width for proper display */}
             <table className="w-full border-collapse">
               <thead className="sticky top-0 z-20">
                 <tr className="bg-gradient-to-r from-primary to-primary/90 text-white">
-                  <th className="p-2 md:p-4 text-left font-bold border-r border-primary-foreground/20 w-20 sm:w-28 md:w-36 sticky left-0 bg-primary z-30">
+                  <th className="p-2 md:p-4 text-left font-bold border-r border-primary-foreground/20 w-32 md:w-40 sticky left-0 bg-primary z-30">
                     <span className="text-xs md:text-sm">TIME SLOT</span>
                   </th>
                   {days.map((day) => {
@@ -174,7 +175,7 @@ const Timetable = ({ schedule, favorites = new Set(), onToggleFavorite }: Timeta
                     return (
                       <th
                         key={day}
-                        className="p-2 md:p-4 text-center font-bold border-r border-primary-foreground/20 min-w-[120px] sm:min-w-[160px] lg:min-w-[200px]"
+                        className="p-2 md:p-4 text-center font-bold border-r border-primary-foreground/20 min-w-[180px] md:min-w-[220px]"
                       >
                         <div className="space-y-1">
                           <div className="text-xs md:text-sm font-bold">{day.slice(0, 3).toUpperCase()}</div>
@@ -204,11 +205,13 @@ const Timetable = ({ schedule, favorites = new Set(), onToggleFavorite }: Timeta
                       return (
                         <td
                           key={`${day}-${timeRange}`}
-                          className="p-1 sm:p-2 md:p-3 border-r border-border align-top min-h-[80px] sm:min-h-[100px] md:min-h-[120px] relative"
+                          className="p-1 sm:p-2 md:p-3 border-r border-border align-top min-h-[100px] sm:min-h-[120px] md:min-h-[140px] relative"
                         >
                           <div className="space-y-1 sm:space-y-2">
                             {scheduledItems.map((item) => {
                               const colors = getDepartmentColor(item.department || 'Default');
+                              const startHour = parseInt(item.timeSlot.startTime.split(':')[0]);
+                              const endTime = `${startHour + 2}:00`;
                               
                               return (
                                 <Card
@@ -273,7 +276,7 @@ const Timetable = ({ schedule, favorites = new Set(), onToggleFavorite }: Timeta
                                         <div className="flex items-center gap-1 text-muted-foreground">
                                           <Clock className="h-2.5 w-2.5 sm:h-3 sm:w-3 flex-shrink-0" />
                                           <span className="text-xs">
-                                            {item.timeSlot?.startTime || 'TBD'} - {item.timeSlot?.endTime || 'TBD'}
+                                            {item.timeSlot?.startTime || 'TBD'} - {endTime}
                                           </span>
                                         </div>
                                         
@@ -363,6 +366,8 @@ const Timetable = ({ schedule, favorites = new Set(), onToggleFavorite }: Timeta
             <TableBody>
               {schedule.map((item, index) => {
                 const colors = getDepartmentColor(item.department || 'Default');
+                const startHour = parseInt(item.timeSlot.startTime.split(':')[0]);
+                const endTime = `${startHour + 2}:00`;
                 return (
                   <TableRow key={item.id} className={`${index % 2 === 0 ? 'bg-muted/20' : 'bg-white'} hover:bg-muted/40`}>
                     <TableCell className="font-bold text-primary text-xs md:text-sm">{item.code}</TableCell>
@@ -378,7 +383,7 @@ const Timetable = ({ schedule, favorites = new Set(), onToggleFavorite }: Timeta
                       </div>
                     </TableCell>
                     <TableCell className="font-medium text-xs md:text-sm">{item.timeSlot.day.slice(0, 3)}</TableCell>
-                    <TableCell className="text-xs md:text-sm">{item.timeSlot.startTime} - {item.timeSlot.endTime}</TableCell>
+                    <TableCell className="text-xs md:text-sm">{item.timeSlot.startTime} - {endTime}</TableCell>
                     <TableCell className="hidden sm:table-cell text-xs md:text-sm">{item.venue?.name || 'TBD'}</TableCell>
                     <TableCell className="text-center font-medium text-xs md:text-sm hidden lg:table-cell">{item.classSize}</TableCell>
                   </TableRow>

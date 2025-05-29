@@ -1,9 +1,9 @@
 
 import { TimeSlot, Venue, ScheduleItem, Course } from "@/lib/types";
 
-export const HOURS_PER_DAY = 9; // 9:00 to 17:00
+export const HOURS_PER_DAY = 5; // 5 time slots of 2 hours each (9:00-19:00)
 const MAX_CLASSES_PER_DAY = 4;
-const MAX_CONSECUTIVE_CLASSES = 3;
+const MAX_CONSECUTIVE_CLASSES = 2; // Since each class is 2 hours
 
 export const hasConsecutiveClasses = (
   lecturer: string,
@@ -20,7 +20,7 @@ export const hasConsecutiveClasses = (
 
   lecturerClasses.forEach((item) => {
     const itemHour = parseInt(item.timeSlot.startTime);
-    if (Math.abs(itemHour - currentHour) <= 1) {
+    if (Math.abs(itemHour - currentHour) <= 2) { // 2-hour gap check
       consecutiveCount++;
       consecutiveHours.push(itemHour);
     }
@@ -63,7 +63,8 @@ export const findNextBestTimeSlot = (
   const days = preferredDay 
     ? [preferredDay] 
     : ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
-  const times = Array.from({ length: HOURS_PER_DAY }, (_, i) => `${i + 9}:00`);
+  // 2-hour time slots
+  const times = ["9:00", "11:00", "13:00", "15:00", "17:00"];
 
   // Sort days by current load to ensure balanced distribution
   const sortedDays = days.sort((a, b) => {
@@ -83,10 +84,11 @@ export const findNextBestTimeSlot = (
       const sortedVenues = [...venues].sort((a, b) => a.capacity - b.capacity);
 
       for (const venue of sortedVenues) {
+        const startHour = parseInt(startTime.split(':')[0]);
         const timeSlot: TimeSlot = {
           day: day as TimeSlot["day"],
           startTime,
-          endTime: `${parseInt(startTime) + 1}:00`,
+          endTime: `${startHour + 2}:00`,
         };
 
         if (!hasConflict(timeSlot, venue, lecturer, currentSchedule) &&
@@ -106,10 +108,11 @@ export const findNextBestTimeSlot = (
   for (const day of sortedDays) {
     for (const startTime of times) {
       for (const venue of venues) {
+        const startHour = parseInt(startTime.split(':')[0]);
         const timeSlot: TimeSlot = {
           day: day as TimeSlot["day"],
           startTime,
-          endTime: `${parseInt(startTime) + 1}:00`,
+          endTime: `${startHour + 2}:00`,
         };
 
         if (!hasConflict(timeSlot, venue, lecturer, currentSchedule)) {

@@ -1,3 +1,4 @@
+
 import { FileText, Calendar, Minimize2, Maximize2, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Timetable from "@/components/Timetable";
@@ -24,12 +25,16 @@ const CourseScheduleSection = ({ schedule, isPublished = false }: CourseSchedule
 
   const exportToExcel = () => {
     const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
-    const timeSlots = Array.from({ length: 9 }, (_, i) => `${i + 9}:00`);
+    const timeSlots = ["9:00", "11:00", "13:00", "15:00", "17:00"]; // 2-hour slots
 
     const data = [["Time", ...days]];
 
     timeSlots.forEach(time => {
-      const row = [time];
+      const startHour = parseInt(time.split(':')[0]);
+      const endTime = `${startHour + 2}:00`;
+      const timeDisplay = `${time} - ${endTime}`;
+      
+      const row = [timeDisplay];
       days.forEach(day => {
         const items = schedule.filter(
           item => item.timeSlot.day === day && item.timeSlot.startTime === time
@@ -56,15 +61,20 @@ const CourseScheduleSection = ({ schedule, isPublished = false }: CourseSchedule
   };
 
   const exportToCSV = () => {
-    const data = schedule.map(item => ({
-      Day: item.timeSlot.day,
-      Time: item.timeSlot.startTime,
-      "Course Code": item.code,
-      "Course Name": item.name,
-      Lecturer: item.lecturer,
-      Venue: item.venue.name,
-      "Class Size": item.classSize,
-    }));
+    const data = schedule.map(item => {
+      const startHour = parseInt(item.timeSlot.startTime.split(':')[0]);
+      const endTime = `${startHour + 2}:00`;
+      
+      return {
+        Day: item.timeSlot.day,
+        Time: `${item.timeSlot.startTime} - ${endTime}`,
+        "Course Code": item.code,
+        "Course Name": item.name,
+        Lecturer: item.lecturer,
+        Venue: item.venue.name,
+        "Class Size": item.classSize,
+      };
+    });
 
     const ws = XLSX.utils.json_to_sheet(data);
     const wb = XLSX.utils.book_new();
@@ -75,14 +85,18 @@ const CourseScheduleSection = ({ schedule, isPublished = false }: CourseSchedule
   const exportToPDF = () => {
     const doc = new jsPDF();
     const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
-    const timeSlots = Array.from({ length: 9 }, (_, i) => `${i + 9}:00`);
+    const timeSlots = ["9:00", "11:00", "13:00", "15:00", "17:00"]; // 2-hour slots
 
     doc.setFontSize(16);
     doc.text("Course Timetable", 14, 15);
     doc.setFontSize(10);
 
     const tableData = timeSlots.map(time => {
-      const row = [time];
+      const startHour = parseInt(time.split(':')[0]);
+      const endTime = `${startHour + 2}:00`;
+      const timeDisplay = `${time} - ${endTime}`;
+      
+      const row = [timeDisplay];
       days.forEach(day => {
         const items = schedule.filter(
           item => item.timeSlot.day === day && item.timeSlot.startTime === time
@@ -116,7 +130,7 @@ const CourseScheduleSection = ({ schedule, isPublished = false }: CourseSchedule
   return (
     <div
       className={`space-y-4 md:space-y-6 animate-fade-in transition-all duration-300 ease-in-out ${
-        isExpanded ? "fixed inset-2 md:inset-4 z-50 bg-background/95 backdrop-blur-sm p-4 md:p-6 rounded-lg" : ""
+        isExpanded ? "fixed inset-2 md:inset-4 z-50 bg-background/95 backdrop-blur-sm p-4 md:p-6 rounded-lg overflow-y-auto" : ""
       }`}
     >
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
@@ -130,7 +144,7 @@ const CourseScheduleSection = ({ schedule, isPublished = false }: CourseSchedule
             )}
           </h2>
           <p className="text-muted-foreground text-xs md:text-sm">
-            View and manage your department's timetable
+            View and manage your department's timetable (2-hour lectures)
           </p>
         </div>
         
@@ -208,10 +222,10 @@ const CourseScheduleSection = ({ schedule, isPublished = false }: CourseSchedule
       
       <Card
         className={`overflow-hidden border shadow-lg transition-all duration-300 ${
-          isExpanded ? "h-[calc(100vh-8rem)] md:h-[calc(100vh-12rem)]" : ""
+          isExpanded ? "h-[calc(100vh-12rem)]" : ""
         }`}
       >
-        <div className={`p-2 md:p-4 ${isExpanded ? "h-full" : ""}`}>
+        <div className={`p-2 md:p-4 ${isExpanded ? "h-full overflow-auto" : ""}`}>
           <Timetable schedule={schedule} />
         </div>
       </Card>
