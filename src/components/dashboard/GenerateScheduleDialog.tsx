@@ -188,14 +188,14 @@ const GenerateScheduleDialog = ({ courses, onScheduleGenerated }: GenerateSchedu
             className="shadow-sm"
             disabled={courses.length === 0}
           >
-            Generate Schedule
+            Generate with AI
           </Button>
         </DialogTrigger>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Generate Optimized Schedule</DialogTitle>
+            <DialogTitle>Generate AI Schedule</DialogTitle>
             <DialogDescription>
-              Generate an intelligent schedule with advanced conflict detection and detailed error reporting
+              Generate an AI-powered schedule with advanced conflict detection and detailed error reporting
             </DialogDescription>
           </DialogHeader>
           <div className="py-4 space-y-6">
@@ -294,7 +294,7 @@ const GenerateScheduleDialog = ({ courses, onScheduleGenerated }: GenerateSchedu
             </div>
 
             <div className="space-y-3">
-              <h4 className="text-sm font-medium">Advanced Scheduling Features</h4>
+              <h4 className="text-sm font-medium">Enhanced Error Detection</h4>
               <ul className="text-sm text-muted-foreground list-disc list-inside space-y-1 bg-blue-50 p-3 rounded-lg">
                 <li>Cross-departmental lecturer scheduling conflicts detection</li>
                 <li>Venue capacity vs class size validation</li>
@@ -314,7 +314,7 @@ const GenerateScheduleDialog = ({ courses, onScheduleGenerated }: GenerateSchedu
                   />
                 </div>
                 <p className="text-sm text-muted-foreground text-center">
-                  Generating schedule with advanced error detection ({progress}%)...
+                  Generating AI schedule with enhanced error detection ({progress}%)...
                 </p>
               </div>
             )}
@@ -327,7 +327,7 @@ const GenerateScheduleDialog = ({ courses, onScheduleGenerated }: GenerateSchedu
               onClick={handleGenerateAI}
               disabled={isLoading}
             >
-              {isLoading ? "Generating..." : "Generate Schedule"}
+              {isLoading ? "Generating..." : "Generate AI Schedule"}
             </Button>
           </DialogFooter>
         </DialogContent>
