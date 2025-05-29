@@ -81,6 +81,42 @@ const AdminDashboard = () => {
     }
   };
 
+  // Enhanced course validation function
+  const validateCourse = (course: any): course is Course => {
+    try {
+      if (!course || typeof course !== 'object') {
+        console.warn('Course validation failed: not an object:', course);
+        return false;
+      }
+
+      // Check required string fields
+      const requiredFields = ['code', 'name', 'lecturer', 'department'];
+      for (const field of requiredFields) {
+        if (!course[field] || typeof course[field] !== 'string' || course[field].trim().length === 0) {
+          console.warn(`Course validation failed: invalid ${field}:`, course[field], 'Course:', course);
+          return false;
+        }
+      }
+
+      // Check class size
+      if (typeof course.classSize !== 'number' || course.classSize <= 0) {
+        console.warn('Course validation failed: invalid classSize:', course.classSize, 'Course:', course);
+        return false;
+      }
+
+      // Check if id exists and is string
+      if (!course.id || typeof course.id !== 'string') {
+        console.warn('Course validation failed: invalid id:', course.id, 'Course:', course);
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      console.error('Error validating course:', error, course);
+      return false;
+    }
+  };
+
   // Robust schedule filtering function with better error handling
   const filterAndValidateSchedule = (rawSchedule: any[]): ScheduleItem[] => {
     try {
@@ -132,35 +168,23 @@ const AdminDashboard = () => {
     try {
       console.log('Filtering courses. userCollege:', userCollege, 'Total courses:', courses.length);
       
+      // First, validate all courses
+      const validCourses = courses.filter(validateCourse);
+      console.log(`Course validation: ${validCourses.length} valid out of ${courses.length} total`);
+      
       if (userCollege) {
         const collegeDepartments = collegeStructure.find(c => c.college === userCollege)?.departments || [];
         console.log('College departments:', collegeDepartments);
         
-        const filtered = courses.filter(course => {
-          if (!course) {
-            console.warn('Null course found in filter');
-            return false;
-          }
-          if (!course.department || typeof course.department !== 'string') {
-            console.warn('Invalid department in course:', course);
-            return false;
-          }
+        const filtered = validCourses.filter(course => {
           return collegeDepartments.includes(course.department);
         });
         
         console.log('Filtered courses for college:', filtered.length);
         setFilteredCourses(filtered);
       } else {
-        const filtered = courses.filter(course => {
-          if (!course) {
-            console.warn('Null course found in general filter');
-            return false;
-          }
-          return course.department && typeof course.department === 'string';
-        });
-        
-        console.log('Filtered courses (no college):', filtered.length);
-        setFilteredCourses(filtered);
+        console.log('Filtered courses (no college):', validCourses.length);
+        setFilteredCourses(validCourses);
       }
     } catch (error) {
       console.error('Error filtering courses:', error);
@@ -448,31 +472,29 @@ const AdminDashboard = () => {
     }
   }) : [];
 
-  // Enhanced logging for debugging
-  console.log('About to render dashboard. Schedule state:', {
-    originalLength: schedule.length,
-    safeLength: safeSchedule.length,
-    filteredCoursesLength: filteredCourses.length,
-    isLoading,
-    isLoadingSchedule
-  });
-
-  // Additional validation for courses before passing to components
+  // Ultra-safe course filtering with extensive logging
   const safeCourses = filteredCourses.filter(course => {
     try {
-      return course && 
-             typeof course === 'object' && 
-             typeof course.code === 'string' && 
-             typeof course.name === 'string' &&
-             course.code.length > 0 &&
-             course.name.length > 0;
+      const isValid = validateCourse(course);
+      if (!isValid) {
+        console.warn('Course filtered out during final safety check:', course);
+      }
+      return isValid;
     } catch (error) {
-      console.error('Invalid course found:', error, course);
+      console.error('Course validation error during final safety check:', error, course);
       return false;
     }
   });
 
-  console.log('Safe courses for rendering:', safeCourses.length);
+  // Enhanced logging for debugging
+  console.log('About to render dashboard. Final state:', {
+    originalScheduleLength: schedule.length,
+    safeScheduleLength: safeSchedule.length,
+    originalCoursesLength: filteredCourses.length,
+    safeCoursesLength: safeCourses.length,
+    isLoading,
+    isLoadingSchedule
+  });
 
   return (
     <ErrorBoundary>
