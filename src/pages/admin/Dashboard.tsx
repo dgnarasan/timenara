@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+
+import { useState, useEffect, useCallback } from "react";
 import { Course, ScheduleItem, collegeStructure } from "@/lib/types";
 import { useCourses } from "@/hooks/useCourses";
 import { useToast } from "@/hooks/use-toast";
@@ -33,84 +34,44 @@ const AdminDashboard = () => {
   const { signOut, userCollege } = useAuth();
   const navigate = useNavigate();
 
-  // Ultra-strict validation function
-  const isValidScheduleItem = (item: any): item is ScheduleItem => {
-    console.log('🔍 Dashboard validation check:', { item, type: typeof item });
-    
-    // First check: must exist and be an object
-    if (!item || typeof item !== 'object') {
-      console.warn('❌ Dashboard: Item is not an object:', item);
+  // Simplified validation function
+  const isValidScheduleItem = useCallback((item: any): item is ScheduleItem => {
+    try {
+      return Boolean(
+        item &&
+        typeof item === 'object' &&
+        typeof item.id === 'string' &&
+        typeof item.code === 'string' &&
+        typeof item.name === 'string' &&
+        typeof item.lecturer === 'string' &&
+        typeof item.department === 'string' &&
+        typeof item.classSize === 'number' &&
+        item.timeSlot &&
+        typeof item.timeSlot === 'object' &&
+        typeof item.timeSlot.day === 'string' &&
+        typeof item.timeSlot.startTime === 'string' &&
+        typeof item.timeSlot.endTime === 'string' &&
+        item.venue &&
+        typeof item.venue === 'object' &&
+        typeof item.venue.name === 'string'
+      );
+    } catch {
       return false;
     }
+  }, []);
 
-    // Check all required string fields
-    const requiredStringFields = ['id', 'code', 'name', 'lecturer', 'department'];
-    for (const field of requiredStringFields) {
-      if (!item[field] || typeof item[field] !== 'string' || item[field].trim() === '') {
-        console.warn(`❌ Dashboard: Invalid ${field}:`, item[field]);
-        return false;
-      }
-    }
-
-    // Check classSize
-    if (typeof item.classSize !== 'number' || item.classSize <= 0) {
-      console.warn('❌ Dashboard: Invalid classSize:', item.classSize);
-      return false;
-    }
-
-    // Check timeSlot
-    if (!item.timeSlot || typeof item.timeSlot !== 'object') {
-      console.warn('❌ Dashboard: Invalid timeSlot:', item.timeSlot);
-      return false;
-    }
-
-    if (!item.timeSlot.day || !item.timeSlot.startTime || !item.timeSlot.endTime) {
-      console.warn('❌ Dashboard: Invalid timeSlot properties:', item.timeSlot);
-      return false;
-    }
-
-    // Check venue
-    if (!item.venue || typeof item.venue !== 'object' || !item.venue.name) {
-      console.warn('❌ Dashboard: Invalid venue:', item.venue);
-      return false;
-    }
-
-    console.log('✅ Dashboard: Item is valid');
-    return true;
-  };
-
-  // Bulletproof schedule filtering function
-  const filterValidScheduleItems = (items: any[]): ScheduleItem[] => {
-    console.log('🔍 Dashboard: Starting bulletproof filtering:', {
-      input: items,
-      isArray: Array.isArray(items),
-      length: items?.length || 0
-    });
-
+  // Safe filtering function
+  const filterValidScheduleItems = useCallback((items: any[]): ScheduleItem[] => {
     if (!Array.isArray(items)) {
-      console.warn('❌ Dashboard: Input is not an array');
+      console.warn('Dashboard: Input is not an array');
       return [];
     }
 
-    const validItems: ScheduleItem[] = [];
-    
-    items.forEach((item, index) => {
-      console.log(`🔍 Dashboard: Processing item ${index}:`, item);
-      
-      if (isValidScheduleItem(item)) {
-        validItems.push(item);
-        console.log(`✅ Dashboard: Added valid item ${index}`);
-      } else {
-        console.warn(`🚫 Dashboard: Rejected invalid item ${index}:`, item);
-      }
-    });
-
-    console.log(`✅ Dashboard: Filtering complete: ${validItems.length} valid items out of ${items.length}`);
-    return validItems;
-  };
+    return items.filter(item => isValidScheduleItem(item));
+  }, [isValidScheduleItem]);
 
   // Enhanced validation for courses
-  const isValidCourse = (course: any): course is Course => {
+  const isValidCourse = useCallback((course: any): course is Course => {
     if (!course || typeof course !== 'object') {
       return false;
     }
@@ -124,7 +85,7 @@ const AdminDashboard = () => {
     }
 
     return true;
-  };
+  }, []);
 
   // Filter courses based on admin's college
   useEffect(() => {
@@ -142,7 +103,7 @@ const AdminDashboard = () => {
       console.error('Dashboard: Error filtering courses:', error);
       setFilteredCourses([]);
     }
-  }, [courses, userCollege]);
+  }, [courses, userCollege, isValidCourse]);
 
   // Load existing schedule from database
   useEffect(() => {
@@ -177,10 +138,10 @@ const AdminDashboard = () => {
     };
 
     loadSchedule();
-  }, [toast]);
+  }, [toast, filterValidScheduleItems]);
 
   // Handle adding a course, ensuring it belongs to admin's college
-  const handleAdminAddCourse = (course: Omit<Course, "id">) => {
+  const handleAdminAddCourse = useCallback((course: Omit<Course, "id">) => {
     try {
       if (userCollege) {
         const collegeDepartments = collegeStructure.find(c => c.college === userCollege)?.departments || [];
@@ -204,10 +165,10 @@ const AdminDashboard = () => {
         variant: "destructive",
       });
     }
-  };
+  }, [userCollege, handleAddCourse, toast]);
 
   // Handle adding multiple courses
-  const handleAdminAddCourses = (coursesToAdd: Omit<Course, "id">[]) => {
+  const handleAdminAddCourses = useCallback((coursesToAdd: Omit<Course, "id">[]) => {
     try {
       if (userCollege) {
         const collegeDepartments = collegeStructure.find(c => c.college === userCollege)?.departments || [];
@@ -242,16 +203,17 @@ const AdminDashboard = () => {
         variant: "destructive",
       });
     }
-  };
+  }, [userCollege, handleAddCourses, toast]);
 
-  const handleEditCourse = (course: Course) => {
+  const handleEditCourse = useCallback((course: Course) => {
     toast({
       title: "Edit Course",
       description: "Edit functionality coming soon",
     });
-  };
+  }, [toast]);
 
-  const handleScheduleGenerated = (newSchedule: ScheduleItem[]) => {
+  // Fixed schedule generation handler - this was causing the blank page issue
+  const handleScheduleGenerated = useCallback((newSchedule: ScheduleItem[]) => {
     try {
       console.log('🚀 Dashboard: Processing generated schedule:', newSchedule);
       
@@ -269,34 +231,41 @@ const AdminDashboard = () => {
       const validSchedule = filterValidScheduleItems(newSchedule);
       
       console.log('✅ Dashboard: Setting cleaned schedule:', validSchedule);
-      setSchedule(validSchedule);
-      setIsSchedulePublished(false);
       
-      if (validSchedule.length > 0) {
-        toast({
-          title: "Schedule Generated Successfully",
-          description: `${validSchedule.length} courses scheduled without conflicts.`,
-        });
-      } else {
-        toast({
-          title: "No Valid Schedule Generated",
-          description: "No valid schedule items could be created. Please check your course data and try again.",
-          variant: "destructive",
-        });
-      }
+      // Use setTimeout to ensure state update happens after React reconciliation
+      setTimeout(() => {
+        setSchedule(validSchedule);
+        setIsSchedulePublished(false);
+        
+        if (validSchedule.length > 0) {
+          toast({
+            title: "Schedule Generated Successfully",
+            description: `${validSchedule.length} courses scheduled without conflicts.`,
+          });
+        } else {
+          toast({
+            title: "No Valid Schedule Generated",
+            description: "No valid schedule items could be created. Please check your course data and try again.",
+            variant: "destructive",
+          });
+        }
+      }, 100);
+      
     } catch (error) {
       console.error('❌ Dashboard: Error processing generated schedule:', error);
-      setSchedule([]);
-      setIsSchedulePublished(false);
+      setTimeout(() => {
+        setSchedule([]);
+        setIsSchedulePublished(false);
+      }, 100);
       toast({
         title: "Error",
         description: "Failed to process generated schedule. Please try again.",
         variant: "destructive",
       });
     }
-  };
+  }, [filterValidScheduleItems, toast]);
 
-  const handleTogglePublish = async () => {
+  const handleTogglePublish = useCallback(async () => {
     if (schedule.length === 0) {
       toast({
         title: "No Schedule to Publish",
@@ -328,21 +297,27 @@ const AdminDashboard = () => {
     } finally {
       setIsPublishing(false);
     }
-  };
+  }, [schedule.length, isSchedulePublished, toast]);
 
-  const handleClearSchedule = async () => {
-    if (window.confirm("Are you sure you want to clear the entire schedule? This action cannot be undone.")) {
-      try {
-        setIsClearingSchedule(true);
-        console.log('🗑️ Dashboard: Starting to clear schedule...');
-        
-        // Clear the database first
-        await clearSchedule();
-        console.log('✅ Dashboard: Database cleared successfully');
-        
-        // Then update the local state atomically
+  // Fixed clear schedule handler - this was causing the React error
+  const handleClearSchedule = useCallback(async () => {
+    if (!window.confirm("Are you sure you want to clear the entire schedule? This action cannot be undone.")) {
+      return;
+    }
+
+    try {
+      setIsClearingSchedule(true);
+      console.log('🗑️ Dashboard: Starting to clear schedule...');
+      
+      // Clear the database first
+      await clearSchedule();
+      console.log('✅ Dashboard: Database cleared successfully');
+      
+      // Use setTimeout to prevent React state update conflicts
+      setTimeout(() => {
         setSchedule([]);
         setIsSchedulePublished(false);
+        setIsClearingSchedule(false);
         
         console.log('✅ Dashboard: Local state cleared successfully');
         
@@ -350,18 +325,18 @@ const AdminDashboard = () => {
           title: "Schedule Cleared",
           description: "All schedule entries have been removed.",
         });
-      } catch (error) {
-        console.error('❌ Dashboard: Error clearing schedule:', error);
-        toast({
-          title: "Error",
-          description: "Failed to clear schedule. Please try again.",
-          variant: "destructive",
-        });
-      } finally {
-        setIsClearingSchedule(false);
-      }
+      }, 100);
+      
+    } catch (error) {
+      console.error('❌ Dashboard: Error clearing schedule:', error);
+      setIsClearingSchedule(false);
+      toast({
+        title: "Error",
+        description: "Failed to clear schedule. Please try again.",
+        variant: "destructive",
+      });
     }
-  };
+  }, [toast]);
 
   if (isLoading || isLoadingSchedule) {
     return (
@@ -379,7 +354,6 @@ const AdminDashboard = () => {
   console.log('🎨 Dashboard: Final render with schedule:', {
     scheduleLength: schedule.length,
     filteredCoursesLength: filteredCourses.length,
-    allValid: schedule.every(item => isValidScheduleItem(item)),
     isClearingSchedule
   });
 
