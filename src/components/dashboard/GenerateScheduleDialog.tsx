@@ -179,15 +179,15 @@ const GenerateScheduleDialog = ({ courses, onScheduleGenerated }: GenerateSchedu
             Generate with AI
           </Button>
         </DialogTrigger>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Enhanced AI Schedule Generator</DialogTitle>
-            <DialogDescription>
-              Generate an AI-powered schedule with course grouping, pre-validation, and advanced conflict resolution
+        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+          <DialogHeader className="space-y-2">
+            <DialogTitle className="text-lg">AI Schedule Generator</DialogTitle>
+            <DialogDescription className="text-sm">
+              Generate an AI-powered schedule with advanced features
             </DialogDescription>
           </DialogHeader>
-          <div className="py-4 space-y-6">
-            <div className="space-y-3">
+          <div className="py-3 space-y-4">
+            <div className="space-y-2">
               <h4 className="text-sm font-medium">Schedule Scope</h4>
               <Select
                 value={scheduleScope}
@@ -197,7 +197,7 @@ const GenerateScheduleDialog = ({ courses, onScheduleGenerated }: GenerateSchedu
                   setSelectedCollege('all');
                 }}
               >
-                <SelectTrigger className="w-full">
+                <SelectTrigger className="w-full h-9">
                   <SelectValue placeholder="Select scope" />
                 </SelectTrigger>
                 <SelectContent>
@@ -209,13 +209,13 @@ const GenerateScheduleDialog = ({ courses, onScheduleGenerated }: GenerateSchedu
             </div>
 
             {scheduleScope === 'department' && (
-              <div className="space-y-3">
+              <div className="space-y-2">
                 <h4 className="text-sm font-medium">Department</h4>
                 <Select
                   value={selectedDepartment}
                   onValueChange={(value: Department | 'all') => setSelectedDepartment(value)}
                 >
-                  <SelectTrigger className="w-full">
+                  <SelectTrigger className="w-full h-9">
                     <SelectValue placeholder="Select a department" />
                   </SelectTrigger>
                   <SelectContent>
@@ -236,13 +236,13 @@ const GenerateScheduleDialog = ({ courses, onScheduleGenerated }: GenerateSchedu
             )}
 
             {scheduleScope === 'college' && (
-              <div className="space-y-3">
+              <div className="space-y-2">
                 <h4 className="text-sm font-medium">College</h4>
                 <Select
                   value={selectedCollege}
                   onValueChange={(value: College | 'all') => setSelectedCollege(value)}
                 >
-                  <SelectTrigger className="w-full">
+                  <SelectTrigger className="w-full h-9">
                     <SelectValue placeholder="Select a college" />
                   </SelectTrigger>
                   <SelectContent>
@@ -257,22 +257,22 @@ const GenerateScheduleDialog = ({ courses, onScheduleGenerated }: GenerateSchedu
               </div>
             )}
 
-            <div className="space-y-3">
-              <h4 className="text-sm font-medium">Schedule Overview</h4>
-              <div className="bg-muted/30 p-4 rounded-lg space-y-3">
+            <div className="space-y-2">
+              <h4 className="text-sm font-medium">Overview</h4>
+              <div className="bg-muted/30 p-3 rounded-lg space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-muted-foreground">Total Courses:</span>
-                  <Badge variant="secondary">{filteredCourses.length}</Badge>
+                  <Badge variant="secondary" className="text-xs">{filteredCourses.length}</Badge>
                 </div>
                 
                 {Object.keys(getDepartmentCounts()).length > 1 && (
-                  <div className="space-y-2">
-                    <span className="text-sm text-muted-foreground">Department Distribution:</span>
-                    <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1">
+                    <span className="text-xs text-muted-foreground">Department Distribution:</span>
+                    <div className="grid grid-cols-1 gap-1 max-h-20 overflow-y-auto">
                       {Object.entries(getDepartmentCounts()).map(([dept, count]) => (
                         <div key={dept} className="flex items-center justify-between text-xs">
-                          <span className="truncate">{dept}</span>
-                          <Badge variant="outline" className="text-xs">{count}</Badge>
+                          <span className="truncate text-xs">{dept}</span>
+                          <Badge variant="outline" className="text-xs h-4">{count}</Badge>
                         </div>
                       ))}
                     </div>
@@ -281,19 +281,19 @@ const GenerateScheduleDialog = ({ courses, onScheduleGenerated }: GenerateSchedu
               </div>
             </div>
 
-            <div className="space-y-3">
-              <h4 className="text-sm font-medium">Enhanced Features</h4>
-              <div className="space-y-3">
+            <div className="space-y-2">
+              <h4 className="text-sm font-medium">Features</h4>
+              <div className="space-y-2">
                 <div className="flex items-center space-x-2">
                   <input
                     type="checkbox"
                     id="enableGrouping"
                     checked={enableCourseGrouping}
                     onChange={(e) => setEnableCourseGrouping(e.target.checked)}
-                    className="rounded"
+                    className="rounded w-4 h-4"
                   />
-                  <label htmlFor="enableGrouping" className="text-sm">
-                    Auto-group shared courses (GST, MTH, etc.) into unified time blocks
+                  <label htmlFor="enableGrouping" className="text-xs">
+                    Auto-group shared courses (GST, MTH, etc.)
                   </label>
                 </div>
                 <div className="flex items-center space-x-2">
@@ -302,50 +302,51 @@ const GenerateScheduleDialog = ({ courses, onScheduleGenerated }: GenerateSchedu
                     id="enableFallbacks"
                     checked={enableFallbacks}
                     onChange={(e) => setEnableFallbacks(e.target.checked)}
-                    className="rounded"
+                    className="rounded w-4 h-4"
                   />
-                  <label htmlFor="enableFallbacks" className="text-sm">
-                    Enable fallback strategies (class splitting, alternative time slots)
+                  <label htmlFor="enableFallbacks" className="text-xs">
+                    Enable fallback strategies
                   </label>
                 </div>
               </div>
             </div>
 
-            <div className="space-y-3">
-              <h4 className="text-sm font-medium">Enhanced Capabilities</h4>
-              <ul className="text-sm text-muted-foreground list-disc list-inside space-y-1 bg-blue-50 p-3 rounded-lg">
-                <li>Pre-generation validation with detailed error categorization</li>
-                <li>Auto-grouping of shared courses across departments</li>
-                <li>Cross-level conflict detection for carryover students</li>
-                <li>Intelligent fallback strategies with class splitting</li>
-                <li>Enhanced conflict modal with actionable suggestions</li>
-                <li>Advanced venue capacity and lecturer workload analysis</li>
+            <div className="space-y-2">
+              <h4 className="text-sm font-medium">Capabilities</h4>
+              <ul className="text-xs text-muted-foreground list-disc list-inside space-y-0.5 bg-blue-50 p-2 rounded-lg max-h-24 overflow-y-auto">
+                <li>Pre-generation validation</li>
+                <li>Auto-grouping of shared courses</li>
+                <li>Cross-level conflict detection</li>
+                <li>Intelligent fallback strategies</li>
+                <li>Enhanced conflict resolution</li>
+                <li>Venue capacity analysis</li>
               </ul>
             </div>
 
             {isLoading && (
               <div className="space-y-2">
-                <div className="h-2 bg-secondary rounded-full overflow-hidden">
+                <div className="h-1.5 bg-secondary rounded-full overflow-hidden">
                   <div 
                     className="h-full bg-primary transition-all duration-300"
                     style={{ width: `${progress}%` }}
                   />
                 </div>
-                <p className="text-sm text-muted-foreground text-center">
-                  Generating AI schedule with enhanced error detection ({progress}%)...
+                <p className="text-xs text-muted-foreground text-center">
+                  Generating schedule ({progress}%)...
                 </p>
               </div>
             )}
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsOpen(false)} disabled={isLoading}>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" size="sm" onClick={() => setIsOpen(false)} disabled={isLoading}>
               Cancel
             </Button>
             <Button 
+              size="sm"
               onClick={handleGenerateAI}
               disabled={isLoading}
             >
-              {isLoading ? "Generating..." : "Generate Enhanced Schedule"}
+              {isLoading ? "Generating..." : "Generate Schedule"}
             </Button>
           </DialogFooter>
         </DialogContent>
