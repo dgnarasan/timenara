@@ -34,8 +34,9 @@ interface ScheduleItem {
 function isValidTimeSlot(startTime: string, endTime: string): boolean {
   const start = parseInt(startTime.split(':')[0]);
   const end = parseInt(endTime.split(':')[0]);
-  // Updated to allow 8 AM to 5 PM range with 1-2 hour durations only
-  return start >= 8 && end <= 17 && end > start && (end - start) <= 2 && (end - start) >= 1;
+  const duration = end - start;
+  // Allow 8 AM to 5 PM range with 1-2 hour durations, prioritizing 2-hour standard
+  return start >= 8 && end <= 17 && end > start && duration <= 2 && duration >= 1;
 }
 
 function isValidScheduleItem(item: any): item is ScheduleItem {
@@ -96,7 +97,7 @@ function validateSchedule(schedule: ScheduleItem[]): { reason: string; courseId?
     }
   }
 
-  // Check for classes longer than 2 hours
+  // Check for classes with invalid durations or times
   for (const item of schedule) {
     const startHour = parseInt(item.timeSlot.startTime.split(':')[0]);
     const endHour = parseInt(item.timeSlot.endTime.split(':')[0]);
@@ -109,9 +110,9 @@ function validateSchedule(schedule: ScheduleItem[]): { reason: string; courseId?
       });
     }
     
-    if (duration > 2) {
+    if (duration > 2 || duration < 1) {
       conflicts.push({
-        reason: `Course ${item.code} has invalid duration (${duration} hours). Maximum allowed is 2 hours.`,
+        reason: `Course ${item.code} has invalid duration (${duration} hours). Allowed durations: 1-2 hours.`,
         courseId: item.id
       });
     }
@@ -154,14 +155,17 @@ serve(async (req) => {
       throw new Error('No venues provided for scheduling');
     }
 
-    const systemPrompt = `You are an advanced scheduling system that generates optimal course schedules with flexible time slots.
+    const systemPrompt = `You are an advanced scheduling system that generates optimal course schedules with flexible time slots and standard 2-hour lecture durations.
+
 Generate a timetable that assigns courses to time slots following these rules:
-1. Classes can ONLY be 1 or 2 hours long (NO 3-hour classes allowed)
-2. Time slots must be between 8:00 and 17:00 (8 AM to 5 PM), Monday to Friday only
-3. No lecturer should teach multiple classes at the same time
-4. Classes should be distributed evenly throughout the week
-5. Use flexible time slots like: 8:00-9:00, 9:00-10:00, 10:00-11:00, 11:00-12:00, 12:00-13:00, 13:00-14:00, 14:00-15:00, 15:00-16:00, 16:00-17:00 (1-hour slots) and 8:00-10:00, 9:00-11:00, 10:00-12:00, 11:00-13:00, 12:00-14:00, 13:00-15:00, 14:00-16:00, 15:00-17:00 (2-hour slots)
-6. Optimize for variety in class durations (1-2 hours only) and start times while avoiding conflicts
+1. STANDARD CLASS DURATION: Most classes should be 2 hours long (this is the standard lecture duration)
+2. RARE SHORT CLASSES: Only use 1-hour classes for special courses like GST or when specifically needed
+3. FLEXIBLE START TIMES: Classes can start at any hour between 8:00-15:00 for 2-hour slots, 8:00-16:00 for 1-hour slots
+4. Time slots must be between 8:00 and 17:00 (8 AM to 5 PM), Monday to Friday only
+5. No lecturer should teach multiple classes at the same time
+6. Classes should be distributed evenly throughout the week
+7. Prioritize 2-hour flexible slots like: 8:00-10:00, 9:00-11:00, 10:00-12:00, 11:00-13:00, 12:00-14:00, 13:00-15:00, 14:00-16:00, 15:00-17:00
+8. Use 1-hour slots sparingly: 8:00-9:00, 9:00-10:00, 10:00-11:00, 11:00-12:00, 12:00-13:00, 13:00-14:00, 14:00-15:00, 15:00-16:00, 16:00-17:00
 
 Return the schedule as a JSON array where each item contains:
 - id (from input)
@@ -172,26 +176,27 @@ Return the schedule as a JSON array where each item contains:
 - timeSlot: { 
     day: "Monday"|"Tuesday"|"Wednesday"|"Thursday"|"Friday", 
     startTime: "HH:00" format,
-    endTime: "HH:00" format (can be 1 or 2 hours after startTime, NEVER 3 hours)
+    endTime: "HH:00" format (preferably 2 hours after startTime for standard lectures)
   }
 
 Make sure each course gets scheduled and no lecturer has conflicting time slots.
-Distribute different class durations (1-2 hours only) across the week for variety.
+IMPORTANT: Default to 2-hour classes unless there's a specific reason for 1-hour (like GST courses).
 Return ONLY the JSON array, no markdown formatting.`;
 
-    const userPrompt = `Generate a complete weekly schedule for ALL ${courses.length} courses with 1-2 hour durations only:
+    const userPrompt = `Generate a complete weekly schedule for ALL ${courses.length} courses with standard 2-hour durations and flexible start times:
 ${JSON.stringify(courses, null, 2)}
 
 Requirements:
 - Schedule ALL courses provided
-- Use ONLY 1-2 hour time slots (NO 3-hour classes)
+- DEFAULT to 2-hour time slots (standard lecture duration)
+- Use 1-hour slots only for special cases (like GST courses)
 - No lecturer conflicts
 - Distribute evenly across Monday-Friday
 - Use business hours 8:00-17:00 only
-- Vary class durations between 1-2 hours for optimal scheduling
-- Example valid time slots: 8:00-9:00, 9:00-10:00, 10:00-11:00, 8:00-10:00, 9:00-11:00, 10:00-12:00, etc.`;
+- Flexible start times (e.g., 9:00-11:00, 10:00-12:00, not just rigid 8:00-10:00)
+- Example preferred 2-hour slots: 8:00-10:00, 9:00-11:00, 10:00-12:00, 11:00-13:00, 12:00-14:00, 13:00-15:00, 14:00-16:00, 15:00-17:00`;
 
-    console.log('Sending request to flexible scheduling service (1-2 hour classes only)...');
+    console.log('Sending request to flexible scheduling service (prioritizing 2-hour standard classes)...');
     
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -211,7 +216,7 @@ Requirements:
     });
 
     const rawResponse = await response.json();
-    console.log('Flexible scheduling service response received (1-2 hour classes), tokens used:', rawResponse.usage?.total_tokens);
+    console.log('Flexible scheduling service response received (2-hour standard classes), tokens used:', rawResponse.usage?.total_tokens);
 
     if (!rawResponse.choices || !rawResponse.choices[0]?.message?.content) {
       console.error('Invalid service response structure:', rawResponse);
@@ -277,7 +282,7 @@ Requirements:
 
     const scheduleWithVenues = addVenuesFromDatabase(validScheduleItems, venues);
 
-    console.log('Generated valid flexible schedule (1-2 hour classes) with', scheduleWithVenues.length, 'items');
+    console.log('Generated valid flexible schedule (2-hour standard classes) with', scheduleWithVenues.length, 'items');
 
     return new Response(
       JSON.stringify({
@@ -289,13 +294,13 @@ Requirements:
     );
 
   } catch (error) {
-    console.error('Error in flexible schedule generation function (1-2 hour classes):', error);
+    console.error('Error in flexible schedule generation function (2-hour standard classes):', error);
     return new Response(
       JSON.stringify({
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error occurred',
         schedule: [],
-        conflicts: [{ reason: error instanceof Error ? error.message : 'Failed to generate flexible schedule with 1-2 hour classes' }]
+        conflicts: [{ reason: error instanceof Error ? error.message : 'Failed to generate flexible schedule with 2-hour standard classes' }]
       }),
       {
         status: 500,
