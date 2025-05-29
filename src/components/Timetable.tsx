@@ -24,7 +24,33 @@ const Timetable = ({ schedule, favorites = new Set(), onToggleFavorite }: Timeta
   const [expandedView, setExpandedView] = useState(false);
   const [viewType, setViewType] = useState<"grid" | "table">("grid");
   const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
-  const timeSlots = Array.from({ length: 12 }, (_, i) => `${i + 8}:00`); // 8:00 to 19:00
+
+  // Get all unique time slots with their full ranges from the schedule
+  const getUniqueTimeSlots = () => {
+    const timeSlots = new Set<string>();
+    schedule.forEach(item => {
+      const timeRange = `${item.timeSlot.startTime} - ${item.timeSlot.endTime}`;
+      timeSlots.add(timeRange);
+    });
+    return Array.from(timeSlots).sort((a, b) => {
+      const startA = parseInt(a.split(' - ')[0].split(':')[0]);
+      const startB = parseInt(b.split(' - ')[0].split(':')[0]);
+      return startA - startB;
+    });
+  };
+
+  // Generate all possible time slots for expanded view
+  const generateAllTimeSlots = () => {
+    const slots = [];
+    for (let hour = 8; hour <= 19; hour++) {
+      slots.push(`${hour}:00 - ${hour + 1}:00`);
+    }
+    return slots;
+  };
+
+  const uniqueTimeSlots = getUniqueTimeSlots();
+  const allTimeSlots = generateAllTimeSlots();
+  const displayTimeSlots = expandedView ? allTimeSlots : uniqueTimeSlots;
 
   // Enhanced department colors with better contrast
   const getDepartmentColor = (department: string) => {
@@ -47,11 +73,13 @@ const Timetable = ({ schedule, favorites = new Set(), onToggleFavorite }: Timeta
     };
   };
 
-  const getScheduledItemsForSlot = (day: string, startTime: string) => {
+  const getScheduledItemsForSlot = (day: string, timeRange: string) => {
+    const [startTime, endTime] = timeRange.split(' - ');
     return schedule.filter(
       (item) =>
         item.timeSlot.day === day &&
-        item.timeSlot.startTime === startTime
+        item.timeSlot.startTime === startTime &&
+        item.timeSlot.endTime === endTime
     );
   };
 
@@ -66,10 +94,6 @@ const Timetable = ({ schedule, favorites = new Set(), onToggleFavorite }: Timeta
 
   // Get unique departments for legend
   const departments = Array.from(new Set(schedule.map(item => item.department).filter(Boolean)));
-
-  // Get all scheduled time slots to show only relevant rows
-  const scheduledTimeSlots = Array.from(new Set(schedule.map(item => item.timeSlot.startTime))).sort();
-  const displayTimeSlots = expandedView ? timeSlots : scheduledTimeSlots;
 
   const renderGridView = () => (
     <div className="space-y-4 md:space-y-6">
@@ -142,8 +166,8 @@ const Timetable = ({ schedule, favorites = new Set(), onToggleFavorite }: Timeta
             <table className="w-full border-collapse">
               <thead className="sticky top-0 z-20">
                 <tr className="bg-gradient-to-r from-primary to-primary/90 text-white">
-                  <th className="p-2 md:p-4 text-left font-bold border-r border-primary-foreground/20 w-16 sm:w-24 md:w-32 sticky left-0 bg-primary z-30">
-                    <span className="text-xs md:text-sm">TIME</span>
+                  <th className="p-2 md:p-4 text-left font-bold border-r border-primary-foreground/20 w-20 sm:w-28 md:w-36 sticky left-0 bg-primary z-30">
+                    <span className="text-xs md:text-sm">TIME SLOT</span>
                   </th>
                   {days.map((day) => {
                     const dayClasses = schedule.filter(item => item.timeSlot.day === day).length;
@@ -164,21 +188,22 @@ const Timetable = ({ schedule, favorites = new Set(), onToggleFavorite }: Timeta
                 </tr>
               </thead>
               <tbody>
-                {displayTimeSlots.map((time, timeIndex) => (
-                  <tr key={time} className={`${timeIndex % 2 === 0 ? "bg-muted/20" : "bg-white"} hover:bg-muted/40 transition-colors`}>
-                    <td className="p-2 md:p-4 border-r border-border text-xs md:text-sm font-bold text-center bg-muted/50 sticky left-0 z-10 shadow-sm">
+                {displayTimeSlots.map((timeRange, timeIndex) => (
+                  <tr key={timeRange} className={`${timeIndex % 2 === 0 ? "bg-muted/20" : "bg-white"} hover:bg-muted/40 transition-colors`}>
+                    <td className="p-2 md:p-3 border-r border-border text-xs md:text-sm font-bold text-center bg-muted/50 sticky left-0 z-10 shadow-sm">
                       <div className="space-y-1">
-                        <div className="text-primary font-bold">{time}</div>
-                        <div className="text-xs text-muted-foreground hidden sm:block">
-                          {`${parseInt(time.split(':')[0]) + 1}:00`}
+                        <div className="text-primary font-bold text-xs leading-tight">
+                          {timeRange.replace(' - ', '\n-\n').split('\n').map((line, i) => (
+                            <div key={i} className={i === 1 ? 'text-muted-foreground' : ''}>{line}</div>
+                          ))}
                         </div>
                       </div>
                     </td>
                     {days.map((day) => {
-                      const scheduledItems = getScheduledItemsForSlot(day, time);
+                      const scheduledItems = getScheduledItemsForSlot(day, timeRange);
                       return (
                         <td
-                          key={`${day}-${time}`}
+                          key={`${day}-${timeRange}`}
                           className="p-1 sm:p-2 md:p-3 border-r border-border align-top min-h-[80px] sm:min-h-[100px] md:min-h-[120px] relative"
                         >
                           <div className="space-y-1 sm:space-y-2">
@@ -388,13 +413,13 @@ const Timetable = ({ schedule, favorites = new Set(), onToggleFavorite }: Timeta
         </div>
         <div className="bg-gradient-to-br from-orange-50 to-orange-100 rounded-lg p-3 md:p-4 text-center border border-orange-200">
           <div className="text-lg md:text-2xl font-bold text-orange-700">
-            {scheduledTimeSlots.length}
+            {uniqueTimeSlots.length}
           </div>
           <div className="text-xs text-orange-600 font-medium">Time Slots Used</div>
         </div>
         <div className="bg-gradient-to-br from-pink-50 to-pink-100 rounded-lg p-3 md:p-4 text-center border border-pink-200">
           <div className="text-lg md:text-2xl font-bold text-pink-700">
-            {Math.round((schedule.length / (days.length * timeSlots.length)) * 100)}%
+            {Math.round((schedule.length / (days.length * allTimeSlots.length)) * 100)}%
           </div>
           <div className="text-xs text-pink-600 font-medium">Utilization</div>
         </div>
