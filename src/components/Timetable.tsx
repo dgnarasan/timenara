@@ -20,19 +20,57 @@ interface TimetableProps {
   onToggleFavorite?: (courseId: string) => void;
 }
 
+// Validation function for schedule items
+const isValidScheduleItem = (item: any): item is ScheduleItem => {
+  return (
+    item &&
+    typeof item === 'object' &&
+    typeof item.id === 'string' &&
+    typeof item.code === 'string' &&
+    typeof item.name === 'string' &&
+    typeof item.lecturer === 'string' &&
+    item.venue &&
+    typeof item.venue.name === 'string' &&
+    item.timeSlot &&
+    typeof item.timeSlot.day === 'string' &&
+    typeof item.timeSlot.startTime === 'string'
+  );
+};
+
 const Timetable = ({ schedule, favorites = new Set(), onToggleFavorite }: TimetableProps) => {
   const [expandedView, setExpandedView] = useState(false);
   const [viewType, setViewType] = useState<"grid" | "table">("grid");
   const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
 
+  // Filter out invalid schedule items to prevent rendering errors
+  const validSchedule = React.useMemo(() => {
+    if (!Array.isArray(schedule)) {
+      console.warn('Schedule is not an array:', schedule);
+      return [];
+    }
+    
+    const filtered = schedule.filter(isValidScheduleItem);
+    const invalidCount = schedule.length - filtered.length;
+    
+    if (invalidCount > 0) {
+      console.warn(`Timetable: Filtered out ${invalidCount} invalid schedule items`);
+    }
+    
+    return filtered;
+  }, [schedule]);
+
   // Get all unique time slots with their full ranges from the schedule
   const getUniqueTimeSlots = () => {
     const timeSlots = new Set<string>();
-    schedule.forEach(item => {
-      const startHour = parseInt(item.timeSlot.startTime.split(':')[0]);
-      const endHour = startHour + 2; // 2 hour duration
-      const timeRange = `${item.timeSlot.startTime} - ${endHour}:00`;
-      timeSlots.add(timeRange);
+    validSchedule.forEach(item => {
+      try {
+        const startHour = parseInt(item.timeSlot.startTime.split(':')[0]);
+        const endHour = startHour + 2; // 2 hour duration
+        const timeRange = `${item.timeSlot.startTime} - ${endHour}:00`;
+        timeSlots.add(timeRange);
+      } catch (error) {
+        console.warn('Error processing time slot:', item.timeSlot, error);
+      }
     });
     return Array.from(timeSlots).sort((a, b) => {
       const startA = parseInt(a.split(' - ')[0].split(':')[0]);
@@ -77,7 +115,7 @@ const Timetable = ({ schedule, favorites = new Set(), onToggleFavorite }: Timeta
 
   const getScheduledItemsForSlot = (day: string, timeRange: string) => {
     const [startTime] = timeRange.split(' - ');
-    return schedule.filter(
+    return validSchedule.filter(
       (item) =>
         item.timeSlot.day === day &&
         item.timeSlot.startTime === startTime
@@ -94,7 +132,7 @@ const Timetable = ({ schedule, favorites = new Set(), onToggleFavorite }: Timeta
   };
 
   // Get unique departments for legend
-  const departments = Array.from(new Set(schedule.map(item => item.department).filter(Boolean)));
+  const departments = Array.from(new Set(validSchedule.map(item => item.department).filter(Boolean)));
 
   const renderGridView = () => (
     <div className="space-y-4 md:space-y-6">
@@ -103,7 +141,7 @@ const Timetable = ({ schedule, favorites = new Set(), onToggleFavorite }: Timeta
         <div>
           <h3 className="text-lg md:text-xl font-bold text-primary">Weekly Timetable</h3>
           <p className="text-xs md:text-sm text-muted-foreground">
-            Showing <span className="font-semibold text-primary">{schedule.length}</span> courses across <span className="font-semibold text-primary">{departments.length}</span> departments
+            Showing <span className="font-semibold text-primary">{validSchedule.length}</span> courses across <span className="font-semibold text-primary">{departments.length}</span> departments
           </p>
         </div>
         <div className="flex flex-col sm:flex-row gap-2">
@@ -171,7 +209,7 @@ const Timetable = ({ schedule, favorites = new Set(), onToggleFavorite }: Timeta
                     <span className="text-xs md:text-sm">TIME SLOT</span>
                   </th>
                   {days.map((day) => {
-                    const dayClasses = schedule.filter(item => item.timeSlot.day === day).length;
+                    const dayClasses = validSchedule.filter(item => item.timeSlot.day === day).length;
                     return (
                       <th
                         key={day}
@@ -321,7 +359,7 @@ const Timetable = ({ schedule, favorites = new Set(), onToggleFavorite }: Timeta
         <div>
           <h3 className="text-lg md:text-xl font-bold text-primary">Schedule List</h3>
           <p className="text-xs md:text-sm text-muted-foreground">
-            Showing <span className="font-semibold text-primary">{schedule.length}</span> courses
+            Showing <span className="font-semibold text-primary">{validSchedule.length}</span> courses
           </p>
         </div>
         <div className="flex gap-2">
@@ -364,7 +402,7 @@ const Timetable = ({ schedule, favorites = new Set(), onToggleFavorite }: Timeta
               </TableRow>
             </TableHeader>
             <TableBody>
-              {schedule.map((item, index) => {
+              {validSchedule.map((item, index) => {
                 const colors = getDepartmentColor(item.department || 'Default');
                 const startHour = parseInt(item.timeSlot.startTime.split(':')[0]);
                 const endTime = `${startHour + 2}:00`;
@@ -403,7 +441,7 @@ const Timetable = ({ schedule, favorites = new Set(), onToggleFavorite }: Timeta
       {/* Enhanced Statistics */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-2 md:gap-4">
         <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-3 md:p-4 text-center border border-blue-200">
-          <div className="text-lg md:text-2xl font-bold text-blue-700">{schedule.length}</div>
+          <div className="text-lg md:text-2xl font-bold text-blue-700">{validSchedule.length}</div>
           <div className="text-xs text-blue-600 font-medium">Total Classes</div>
         </div>
         <div className="bg-gradient-to-br from-emerald-50 to-emerald-100 rounded-lg p-3 md:p-4 text-center border border-emerald-200">
@@ -412,7 +450,7 @@ const Timetable = ({ schedule, favorites = new Set(), onToggleFavorite }: Timeta
         </div>
         <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg p-3 md:p-4 text-center border border-purple-200">
           <div className="text-lg md:text-2xl font-bold text-purple-700">
-            {new Set(schedule.map(item => item.lecturer).filter(Boolean)).size}
+            {new Set(validSchedule.map(item => item.lecturer).filter(Boolean)).size}
           </div>
           <div className="text-xs text-purple-600 font-medium">Instructors</div>
         </div>
@@ -424,18 +462,18 @@ const Timetable = ({ schedule, favorites = new Set(), onToggleFavorite }: Timeta
         </div>
         <div className="bg-gradient-to-br from-pink-50 to-pink-100 rounded-lg p-3 md:p-4 text-center border border-pink-200">
           <div className="text-lg md:text-2xl font-bold text-pink-700">
-            {Math.round((schedule.length / (days.length * allTimeSlots.length)) * 100)}%
+            {Math.round((validSchedule.length / (days.length * allTimeSlots.length)) * 100)}%
           </div>
           <div className="text-xs text-pink-600 font-medium">Utilization</div>
         </div>
       </div>
 
       {/* All Courses Summary */}
-      {schedule.length > 0 && (
+      {validSchedule.length > 0 && (
         <div className="bg-card rounded-lg p-3 md:p-4 border shadow-sm">
-          <h4 className="font-bold mb-3 text-primary">All Scheduled Courses ({schedule.length})</h4>
+          <h4 className="font-bold mb-3 text-primary">All Scheduled Courses ({validSchedule.length})</h4>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 max-h-60 overflow-y-auto">
-            {schedule.map((item) => {
+            {validSchedule.map((item) => {
               const colors = getDepartmentColor(item.department || 'Default');
               return (
                 <div key={item.id} className="flex items-center gap-2 p-2 bg-muted/30 rounded-md border text-xs md:text-sm hover:bg-muted/50 transition-colors">

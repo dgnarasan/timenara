@@ -11,30 +11,44 @@ interface CourseCardProps {
 }
 
 const CourseCard = ({ course, onEdit, onDelete }: CourseCardProps) => {
+  // Validate course object to prevent rendering errors
+  if (!course || typeof course !== 'object') {
+    console.warn('Invalid course object passed to CourseCard:', course);
+    return null;
+  }
+
+  // Provide safe defaults for missing properties
+  const safeCode = course.code || 'N/A';
+  const safeName = course.name || 'Unnamed Course';
+  const safeLecturer = course.lecturer || 'TBD';
+  const safeDepartment = course.department || 'Unknown Department';
+  const safeClassSize = course.classSize || 0;
+  const safePreferredSlots = course.preferredSlots || [];
+
   return (
     <Card className="p-3 md:p-4">
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3">
         <div className="space-y-2 flex-1 min-w-0">
           <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
-            <h3 className="font-semibold text-sm md:text-base">{course.code}</h3>
+            <h3 className="font-semibold text-sm md:text-base">{safeCode}</h3>
             <div className="flex items-center gap-2 text-xs md:text-sm text-muted-foreground">
               <Users className="h-3 w-3" />
-              <span>{course.classSize} students</span>
+              <span>{safeClassSize} students</span>
             </div>
           </div>
           
-          <p className="text-sm md:text-base font-medium truncate">{course.name}</p>
+          <p className="text-sm md:text-base font-medium truncate">{safeName}</p>
           
           <div className="space-y-1">
-            <p className="text-xs md:text-sm text-muted-foreground truncate">{course.lecturer}</p>
-            <p className="text-xs md:text-sm text-muted-foreground truncate">{course.department}</p>
+            <p className="text-xs md:text-sm text-muted-foreground truncate">{safeLecturer}</p>
+            <p className="text-xs md:text-sm text-muted-foreground truncate">{safeDepartment}</p>
           </div>
           
-          {course.preferredSlots && course.preferredSlots.length > 0 && (
+          {safePreferredSlots.length > 0 && safePreferredSlots[0] && (
             <div className="flex items-center gap-1 text-xs text-muted-foreground">
               <Clock className="h-3 w-3" />
               <span className="truncate">
-                Preferred: {course.preferredSlots[0].day} {course.preferredSlots[0].startTime}
+                Preferred: {safePreferredSlots[0].day || 'TBD'} {safePreferredSlots[0].startTime || 'TBD'}
               </span>
             </div>
           )}
@@ -57,7 +71,7 @@ const CourseCard = ({ course, onEdit, onDelete }: CourseCardProps) => {
               variant="ghost"
               size="icon"
               onClick={() => {
-                if (window.confirm(`Are you sure you want to delete ${course.code}?`)) {
+                if (window.confirm(`Are you sure you want to delete ${safeCode}?`)) {
                   onDelete();
                 }
               }}

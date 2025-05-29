@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+
+import { useState, useEffect, useCallback } from "react";
 import { Course, ScheduleItem, collegeStructure } from "@/lib/types";
 import { useCourses } from "@/hooks/useCourses";
 import { useToast } from "@/hooks/use-toast";
@@ -12,6 +13,47 @@ import { getActiveInstructors, getAcademicLevels } from "@/utils/scheduling/cour
 import { fetchAdminSchedule, clearSchedule, publishSchedule } from "@/lib/db";
 import { Button } from "@/components/ui/button";
 import { LogOut, Calendar, Home, Trash2, Eye, EyeOff } from "lucide-react";
+
+// Validation function to ensure schedule item has required properties
+const isValidScheduleItem = (item: any): item is ScheduleItem => {
+  return (
+    item &&
+    typeof item === 'object' &&
+    typeof item.id === 'string' &&
+    typeof item.code === 'string' &&
+    typeof item.name === 'string' &&
+    typeof item.lecturer === 'string' &&
+    typeof item.department === 'string' &&
+    item.venue &&
+    typeof item.venue === 'object' &&
+    typeof item.venue.id === 'string' &&
+    typeof item.venue.name === 'string' &&
+    typeof item.venue.capacity === 'number' &&
+    item.timeSlot &&
+    typeof item.timeSlot === 'object' &&
+    typeof item.timeSlot.day === 'string' &&
+    typeof item.timeSlot.startTime === 'string' &&
+    typeof item.timeSlot.endTime === 'string' &&
+    typeof item.classSize === 'number'
+  );
+};
+
+// Function to filter and validate schedule items
+const validateScheduleItems = (scheduleItems: any[]): ScheduleItem[] => {
+  if (!Array.isArray(scheduleItems)) {
+    console.warn('Schedule items is not an array:', scheduleItems);
+    return [];
+  }
+
+  const validItems = scheduleItems.filter(isValidScheduleItem);
+  const invalidCount = scheduleItems.length - validItems.length;
+  
+  if (invalidCount > 0) {
+    console.warn(`Filtered out ${invalidCount} invalid schedule items`);
+  }
+  
+  return validItems;
+};
 
 const AdminDashboard = () => {
   const [schedule, setSchedule] = useState<ScheduleItem[]>([]);
@@ -53,9 +95,13 @@ const AdminDashboard = () => {
       try {
         setIsLoadingSchedule(true);
         const existingSchedule = await fetchAdminSchedule();
-        setSchedule(existingSchedule);
-        // Check if any schedule items exist to determine published status
-        setIsSchedulePublished(existingSchedule.length > 0);
+        
+        // Validate and filter schedule items
+        const validSchedule = validateScheduleItems(existingSchedule);
+        console.log(`Loaded ${validSchedule.length} valid schedule items out of ${existingSchedule.length} total`);
+        
+        setSchedule(validSchedule);
+        setIsSchedulePublished(validSchedule.length > 0);
       } catch (error) {
         console.error('Error loading schedule:', error);
         toast({
@@ -63,6 +109,7 @@ const AdminDashboard = () => {
           description: "Failed to load existing schedule",
           variant: "destructive",
         });
+        setSchedule([]);
       } finally {
         setIsLoadingSchedule(false);
       }
@@ -72,7 +119,7 @@ const AdminDashboard = () => {
   }, [toast]);
 
   // Handle adding a course, ensuring it belongs to admin's college
-  const handleAdminAddCourse = (course: Omit<Course, "id">) => {
+  const handleAdminAddCourse = useCallback((course: Omit<Course, "id">) => {
     try {
       if (userCollege) {
         const collegeDepartments = collegeStructure.find(c => c.college === userCollege)?.departments || [];
@@ -96,10 +143,10 @@ const AdminDashboard = () => {
         variant: "destructive",
       });
     }
-  };
+  }, [userCollege, handleAddCourse, toast]);
 
   // Handle adding multiple courses
-  const handleAdminAddCourses = (coursesToAdd: Omit<Course, "id">[]) => {
+  const handleAdminAddCourses = useCallback((coursesToAdd: Omit<Course, "id">[]) => {
     try {
       if (userCollege) {
         const collegeDepartments = collegeStructure.find(c => c.college === userCollege)?.departments || [];
@@ -136,20 +183,36 @@ const AdminDashboard = () => {
         variant: "destructive",
       });
     }
-  };
+  }, [userCollege, handleAddCourses, toast]);
 
-  const handleEditCourse = (course: Course) => {
+  const handleEditCourse = useCallback((course: Course) => {
     toast({
       title: "Edit Course",
       description: "Edit functionality coming soon",
     });
-  };
+  }, [toast]);
 
-  const handleScheduleGenerated = (newSchedule: ScheduleItem[]) => {
+  const handleScheduleGenerated = useCallback((newSchedule: ScheduleItem[]) => {
     try {
-      console.log('Setting new schedule in dashboard:', newSchedule.length, 'items');
-      setSchedule(newSchedule);
-      setIsSchedulePublished(false); // New schedule is not published by default
+      console.log('Received new schedule with', newSchedule.length, 'items');
+      
+      // Validate the new schedule items
+      const validSchedule = validateScheduleItems(newSchedule);
+      console.log(`Setting ${validSchedule.length} valid schedule items in dashboard`);
+      
+      // Use setTimeout to prevent React rendering conflicts
+      setTimeout(() => {
+        setSchedule(validSchedule);
+        setIsSchedulePublished(false); // New schedule is not published by default
+        
+        if (validSchedule.length > 0) {
+          toast({
+            title: "Schedule Updated",
+            description: `Successfully loaded ${validSchedule.length} courses`,
+          });
+        }
+      }, 100);
+      
     } catch (error) {
       console.error('Error setting schedule:', error);
       toast({
@@ -158,9 +221,9 @@ const AdminDashboard = () => {
         variant: "destructive",
       });
     }
-  };
+  }, [toast]);
 
-  const handleTogglePublish = async () => {
+  const handleTogglePublish = useCallback(async () => {
     if (schedule.length === 0) {
       toast({
         title: "No Schedule to Publish",
@@ -192,14 +255,16 @@ const AdminDashboard = () => {
     } finally {
       setIsPublishing(false);
     }
-  };
+  }, [schedule.length, isSchedulePublished, toast]);
 
-  const handleClearSchedule = async () => {
+  const handleClearSchedule = useCallback(async () => {
     if (window.confirm("Are you sure you want to clear the entire schedule? This action cannot be undone.")) {
       try {
         await clearSchedule();
-        setSchedule([]);
-        setIsSchedulePublished(false);
+        setTimeout(() => {
+          setSchedule([]);
+          setIsSchedulePublished(false);
+        }, 100);
         toast({
           title: "Schedule Cleared",
           description: "All schedule entries have been removed.",
@@ -213,7 +278,7 @@ const AdminDashboard = () => {
         });
       }
     }
-  };
+  }, [toast]);
 
   if (isLoading || isLoadingSchedule) {
     return (
