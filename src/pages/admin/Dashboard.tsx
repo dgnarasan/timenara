@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Course, ScheduleItem, collegeStructure } from "@/lib/types";
 import { useCourses } from "@/hooks/useCourses";
@@ -32,158 +33,42 @@ const AdminDashboard = () => {
   const { signOut, userCollege } = useAuth();
   const navigate = useNavigate();
 
-  // Enhanced validation function for schedule items with more detailed logging
-  const validateScheduleItem = (item: any): item is ScheduleItem => {
-    try {
-      console.log('Validating schedule item detailed:', item);
-      
-      if (!item || typeof item !== 'object') {
-        console.warn('Item is null, undefined, or not an object:', item);
-        return false;
-      }
-
-      const requiredStringFields = ['id', 'code', 'name', 'lecturer', 'department'];
-      for (const field of requiredStringFields) {
-        if (!item[field] || typeof item[field] !== 'string' || item[field].trim().length === 0) {
-          console.warn(`Invalid or missing field '${field}' in schedule item:`, item[field], 'Full item:', item);
-          return false;
-        }
-      }
-
-      if (typeof item.classSize !== 'number' || item.classSize <= 0) {
-        console.warn('Invalid classSize in schedule item:', item.classSize, 'Full item:', item);
-        return false;
-      }
-
-      if (!item.timeSlot || typeof item.timeSlot !== 'object') {
-        console.warn('Invalid timeSlot in schedule item:', item.timeSlot, 'Full item:', item);
-        return false;
-      }
-
-      const requiredTimeSlotFields = ['day', 'startTime', 'endTime'];
-      for (const field of requiredTimeSlotFields) {
-        if (!item.timeSlot[field] || typeof item.timeSlot[field] !== 'string' || item.timeSlot[field].trim().length === 0) {
-          console.warn(`Invalid timeSlot field '${field}' in schedule item:`, item.timeSlot[field], 'Full item:', item);
-          return false;
-        }
-      }
-
-      if (!item.venue || typeof item.venue !== 'object' || !item.venue.name || typeof item.venue.name !== 'string' || item.venue.name.trim().length === 0) {
-        console.warn('Invalid venue in schedule item:', item.venue, 'Full item:', item);
-        return false;
-      }
-
-      console.log('Schedule item validation passed for:', item.code);
-      return true;
-    } catch (error) {
-      console.error('Error validating schedule item:', error, item);
-      return false;
-    }
+  // Simplified validation for schedule items
+  const isValidScheduleItem = (item: any): item is ScheduleItem => {
+    return item && 
+           typeof item === 'object' &&
+           typeof item.id === 'string' &&
+           typeof item.code === 'string' &&
+           typeof item.name === 'string' &&
+           typeof item.lecturer === 'string' &&
+           typeof item.department === 'string' &&
+           typeof item.classSize === 'number' &&
+           item.timeSlot &&
+           item.venue;
   };
 
-  // Enhanced course validation function
-  const validateCourse = (course: any): course is Course => {
-    try {
-      if (!course || typeof course !== 'object') {
-        console.warn('Course validation failed: not an object:', course);
-        return false;
-      }
-
-      // Check required string fields
-      const requiredFields = ['code', 'name', 'lecturer', 'department'];
-      for (const field of requiredFields) {
-        if (!course[field] || typeof course[field] !== 'string' || course[field].trim().length === 0) {
-          console.warn(`Course validation failed: invalid ${field}:`, course[field], 'Course:', course);
-          return false;
-        }
-      }
-
-      // Check class size
-      if (typeof course.classSize !== 'number' || course.classSize <= 0) {
-        console.warn('Course validation failed: invalid classSize:', course.classSize, 'Course:', course);
-        return false;
-      }
-
-      // Check if id exists and is string
-      if (!course.id || typeof course.id !== 'string') {
-        console.warn('Course validation failed: invalid id:', course.id, 'Course:', course);
-        return false;
-      }
-
-      return true;
-    } catch (error) {
-      console.error('Error validating course:', error, course);
-      return false;
-    }
+  // Simplified validation for courses
+  const isValidCourse = (course: any): course is Course => {
+    return course && 
+           typeof course === 'object' &&
+           typeof course.id === 'string' &&
+           typeof course.code === 'string' &&
+           typeof course.name === 'string' &&
+           typeof course.lecturer === 'string' &&
+           typeof course.department === 'string' &&
+           typeof course.classSize === 'number';
   };
 
-  // Robust schedule filtering function with better error handling
-  const filterAndValidateSchedule = (rawSchedule: any[]): ScheduleItem[] => {
-    try {
-      console.log('Filtering and validating schedule. Input:', rawSchedule?.length || 0, 'items');
-      
-      if (!Array.isArray(rawSchedule)) {
-        console.warn('Schedule is not an array:', typeof rawSchedule, rawSchedule);
-        return [];
-      }
-
-      if (rawSchedule.length === 0) {
-        console.log('Empty schedule array provided');
-        return [];
-      }
-
-      const validItems: ScheduleItem[] = [];
-      const invalidItems: any[] = [];
-
-      rawSchedule.forEach((item, index) => {
-        try {
-          if (validateScheduleItem(item)) {
-            validItems.push(item as ScheduleItem);
-            console.log(`Item ${index} (${item.code}) passed validation`);
-          } else {
-            console.warn(`Item at index ${index} failed validation:`, item);
-            invalidItems.push({ index, item });
-          }
-        } catch (error) {
-          console.error(`Error processing item at index ${index}:`, error, item);
-          invalidItems.push({ index, item, error: error.message });
-        }
-      });
-
-      console.log(`Validation complete: ${validItems.length} valid items, ${invalidItems.length} invalid items`);
-      
-      if (invalidItems.length > 0) {
-        console.warn('Invalid items found:', invalidItems);
-      }
-
-      return validItems;
-    } catch (error) {
-      console.error('Critical error in filterAndValidateSchedule:', error);
-      return [];
-    }
-  };
-
-  // Filter courses based on admin's college with enhanced error handling
+  // Filter courses based on admin's college
   useEffect(() => {
     try {
-      console.log('Filtering courses. userCollege:', userCollege, 'Total courses:', courses.length);
-      
-      // First, validate all courses
-      const validCourses = courses.filter(validateCourse);
-      console.log(`Course validation: ${validCourses.length} valid out of ${courses.length} total`);
+      const validCourses = courses.filter(isValidCourse);
       
       if (userCollege) {
         const collegeDepartments = collegeStructure.find(c => c.college === userCollege)?.departments || [];
-        console.log('College departments:', collegeDepartments);
-        
-        const filtered = validCourses.filter(course => {
-          return collegeDepartments.includes(course.department);
-        });
-        
-        console.log('Filtered courses for college:', filtered.length);
+        const filtered = validCourses.filter(course => collegeDepartments.includes(course.department));
         setFilteredCourses(filtered);
       } else {
-        console.log('Filtered courses (no college):', validCourses.length);
         setFilteredCourses(validCourses);
       }
     } catch (error) {
@@ -197,21 +82,16 @@ const AdminDashboard = () => {
     const loadSchedule = async () => {
       try {
         setIsLoadingSchedule(true);
-        console.log('Loading schedule from database...');
-        
         const existingSchedule = await fetchAdminSchedule();
-        console.log('Raw schedule from database:', existingSchedule?.length || 0, 'items');
         
-        if (existingSchedule) {
-          console.log('Sample schedule item from DB:', existingSchedule[0]);
+        if (Array.isArray(existingSchedule)) {
+          const validSchedule = existingSchedule.filter(isValidScheduleItem);
+          setSchedule(validSchedule);
+          setIsSchedulePublished(validSchedule.length > 0);
+        } else {
+          setSchedule([]);
+          setIsSchedulePublished(false);
         }
-        
-        // Use our robust filtering function
-        const validSchedule = filterAndValidateSchedule(existingSchedule || []);
-        
-        console.log('Setting schedule in dashboard:', validSchedule.length, 'valid items');
-        setSchedule(validSchedule);
-        setIsSchedulePublished(validSchedule.length > 0);
       } catch (error) {
         console.error('Error loading schedule:', error);
         setSchedule([]);
@@ -260,8 +140,6 @@ const AdminDashboard = () => {
     try {
       if (userCollege) {
         const collegeDepartments = collegeStructure.find(c => c.college === userCollege)?.departments || [];
-        
-        // Filter out courses not in admin's college
         const validCourses = coursesToAdd.filter(course => collegeDepartments.includes(course.department));
         
         if (validCourses.length < coursesToAdd.length) {
@@ -304,19 +182,10 @@ const AdminDashboard = () => {
 
   const handleScheduleGenerated = (newSchedule: ScheduleItem[]) => {
     try {
-      console.log('=== HANDLE SCHEDULE GENERATED START ===');
-      console.log('Input schedule:', {
-        isArray: Array.isArray(newSchedule),
-        length: newSchedule?.length || 0,
-        firstItem: newSchedule?.[0] ? {
-          id: newSchedule[0].id,
-          code: newSchedule[0].code,
-          name: newSchedule[0].name
-        } : null
-      });
+      console.log('Schedule generated successfully:', newSchedule.length, 'items');
       
       if (!Array.isArray(newSchedule)) {
-        console.error('Invalid schedule format received:', typeof newSchedule, newSchedule);
+        console.error('Invalid schedule format received');
         toast({
           title: "Error",
           description: "Invalid schedule format received. Please try again.",
@@ -325,46 +194,13 @@ const AdminDashboard = () => {
         return;
       }
 
-      if (newSchedule.length === 0) {
-        console.log('Empty schedule received');
-        setSchedule([]);
-        setIsSchedulePublished(false);
-        toast({
-          title: "No Schedule Generated",
-          description: "No valid schedule items could be created. Please check your course data and try again.",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      console.log('Validating schedule items...');
-      const validSchedule = filterAndValidateSchedule(newSchedule);
-      console.log('Validation complete:', {
-        inputLength: newSchedule.length,
-        validLength: validSchedule.length,
-        filteredOut: newSchedule.length - validSchedule.length
-      });
-
-      console.log('Setting schedule state...');
-      setSchedule(prevSchedule => {
-        console.log('Schedule state update:', {
-          previousLength: prevSchedule.length,
-          newLength: validSchedule.length
-        });
-        return validSchedule;
-      });
+      const validSchedule = newSchedule.filter(isValidScheduleItem);
+      console.log('Valid schedule items:', validSchedule.length);
       
+      setSchedule(validSchedule);
       setIsSchedulePublished(false);
-      console.log('Schedule state set successfully');
       
-      if (validSchedule.length < newSchedule.length) {
-        const filteredCount = newSchedule.length - validSchedule.length;
-        toast({
-          title: "Schedule Generated with Warnings",
-          description: `${validSchedule.length} valid courses scheduled. ${filteredCount} items were filtered out due to invalid data.`,
-          variant: "default",
-        });
-      } else if (validSchedule.length > 0) {
+      if (validSchedule.length > 0) {
         toast({
           title: "Schedule Generated Successfully",
           description: `${validSchedule.length} courses scheduled without conflicts.`,
@@ -376,16 +212,10 @@ const AdminDashboard = () => {
           variant: "destructive",
         });
       }
-      console.log('=== HANDLE SCHEDULE GENERATED END ===');
     } catch (error) {
-      console.error('=== CRITICAL ERROR in handleScheduleGenerated ===', error);
-      console.error('Error stack:', error.stack);
-      console.error('Input that caused error:', newSchedule);
-      
-      // Set empty schedule to prevent further errors
+      console.error('Error processing generated schedule:', error);
       setSchedule([]);
       setIsSchedulePublished(false);
-      
       toast({
         title: "Error",
         description: "Failed to process generated schedule. Please try again.",
@@ -462,147 +292,111 @@ const AdminDashboard = () => {
     );
   }
 
-  // Additional safety check before rendering - ensure all schedule items are valid
-  const safeSchedule = Array.isArray(schedule) ? schedule.filter(item => {
-    try {
-      return validateScheduleItem(item);
-    } catch (error) {
-      console.error('Error validating schedule item during render:', error, item);
-      return false;
-    }
-  }) : [];
-
-  // Ultra-safe course filtering with extensive logging
-  const safeCourses = filteredCourses.filter(course => {
-    try {
-      const isValid = validateCourse(course);
-      if (!isValid) {
-        console.warn('Course filtered out during final safety check:', course);
-      }
-      return isValid;
-    } catch (error) {
-      console.error('Course validation error during final safety check:', error, course);
-      return false;
-    }
-  });
-
-  // Enhanced logging for debugging
-  console.log('About to render dashboard. Final state:', {
-    originalScheduleLength: schedule.length,
-    safeScheduleLength: safeSchedule.length,
-    originalCoursesLength: filteredCourses.length,
-    safeCoursesLength: safeCourses.length,
-    isLoading,
-    isLoadingSchedule
-  });
-
   return (
-    <ErrorBoundary>
-      <div className="container mx-auto py-8 min-h-screen bg-background">
-        <div className="mb-8 bg-card rounded-lg p-6 shadow-sm">
-          <div className="flex flex-col space-y-4 sm:space-y-0 sm:flex-row sm:items-center sm:justify-between mb-6">
-            <div>
-              <h1 className="text-3xl font-bold tracking-tight">Admin Dashboard</h1>
-              <p className="text-muted-foreground mt-1">
-                {userCollege ? `Manage timetables for ${userCollege.replace(/\s*\([^)]*\)/g, '')}` : 'Manage and generate your department\'s course schedule'}
-              </p>
-            </div>
-            <div className="flex flex-col sm:flex-row gap-3">
-              <Button 
-                variant="outline" 
-                size="sm" 
-                className="gap-2"
-                onClick={() => navigate("/")}
-              >
-                <Home className="h-4 w-4" />
-                Home
-              </Button>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                className="gap-2"
-                onClick={() => navigate("/schedule")}
-              >
-                <Calendar className="h-4 w-4" />
-                Student View
-              </Button>
-              {safeSchedule.length > 0 && (
-                <>
-                  <Button 
-                    variant={isSchedulePublished ? "default" : "outline"}
-                    size="sm" 
-                    className="gap-2"
-                    onClick={handleTogglePublish}
-                    disabled={isPublishing}
-                  >
-                    {isSchedulePublished ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
-                    {isPublishing ? "Processing..." : (isSchedulePublished ? "Published" : "Publish")}
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="gap-2"
-                    onClick={handleClearSchedule}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                    Clear Schedule
-                  </Button>
-                </>
-              )}
-              <Button 
-                variant="outline" 
-                size="sm" 
-                className="gap-2"
-                onClick={() => signOut()}
-              >
-                <LogOut className="h-4 w-4" />
-                Sign Out
-              </Button>
-              <GenerateScheduleDialog 
-                courses={safeCourses}
-                onScheduleGenerated={handleScheduleGenerated}
-              />
-            </div>
+    <div className="container mx-auto py-8 min-h-screen bg-background">
+      <div className="mb-8 bg-card rounded-lg p-6 shadow-sm">
+        <div className="flex flex-col space-y-4 sm:space-y-0 sm:flex-row sm:items-center sm:justify-between mb-6">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Admin Dashboard</h1>
+            <p className="text-muted-foreground mt-1">
+              {userCollege ? `Manage timetables for ${userCollege.replace(/\s*\([^)]*\)/g, '')}` : 'Manage and generate your department\'s course schedule'}
+            </p>
           </div>
-
-          <ErrorBoundary>
-            <StatsCards
-              totalCourses={safeCourses.length}
-              academicLevels={getAcademicLevels(safeCourses)}
-              activeInstructors={getActiveInstructors(safeCourses)}
+          <div className="flex flex-col sm:flex-row gap-3">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="gap-2"
+              onClick={() => navigate("/")}
+            >
+              <Home className="h-4 w-4" />
+              Home
+            </Button>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="gap-2"
+              onClick={() => navigate("/schedule")}
+            >
+              <Calendar className="h-4 w-4" />
+              Student View
+            </Button>
+            {schedule.length > 0 && (
+              <>
+                <Button 
+                  variant={isSchedulePublished ? "default" : "outline"}
+                  size="sm" 
+                  className="gap-2"
+                  onClick={handleTogglePublish}
+                  disabled={isPublishing}
+                >
+                  {isSchedulePublished ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+                  {isPublishing ? "Processing..." : (isSchedulePublished ? "Published" : "Publish")}
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="gap-2"
+                  onClick={handleClearSchedule}
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Clear Schedule
+                </Button>
+              </>
+            )}
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="gap-2"
+              onClick={() => signOut()}
+            >
+              <LogOut className="h-4 w-4" />
+              Sign Out
+            </Button>
+            <GenerateScheduleDialog 
+              courses={filteredCourses}
+              onScheduleGenerated={handleScheduleGenerated}
             />
-          </ErrorBoundary>
+          </div>
         </div>
 
-        <div className="grid lg:grid-cols-2 gap-8">
-          <div className="space-y-8">
-            <div className="bg-card rounded-lg p-6 shadow-sm">
-              <ErrorBoundary>
-                <CourseScheduleSection 
-                  schedule={safeSchedule} 
-                  isPublished={isSchedulePublished}
-                />
-              </ErrorBoundary>
-            </div>
-          </div>
+        <ErrorBoundary>
+          <StatsCards
+            totalCourses={filteredCourses.length}
+            academicLevels={getAcademicLevels(filteredCourses)}
+            activeInstructors={getActiveInstructors(filteredCourses)}
+          />
+        </ErrorBoundary>
+      </div>
 
-          <div className="space-y-8">
-            <div className="bg-card rounded-lg p-6 shadow-sm">
-              <ErrorBoundary>
-                <CourseManagementSection
-                  courses={safeCourses}
-                  onAddCourse={handleAdminAddCourse}
-                  onCoursesExtracted={handleAdminAddCourses}
-                  onEditCourse={handleEditCourse}
-                  onDeleteCourse={handleDeleteCourse}
-                  onClearAllCourses={handleClearAllCourses}
-                />
-              </ErrorBoundary>
-            </div>
+      <div className="grid lg:grid-cols-2 gap-8">
+        <div className="space-y-8">
+          <div className="bg-card rounded-lg p-6 shadow-sm">
+            <ErrorBoundary>
+              <CourseScheduleSection 
+                schedule={schedule} 
+                isPublished={isSchedulePublished}
+              />
+            </ErrorBoundary>
+          </div>
+        </div>
+
+        <div className="space-y-8">
+          <div className="bg-card rounded-lg p-6 shadow-sm">
+            <ErrorBoundary>
+              <CourseManagementSection
+                courses={filteredCourses}
+                onAddCourse={handleAdminAddCourse}
+                onCoursesExtracted={handleAdminAddCourses}
+                onEditCourse={handleEditCourse}
+                onDeleteCourse={handleDeleteCourse}
+                onClearAllCourses={handleClearAllCourses}
+              />
+            </ErrorBoundary>
           </div>
         </div>
       </div>
-    </ErrorBoundary>
+    </div>
   );
 };
 
