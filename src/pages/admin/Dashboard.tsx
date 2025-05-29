@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Course, ScheduleItem, collegeStructure } from "@/lib/types";
 import { useCourses } from "@/hooks/useCourses";
@@ -33,10 +32,10 @@ const AdminDashboard = () => {
   const { signOut, userCollege } = useAuth();
   const navigate = useNavigate();
 
-  // Enhanced validation function for schedule items
+  // Enhanced validation function for schedule items with more detailed logging
   const validateScheduleItem = (item: any): item is ScheduleItem => {
     try {
-      console.log('Validating schedule item:', item);
+      console.log('Validating schedule item detailed:', item);
       
       if (!item || typeof item !== 'object') {
         console.warn('Item is null, undefined, or not an object:', item);
@@ -46,34 +45,35 @@ const AdminDashboard = () => {
       const requiredStringFields = ['id', 'code', 'name', 'lecturer', 'department'];
       for (const field of requiredStringFields) {
         if (!item[field] || typeof item[field] !== 'string' || item[field].trim().length === 0) {
-          console.warn(`Invalid or missing field '${field}' in schedule item:`, item[field]);
+          console.warn(`Invalid or missing field '${field}' in schedule item:`, item[field], 'Full item:', item);
           return false;
         }
       }
 
       if (typeof item.classSize !== 'number' || item.classSize <= 0) {
-        console.warn('Invalid classSize in schedule item:', item.classSize);
+        console.warn('Invalid classSize in schedule item:', item.classSize, 'Full item:', item);
         return false;
       }
 
       if (!item.timeSlot || typeof item.timeSlot !== 'object') {
-        console.warn('Invalid timeSlot in schedule item:', item.timeSlot);
+        console.warn('Invalid timeSlot in schedule item:', item.timeSlot, 'Full item:', item);
         return false;
       }
 
       const requiredTimeSlotFields = ['day', 'startTime', 'endTime'];
       for (const field of requiredTimeSlotFields) {
         if (!item.timeSlot[field] || typeof item.timeSlot[field] !== 'string' || item.timeSlot[field].trim().length === 0) {
-          console.warn(`Invalid timeSlot field '${field}' in schedule item:`, item.timeSlot[field]);
+          console.warn(`Invalid timeSlot field '${field}' in schedule item:`, item.timeSlot[field], 'Full item:', item);
           return false;
         }
       }
 
       if (!item.venue || typeof item.venue !== 'object' || !item.venue.name || typeof item.venue.name !== 'string' || item.venue.name.trim().length === 0) {
-        console.warn('Invalid venue in schedule item:', item.venue);
+        console.warn('Invalid venue in schedule item:', item.venue, 'Full item:', item);
         return false;
       }
 
+      console.log('Schedule item validation passed for:', item.code);
       return true;
     } catch (error) {
       console.error('Error validating schedule item:', error, item);
@@ -103,6 +103,7 @@ const AdminDashboard = () => {
         try {
           if (validateScheduleItem(item)) {
             validItems.push(item as ScheduleItem);
+            console.log(`Item ${index} (${item.code}) passed validation`);
           } else {
             console.warn(`Item at index ${index} failed validation:`, item);
             invalidItems.push({ index, item });
@@ -126,24 +127,39 @@ const AdminDashboard = () => {
     }
   };
 
-  // Filter courses based on admin's college
+  // Filter courses based on admin's college with enhanced error handling
   useEffect(() => {
     try {
+      console.log('Filtering courses. userCollege:', userCollege, 'Total courses:', courses.length);
+      
       if (userCollege) {
         const collegeDepartments = collegeStructure.find(c => c.college === userCollege)?.departments || [];
+        console.log('College departments:', collegeDepartments);
+        
         const filtered = courses.filter(course => {
-          return course && 
-                 course.department && 
-                 typeof course.department === 'string' &&
-                 collegeDepartments.includes(course.department);
+          if (!course) {
+            console.warn('Null course found in filter');
+            return false;
+          }
+          if (!course.department || typeof course.department !== 'string') {
+            console.warn('Invalid department in course:', course);
+            return false;
+          }
+          return collegeDepartments.includes(course.department);
         });
+        
+        console.log('Filtered courses for college:', filtered.length);
         setFilteredCourses(filtered);
       } else {
         const filtered = courses.filter(course => {
-          return course && 
-                 course.department && 
-                 typeof course.department === 'string';
+          if (!course) {
+            console.warn('Null course found in general filter');
+            return false;
+          }
+          return course.department && typeof course.department === 'string';
         });
+        
+        console.log('Filtered courses (no college):', filtered.length);
         setFilteredCourses(filtered);
       }
     } catch (error) {
@@ -161,6 +177,10 @@ const AdminDashboard = () => {
         
         const existingSchedule = await fetchAdminSchedule();
         console.log('Raw schedule from database:', existingSchedule?.length || 0, 'items');
+        
+        if (existingSchedule) {
+          console.log('Sample schedule item from DB:', existingSchedule[0]);
+        }
         
         // Use our robust filtering function
         const validSchedule = filterAndValidateSchedule(existingSchedule || []);
@@ -262,7 +282,6 @@ const AdminDashboard = () => {
     try {
       console.log('Handling newly generated schedule. Input:', newSchedule?.length || 0, 'items');
       
-      // Ensure we have a valid array
       if (!Array.isArray(newSchedule)) {
         console.error('Invalid schedule format received:', typeof newSchedule, newSchedule);
         toast({
@@ -285,19 +304,17 @@ const AdminDashboard = () => {
         return;
       }
 
-      // Use our robust filtering function
       const validSchedule = filterAndValidateSchedule(newSchedule);
 
       console.log('Setting new schedule in dashboard:', validSchedule.length, 'valid items out of', newSchedule.length, 'total');
       
-      // Use React's functional state update to ensure we're working with the latest state
       setSchedule(prevSchedule => {
         console.log('Previous schedule length:', prevSchedule.length);
         console.log('New schedule length:', validSchedule.length);
         return validSchedule;
       });
       
-      setIsSchedulePublished(false); // New schedule is not published by default
+      setIsSchedulePublished(false);
       
       if (validSchedule.length < newSchedule.length) {
         const filteredCount = newSchedule.length - validSchedule.length;
@@ -407,8 +424,31 @@ const AdminDashboard = () => {
     }
   }) : [];
 
-  // Log the final schedule state before rendering
-  console.log('Rendering dashboard with schedule:', safeSchedule.length, 'items');
+  // Enhanced logging for debugging
+  console.log('About to render dashboard. Schedule state:', {
+    originalLength: schedule.length,
+    safeLength: safeSchedule.length,
+    filteredCoursesLength: filteredCourses.length,
+    isLoading,
+    isLoadingSchedule
+  });
+
+  // Additional validation for courses before passing to components
+  const safeCourses = filteredCourses.filter(course => {
+    try {
+      return course && 
+             typeof course === 'object' && 
+             typeof course.code === 'string' && 
+             typeof course.name === 'string' &&
+             course.code.length > 0 &&
+             course.name.length > 0;
+    } catch (error) {
+      console.error('Invalid course found:', error, course);
+      return false;
+    }
+  });
+
+  console.log('Safe courses for rendering:', safeCourses.length);
 
   return (
     <ErrorBoundary>
@@ -473,7 +513,7 @@ const AdminDashboard = () => {
                 Sign Out
               </Button>
               <GenerateScheduleDialog 
-                courses={filteredCourses}
+                courses={safeCourses}
                 onScheduleGenerated={handleScheduleGenerated}
               />
             </div>
@@ -481,9 +521,9 @@ const AdminDashboard = () => {
 
           <ErrorBoundary>
             <StatsCards
-              totalCourses={filteredCourses.length}
-              academicLevels={getAcademicLevels(filteredCourses)}
-              activeInstructors={getActiveInstructors(filteredCourses)}
+              totalCourses={safeCourses.length}
+              academicLevels={getAcademicLevels(safeCourses)}
+              activeInstructors={getActiveInstructors(safeCourses)}
             />
           </ErrorBoundary>
         </div>
@@ -504,7 +544,7 @@ const AdminDashboard = () => {
             <div className="bg-card rounded-lg p-6 shadow-sm">
               <ErrorBoundary>
                 <CourseManagementSection
-                  courses={filteredCourses}
+                  courses={safeCourses}
                   onAddCourse={handleAdminAddCourse}
                   onCoursesExtracted={handleAdminAddCourses}
                   onEditCourse={handleEditCourse}
