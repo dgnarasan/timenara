@@ -1,4 +1,3 @@
-
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ThemeProvider } from "next-themes";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -17,6 +16,7 @@ const NotFound = lazy(() => import("@/pages/NotFound"));
 const Home = lazy(() => import("@/pages/Home"));
 const Auth = lazy(() => import("@/pages/Auth"));
 const AccessDenied = lazy(() => import("@/pages/AccessDenied"));
+const ExamTimetableGenerator = lazy(() => import("@/pages/admin/ExamTimetableGenerator"));
 
 // Improved loading fallback component
 const LoadingFallback = () => (
@@ -63,6 +63,17 @@ function App() {
                       </ProtectedRoute>
                     } 
                   />
+                  
+                  {/* Add new exam timetable generator route */}
+                  <Route 
+                    path="/admin/exam-timetable-generator" 
+                    element={
+                      <ProtectedRoute requireAdmin={true}>
+                        <ExamTimetableGenerator />
+                      </ProtectedRoute>
+                    } 
+                  />
+                  
                   <Route 
                     path="/schedule" 
                     element={
