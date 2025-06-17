@@ -1,7 +1,7 @@
 
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { CalendarDays, GraduationCap, Calendar, ArrowRight, LogIn, LogOut, Menu, FileText } from "lucide-react";
+import { CalendarDays, GraduationCap, Calendar, ArrowRight, LogIn, LogOut, Menu, FileText, Settings } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useState } from "react";
@@ -154,6 +154,15 @@ const Home = () => {
               onClick={() => navigate("/admin")}
             >
               Admin Dashboard
+            </Button>
+            <Button
+              size="lg"
+              variant="outline"
+              className="text-base md:text-lg w-full sm:w-auto"
+              onClick={() => navigate("/admin/exam-timetable-generator")}
+            >
+              <Settings className="mr-2 h-4 w-4" />
+              Exam Generator
             </Button>
           </div>
         </div>
