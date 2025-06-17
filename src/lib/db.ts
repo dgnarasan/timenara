@@ -1,5 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
-import { Course, DBCourse, Venue, DBVenue, TimeSlot, Department, ScheduleItem } from "./types";
+import { Course, DBCourse, Venue, DBVenue, TimeSlot, Department, ScheduleItem, ExamCourse, DBExamCourse, ExamScheduleItem, DBExamSchedule } from "./types";
 import { PostgrestResponse } from "@supabase/supabase-js";
 import { Database } from "@/integrations/supabase/types";
 
@@ -20,6 +20,18 @@ export const mapDBVenueToClient = (dbVenue: DBVenue): Venue => ({
   name: dbVenue.name,
   capacity: dbVenue.capacity,
   availability: dbVenue.availability,
+});
+
+export const mapDBExamCourseToClient = (dbExamCourse: DBExamCourse): ExamCourse => ({
+  id: dbExamCourse.id,
+  courseCode: dbExamCourse.course_code,
+  courseTitle: dbExamCourse.course_title,
+  department: dbExamCourse.department,
+  college: dbExamCourse.college,
+  level: dbExamCourse.level,
+  studentCount: dbExamCourse.student_count,
+  createdAt: dbExamCourse.created_at,
+  updatedAt: dbExamCourse.updated_at,
 });
 
 export const fetchCourses = async (): Promise<Course[]> => {
@@ -236,6 +248,169 @@ export const clearSchedule = async (): Promise<void> => {
     .from('schedules')
     .delete()
     .gte('created_at', '1970-01-01'); // Delete all rows
+
+  if (error) throw error;
+};
+
+export const fetchExamCourses = async (): Promise<ExamCourse[]> => {
+  const { data, error } = await supabase
+    .from('exam_courses')
+    .select('*')
+    .order('created_at', { ascending: true });
+
+  if (error) throw error;
+  return (data as unknown as DBExamCourse[]).map(mapDBExamCourseToClient);
+};
+
+export const addExamCourses = async (courses: Omit<ExamCourse, "id" | "createdAt" | "updatedAt">[]): Promise<ExamCourse[]> => {
+  const { error } = await supabase.rpc('clear_and_insert_exam_courses', {
+    courses_data: courses.map(course => ({
+      course_code: course.courseCode,
+      course_title: course.courseTitle,
+      department: course.department,
+      college: course.college,
+      level: course.level,
+      student_count: course.studentCount,
+    }))
+  });
+
+  if (error) throw error;
+  
+  // Fetch the newly inserted courses
+  return await fetchExamCourses();
+};
+
+export const deleteAllExamCourses = async (): Promise<void> => {
+  const { error } = await supabase
+    .from('exam_courses')
+    .delete()
+    .gte('created_at', '1970-01-01');
+
+  if (error) throw error;
+};
+
+export const fetchExamSchedule = async (): Promise<ExamScheduleItem[]> => {
+  const { data: scheduleData, error } = await supabase
+    .from('exam_schedules')
+    .select(`
+      id,
+      day,
+      start_time,
+      end_time,
+      session_name,
+      venue_name,
+      published,
+      created_at,
+      exam_courses!inner (
+        id,
+        course_code,
+        course_title,
+        department,
+        college,
+        level,
+        student_count
+      )
+    `)
+    .eq('published', true)
+    .order('day', { ascending: true })
+    .order('start_time', { ascending: true });
+
+  if (error) throw error;
+
+  return (scheduleData || []).map((item: any) => ({
+    id: item.exam_courses.id,
+    courseCode: item.exam_courses.course_code,
+    courseTitle: item.exam_courses.course_title,
+    department: item.exam_courses.department,
+    college: item.exam_courses.college,
+    level: item.exam_courses.level,
+    studentCount: item.exam_courses.student_count,
+    day: item.day,
+    startTime: item.start_time,
+    endTime: item.end_time,
+    sessionName: item.session_name as 'Morning' | 'Midday' | 'Afternoon',
+    venueName: item.venue_name,
+    createdAt: item.exam_courses.created_at || '',
+    updatedAt: item.exam_courses.updated_at || '',
+  }));
+};
+
+export const fetchAdminExamSchedule = async (): Promise<ExamScheduleItem[]> => {
+  const { data: scheduleData, error } = await supabase
+    .from('exam_schedules')
+    .select(`
+      id,
+      day,
+      start_time,
+      end_time,
+      session_name,
+      venue_name,
+      published,
+      created_at,
+      exam_courses!inner (
+        id,
+        course_code,
+        course_title,
+        department,
+        college,
+        level,
+        student_count
+      )
+    `)
+    .order('day', { ascending: true })
+    .order('start_time', { ascending: true });
+
+  if (error) throw error;
+
+  return (scheduleData || []).map((item: any) => ({
+    id: item.exam_courses.id,
+    courseCode: item.exam_courses.course_code,
+    courseTitle: item.exam_courses.course_title,
+    department: item.exam_courses.department,
+    college: item.exam_courses.college,
+    level: item.exam_courses.level,
+    studentCount: item.exam_courses.student_count,
+    day: item.day,
+    startTime: item.start_time,
+    endTime: item.end_time,
+    sessionName: item.session_name as 'Morning' | 'Midday' | 'Afternoon',
+    venueName: item.venue_name,
+    createdAt: item.exam_courses.created_at || '',
+    updatedAt: item.exam_courses.updated_at || '',
+  }));
+};
+
+export const saveExamSchedule = async (schedule: ExamScheduleItem[], shouldPublish: boolean = false): Promise<void> => {
+  const scheduleData = schedule.map(item => ({
+    exam_course_id: item.id,
+    day: item.day,
+    start_time: item.startTime,
+    end_time: item.endTime,
+    session_name: item.sessionName,
+    venue_name: item.venueName,
+  }));
+
+  const { error } = await supabase.rpc('clear_and_insert_exam_schedule', {
+    schedule_data: scheduleData,
+    should_publish: shouldPublish
+  });
+
+  if (error) throw error;
+};
+
+export const publishExamSchedule = async (shouldPublish: boolean): Promise<void> => {
+  const { error } = await supabase.rpc('publish_exam_schedule', {
+    should_publish: shouldPublish
+  });
+
+  if (error) throw error;
+};
+
+export const clearExamSchedule = async (): Promise<void> => {
+  const { error } = await supabase
+    .from('exam_schedules')
+    .delete()
+    .gte('created_at', '1970-01-01');
 
   if (error) throw error;
 };

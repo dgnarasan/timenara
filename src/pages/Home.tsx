@@ -1,7 +1,7 @@
 
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { CalendarDays, GraduationCap, Calendar, ArrowRight, LogIn, LogOut, Menu } from "lucide-react";
+import { CalendarDays, GraduationCap, Calendar, ArrowRight, LogIn, LogOut, Menu, FileText } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useState } from "react";
@@ -86,15 +86,16 @@ const Home = () => {
               className="text-base md:text-lg w-full sm:w-auto"
               onClick={() => navigate("/schedule")}
             >
-              Get Started <ArrowRight className="ml-2" />
+              View Course Schedule <ArrowRight className="ml-2" />
             </Button>
             <Button
               size="lg"
               variant="outline"
               className="text-base md:text-lg w-full sm:w-auto"
-              onClick={() => navigate("/admin")}
+              onClick={() => navigate("/exam-schedule")}
             >
-              Admin Dashboard
+              <FileText className="mr-2 h-4 w-4" />
+              Exam Timetable
             </Button>
           </div>
         </div>
@@ -138,13 +139,23 @@ const Home = () => {
           <p className="text-sm md:text-base text-muted-foreground max-w-xl mx-auto">
             Join our platform today and experience the future of academic scheduling.
           </p>
-          <Button
-            size="lg"
-            className="text-base md:text-lg w-full sm:w-auto"
-            onClick={() => navigate("/schedule")}
-          >
-            View Schedule <ArrowRight className="ml-2" />
-          </Button>
+          <div className="flex flex-col sm:flex-row justify-center gap-3">
+            <Button
+              size="lg"
+              className="text-base md:text-lg w-full sm:w-auto"
+              onClick={() => navigate("/schedule")}
+            >
+              View Course Schedule <ArrowRight className="ml-2" />
+            </Button>
+            <Button
+              size="lg"
+              variant="outline"
+              className="text-base md:text-lg w-full sm:w-auto"
+              onClick={() => navigate("/admin")}
+            >
+              Admin Dashboard
+            </Button>
+          </div>
         </div>
       </div>
     </div>

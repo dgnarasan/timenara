@@ -1,50 +1,50 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { ScheduleItem } from "@/lib/types";
+import { ExamScheduleItem } from "@/lib/types";
 import { useAuth } from "@/contexts/AuthContext";
-import StudentTimetableView from "@/components/student/StudentTimetableView";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { fetchSchedule } from "@/lib/db";
+import { Card } from "@/components/ui/card";
+import { fetchExamSchedule } from "@/lib/db";
 import { useToast } from "@/hooks/use-toast";
 import { 
   LayoutDashboard, 
   LogOut, 
   Home, 
-  Calendar, 
+  Calendar,
   List,
   Grid3x3,
   GraduationCap
 } from "lucide-react";
+import ExamTimetableView from "@/components/student/ExamTimetableView";
 
-const Schedule = () => {
-  const [schedule, setSchedule] = useState<ScheduleItem[]>([]);
+const ExamSchedule = () => {
+  const [schedule, setSchedule] = useState<ExamScheduleItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [viewMode, setViewMode] = useState<"timetable" | "list">("timetable");
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
   const { toast } = useToast();
 
-  // Use useCallback to memoize the fetchSchedule function
   const loadSchedule = useCallback(async () => {
     try {
       setIsLoading(true);
-      const scheduleData = await fetchSchedule();
+      const scheduleData = await fetchExamSchedule();
       setSchedule(scheduleData);
       
       if (scheduleData.length === 0) {
         toast({
-          title: "No Published Schedule",
-          description: "No schedule has been published yet. Please check back later.",
+          title: "No Published Exam Schedule",
+          description: "No exam schedule has been published yet. Please check back later.",
           variant: "default",
         });
       }
     } catch (error) {
-      console.error('Failed to fetch schedule:', error);
+      console.error('Failed to fetch exam schedule:', error);
       toast({
         title: "Error",
-        description: "Failed to load schedule. Please try again.",
+        description: "Failed to load exam schedule. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -61,9 +61,12 @@ const Schedule = () => {
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Course Schedule</h1>
+            <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
+              <GraduationCap className="h-8 w-8 text-primary" />
+              Exam Timetable
+            </h1>
             <p className="text-muted-foreground mt-2">
-              View and filter your course schedule
+              View your examination schedule and important details
             </p>
           </div>
           
@@ -102,10 +105,10 @@ const Schedule = () => {
               variant="outline" 
               size="sm" 
               className="gap-2"
-              onClick={() => navigate("/exam-schedule")}
+              onClick={() => navigate("/schedule")}
             >
-              <GraduationCap className="h-4 w-4" />
-              Exam Schedule
+              <Calendar className="h-4 w-4" />
+              Course Schedule
             </Button>
             <Button 
               variant="outline" 
@@ -137,16 +140,16 @@ const Schedule = () => {
             <Skeleton className="h-[400px] w-full" />
           </div>
         ) : (
-          <div className="bg-card rounded-lg p-4 shadow-sm transition-all hover:shadow-md border">
-            <StudentTimetableView 
+          <Card className="p-6 shadow-sm transition-all hover:shadow-md border">
+            <ExamTimetableView 
               schedule={schedule} 
               viewMode={viewMode}
             />
-          </div>
+          </Card>
         )}
       </div>
     </div>
   );
 };
 
-export default Schedule;
+export default ExamSchedule;

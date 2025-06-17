@@ -115,6 +115,52 @@ export interface CollegeWithDepartments {
   departments: Department[];
 }
 
+// New exam-related types
+export interface ExamCourse {
+  id: string;
+  courseCode: string;
+  courseTitle: string;
+  department: string;
+  college: string;
+  level: string;
+  studentCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ExamScheduleItem extends ExamCourse {
+  day: string;
+  startTime: string;
+  endTime: string;
+  sessionName: 'Morning' | 'Midday' | 'Afternoon';
+  venueName?: string;
+}
+
+export type DBExamCourse = {
+  id: string;
+  course_code: string;
+  course_title: string;
+  department: string;
+  college: string;
+  level: string;
+  student_count: number;
+  created_at: string;
+  updated_at: string;
+};
+
+export type DBExamSchedule = {
+  id: string;
+  exam_course_id: string | null;
+  day: string;
+  start_time: string;
+  end_time: string;
+  session_name: string;
+  venue_name: string | null;
+  created_by: string | null;
+  published: boolean | null;
+  created_at: string;
+};
+
 export const collegeStructure: CollegeWithDepartments[] = [
   {
     college: 'COLLEGE OF ENVIRONMENTAL SCIENCES & MANAGEMENT (COLENSMA)',

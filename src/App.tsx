@@ -12,6 +12,7 @@ import "./App.css";
 // Lazy load components for better performance
 const AdminDashboard = lazy(() => import("@/pages/admin/Dashboard"));
 const StudentSchedule = lazy(() => import("@/pages/student/Schedule"));
+const ExamSchedule = lazy(() => import("@/pages/student/ExamSchedule"));
 const NotFound = lazy(() => import("@/pages/NotFound"));
 const Home = lazy(() => import("@/pages/Home"));
 const Auth = lazy(() => import("@/pages/Auth"));
@@ -67,6 +68,14 @@ function App() {
                     element={
                       <ProtectedRoute>
                         <StudentSchedule />
+                      </ProtectedRoute>
+                    } 
+                  />
+                  <Route 
+                    path="/exam-schedule" 
+                    element={
+                      <ProtectedRoute>
+                        <ExamSchedule />
                       </ProtectedRoute>
                     } 
                   />
