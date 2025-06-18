@@ -1,9 +1,6 @@
-import { createClient } from '@supabase/supabase-js';
-import { Course, ExamCourse, Room, ScheduleItem, User, ExamScheduleItem, ExamCourseForUpload } from './types';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
-export const supabase = createClient(supabaseUrl, supabaseKey);
+import { supabase } from '@/integrations/supabase/client';
+import { Course, ExamCourse, Room, ScheduleItem, User, ExamScheduleItem, ExamCourseForUpload } from './types';
 
 // Function to fetch courses
 export const fetchCourses = async (): Promise<Course[]> => {
