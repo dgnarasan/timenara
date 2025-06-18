@@ -401,7 +401,7 @@ export const updateUserRole = async (id: string, role: string): Promise<User | n
   return data ? {
     id: data.id,
     email: data.email,
-    role: (data.role === 'admin' || data.role === 'student') ? data.role : 'student',
+    role: (data.role === 'admin' || data.role === 'student') ? data.role as 'admin' | 'student' : 'student',
   } : null;
 };
 
