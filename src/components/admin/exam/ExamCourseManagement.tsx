@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { fetchExamCourses, deleteAllExamCourses } from "@/lib/db";
 import { useToast } from "@/hooks/use-toast";
-import { Upload, Trash2, FileText, Users, Building, AlertCircle } from "lucide-react";
+import { Upload, Trash2, FileText, Users, Building, AlertCircle, Share2 } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import ExamCourseUpload from "./ExamCourseUpload";
@@ -49,6 +49,7 @@ const ExamCourseManagement = () => {
     }
   };
 
+  // Group courses by college and level, also identify shared courses
   const groupedCourses = examCourses.reduce((acc, course) => {
     const key = `${course.college}-${course.level}`;
     if (!acc[key]) {
@@ -57,6 +58,22 @@ const ExamCourseManagement = () => {
     acc[key].push(course);
     return acc;
   }, {} as Record<string, typeof examCourses>);
+
+  // Identify potentially shared courses (same course code in different departments)
+  const sharedCourseMap = examCourses.reduce((acc, course) => {
+    const normalizedCode = course.courseCode.replace(/\s+/g, '').toUpperCase();
+    if (!acc[normalizedCode]) {
+      acc[normalizedCode] = [];
+    }
+    // Add if not already in the array
+    if (!acc[normalizedCode].some(c => c.id === course.id)) {
+      acc[normalizedCode].push(course);
+    }
+    return acc;
+  }, {} as Record<string, typeof examCourses>);
+
+  // Filter to only courses that appear in multiple departments
+  const sharedCourses = Object.values(sharedCourseMap).filter(courses => courses.length > 1);
 
   if (isLoading) {
     return (
@@ -117,6 +134,32 @@ const ExamCourseManagement = () => {
               </AlertDescription>
             </Alert>
           )}
+
+          {/* Shared Courses Summary */}
+          {sharedCourses.length > 0 && (
+            <Alert className="border-blue-200 bg-blue-50">
+              <Share2 className="h-4 w-4 text-blue-600" />
+              <AlertDescription className="text-blue-800">
+                <div className="space-y-1">
+                  <p className="font-medium">
+                    Found {sharedCourses.length} shared course{sharedCourses.length !== 1 ? 's' : ''} across departments
+                  </p>
+                  <div className="flex flex-wrap gap-1">
+                    {sharedCourses.slice(0, 5).map((courses, idx) => (
+                      <Badge key={idx} variant="secondary" className="bg-blue-100 text-blue-700 border-blue-200">
+                        {courses[0].courseCode} ({courses.length} depts)
+                      </Badge>
+                    ))}
+                    {sharedCourses.length > 5 && (
+                      <Badge variant="secondary" className="bg-blue-100 text-blue-700 border-blue-200">
+                        +{sharedCourses.length - 5} more
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+              </AlertDescription>
+            </Alert>
+          )}
         </CardContent>
       </Card>
 
@@ -158,24 +201,45 @@ const ExamCourseManagement = () => {
                       <TableHead className="font-semibold text-gray-700">Course Title</TableHead>
                       <TableHead className="font-semibold text-gray-700">Department</TableHead>
                       <TableHead className="text-right font-semibold text-gray-700">Students</TableHead>
+                      <TableHead className="font-semibold text-gray-700">Shared</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {courses.map((course, index) => (
-                      <TableRow 
-                        key={course.id} 
-                        className={`hover:bg-gray-50 transition-colors duration-150 ${
-                          index % 2 === 0 ? 'bg-white' : 'bg-gray-25'
-                        }`}
-                      >
-                        <TableCell className="font-medium text-gray-900">{course.courseCode}</TableCell>
-                        <TableCell className="text-gray-700">{course.courseTitle}</TableCell>
-                        <TableCell className="text-gray-600">{course.department}</TableCell>
-                        <TableCell className="text-right font-semibold text-gray-900">
-                          {course.studentCount.toLocaleString()}
-                        </TableCell>
-                      </TableRow>
-                    ))}
+                    {courses.map((course, index) => {
+                      const normalizedCode = course.courseCode.replace(/\s+/g, '').toUpperCase();
+                      const isShared = sharedCourseMap[normalizedCode]?.length > 1;
+                      const sharedDepartments = isShared 
+                        ? sharedCourseMap[normalizedCode]
+                          .filter(c => c.id !== course.id)
+                          .map(c => c.department) 
+                        : [];
+
+                      return (
+                        <TableRow 
+                          key={course.id} 
+                          className={`hover:bg-gray-50 transition-colors duration-150 ${
+                            index % 2 === 0 ? 'bg-white' : 'bg-gray-25'
+                          }`}
+                        >
+                          <TableCell className="font-medium text-gray-900">{course.courseCode}</TableCell>
+                          <TableCell className="text-gray-700">{course.courseTitle}</TableCell>
+                          <TableCell className="text-gray-600">{course.department}</TableCell>
+                          <TableCell className="text-right font-semibold text-gray-900">
+                            {course.studentCount.toLocaleString()}
+                          </TableCell>
+                          <TableCell>
+                            {isShared ? (
+                              <div className="flex items-center gap-1">
+                                <Share2 className="h-3 w-3 text-blue-600" />
+                                <span className="text-xs text-blue-600 font-medium">
+                                  Shared with {sharedDepartments.length} dept{sharedDepartments.length !== 1 ? 's' : ''}
+                                </span>
+                              </div>
+                            ) : "—"}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
                   </TableBody>
                 </Table>
               </div>

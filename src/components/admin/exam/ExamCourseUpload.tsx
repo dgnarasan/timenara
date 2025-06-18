@@ -7,7 +7,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { addExamCourses } from "@/lib/db";
 import { useToast } from "@/hooks/use-toast";
-import { Upload, FileText, AlertCircle, CheckCircle, X, File } from "lucide-react";
+import { Upload, FileText, AlertCircle, CheckCircle, X, File, Share2 } from "lucide-react";
 import { ExamCourse } from "@/lib/types";
 import * as XLSX from "xlsx";
 
@@ -16,10 +16,20 @@ interface ExamCourseUploadProps {
   onClose: () => void;
 }
 
+interface ParsedExamCourse {
+  courseCode: string;
+  courseTitle: string;
+  department: string;
+  college: string;
+  level: string;
+  studentCount: number;
+  sharedDepartments?: string[];  // New field to track shared departments
+}
+
 const ExamCourseUpload = ({ isOpen, onClose }: ExamCourseUploadProps) => {
   const [dragActive, setDragActive] = useState(false);
   const [file, setFile] = useState<File | null>(null);
-  const [courses, setCourses] = useState<Omit<ExamCourse, "id" | "createdAt" | "updatedAt">[]>([]);
+  const [courses, setCourses] = useState<ParsedExamCourse[]>([]);
   const [errors, setErrors] = useState<string[]>([]);
   const [uploadStatus, setUploadStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -27,7 +37,34 @@ const ExamCourseUpload = ({ isOpen, onClose }: ExamCourseUploadProps) => {
   const queryClient = useQueryClient();
 
   const uploadMutation = useMutation({
-    mutationFn: addExamCourses,
+    mutationFn: (coursesToUpload: ParsedExamCourse[]) => {
+      // Transform the courses to match the expected format by the backend
+      const transformedCourses = coursesToUpload.flatMap(course => {
+        // Create main course entry
+        const mainCourse = {
+          courseCode: course.courseCode,
+          courseTitle: course.courseTitle,
+          department: course.department,
+          college: course.college,
+          level: course.level,
+          studentCount: course.studentCount,
+        };
+        
+        // If there are shared departments, create duplicate entries for each
+        const sharedEntries = course.sharedDepartments?.map(dept => ({
+          courseCode: course.courseCode,
+          courseTitle: course.courseTitle,
+          department: dept,
+          college: course.college,
+          level: course.level,
+          studentCount: course.studentCount,
+        })) || [];
+        
+        return [mainCourse, ...sharedEntries];
+      });
+      
+      return addExamCourses(transformedCourses);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['exam-courses'] });
       setUploadStatus('success');
@@ -81,7 +118,7 @@ const ExamCourseUpload = ({ isOpen, onClose }: ExamCourseUploadProps) => {
     try {
       const workbook = XLSX.read(data);
       const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-      const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as string[][];
+      const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" }) as string[][];
       
       if (rows.length === 0) {
         setErrors(['The uploaded file appears to be empty.']);
@@ -105,32 +142,65 @@ const ExamCourseUpload = ({ isOpen, onClose }: ExamCourseUploadProps) => {
         return;
       }
 
-      const parsedCourses: Omit<ExamCourse, "id" | "createdAt" | "updatedAt">[] = [];
+      const parsedCourses: ParsedExamCourse[] = [];
       const allErrors: string[] = [];
+      let lastValidCourse: ParsedExamCourse | null = null;
       
+      // Skip header row and process data rows
       for (let i = 1; i < rows.length; i++) {
         const values = rows[i];
         
-        if (!values || values.length < 3 || !values.some(cell => cell?.toString().trim())) {
-          continue; // Skip empty rows
+        // Skip completely empty rows
+        if (!values || values.length < 3 || values.every(cell => !cell?.toString().trim())) {
+          continue;
         }
         
         const courseCode = values[0]?.toString().trim();
-        const studentCount = parseInt(values[1]?.toString()) || 0;
+        const studentCountText = values[1]?.toString().trim();
         const department = values[2]?.toString().trim();
         
-        const courseData = {
+        // Check if this is a shared department row (blank course code and student count, but has department)
+        if (!courseCode && !studentCountText && department) {
+          // If we have a previous valid course, add this department as a shared department
+          if (lastValidCourse) {
+            if (!lastValidCourse.sharedDepartments) {
+              lastValidCourse.sharedDepartments = [];
+            }
+            
+            // Only add if not already present
+            if (!lastValidCourse.sharedDepartments.includes(department)) {
+              lastValidCourse.sharedDepartments.push(department);
+            }
+            
+            // Optional: Warn if a course is shared with more than 3 departments (including main department)
+            if (lastValidCourse.sharedDepartments.length > 2) {  // +1 for main department
+              allErrors.push(`Warning: ${lastValidCourse.courseCode} is shared with more than 3 departments`);
+            }
+            
+            continue; // Skip to next row after processing this shared department
+          } else {
+            // If there's no previous valid course, treat as an error
+            allErrors.push(`Row ${i + 1}: Found a department without a course`);
+            continue;
+          }
+        }
+        
+        // This is a main course row
+        const studentCount = parseInt(studentCountText) || 0;
+        
+        const courseData: ParsedExamCourse = {
           courseCode,
           courseTitle: courseCode, // Use course code as title for now
           department,
-          college: "Default College", // Default value
-          level: "Undergraduate", // Default value
+          college: determineCollege(department), // Helper function to determine college
+          level: determineLevel(courseCode), // Helper function to determine level
           studentCount,
+          sharedDepartments: [] // Initialize empty array for shared departments
         };
         
         const courseErrors = validateCourse({
           courseCode,
-          studentCount,
+          studentCount: studentCountText,
           department
         }, i - 1);
         
@@ -138,14 +208,56 @@ const ExamCourseUpload = ({ isOpen, onClose }: ExamCourseUploadProps) => {
         
         if (courseErrors.length === 0) {
           parsedCourses.push(courseData);
+          lastValidCourse = courseData; // Update the last valid course reference
+        } else {
+          lastValidCourse = null; // Reset last valid course if this one had errors
         }
       }
       
       setErrors(allErrors);
       setCourses(parsedCourses);
     } catch (error) {
+      console.error("Excel parsing error:", error);
       setErrors(['Failed to parse Excel file. Please ensure it\'s a valid Excel file.']);
     }
+  };
+
+  // Helper function to determine college from department
+  const determineCollege = (department: string): string => {
+    // This is a simplified mapping - could be expanded with a more comprehensive mapping
+    const collegeMap: Record<string, string> = {
+      "Computer Science": "Science",
+      "Mathematics": "Science",
+      "Physics": "Science",
+      "Chemistry": "Science",
+      "Biology": "Science",
+      "Biochemistry": "Science",
+      "Microbiology": "Science",
+      "Industrial Chemistry": "Science",
+      "Accounting": "Business",
+      "Economics": "Business",
+      "Business Administration": "Business",
+      "Marketing": "Business",
+      "English": "Arts",
+      "History": "Arts",
+      "Philosophy": "Arts",
+      "Civil Engineering": "Engineering",
+      "Electrical Engineering": "Engineering",
+      "Mechanical Engineering": "Engineering"
+    };
+    
+    return collegeMap[department] || "General";
+  };
+
+  // Helper function to determine level based on course code
+  const determineLevel = (courseCode: string): string => {
+    // Extract level from course code (e.g., CHM 305 -> 300 level)
+    const match = courseCode.match(/\d{3}/);
+    if (match) {
+      const levelNum = match[0].charAt(0);
+      return `${levelNum}00 Level`;
+    }
+    return "Undergraduate";
   };
 
   const handleFileSelect = (selectedFile: File) => {
@@ -200,6 +312,11 @@ const ExamCourseUpload = ({ isOpen, onClose }: ExamCourseUploadProps) => {
       handleFileSelect(e.target.files[0]);
     }
   };
+
+  // Total number of courses including shared courses
+  const totalCoursesToUpload = courses.reduce((total, course) => {
+    return total + 1 + (course.sharedDepartments?.length || 0);
+  }, 0);
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
@@ -311,9 +428,54 @@ const ExamCourseUpload = ({ isOpen, onClose }: ExamCourseUploadProps) => {
                   <p className="text-sm">
                     Total students: {courses.reduce((sum, course) => sum + course.studentCount, 0).toLocaleString()}
                   </p>
+                  {courses.some(course => course.sharedDepartments && course.sharedDepartments.length > 0) && (
+                    <p className="text-sm flex items-center gap-1">
+                      <Share2 className="h-4 w-4" />
+                      Found {courses.filter(course => course.sharedDepartments && course.sharedDepartments.length > 0).length} shared courses
+                    </p>
+                  )}
                 </div>
               </AlertDescription>
             </Alert>
+          )}
+
+          {/* Courses Preview */}
+          {courses.length > 0 && errors.length === 0 && (
+            <div className="max-h-60 overflow-y-auto border rounded-md">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50 sticky top-0">
+                  <tr>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Course</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Department</th>
+                    <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Students</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Shared With</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {courses.map((course, index) => (
+                    <tr key={index}>
+                      <td className="px-4 py-2 text-sm font-medium text-gray-900">{course.courseCode}</td>
+                      <td className="px-4 py-2 text-sm text-gray-600">{course.department}</td>
+                      <td className="px-4 py-2 text-sm text-gray-900 text-right">{course.studentCount.toLocaleString()}</td>
+                      <td className="px-4 py-2 text-sm">
+                        {course.sharedDepartments && course.sharedDepartments.length > 0 ? (
+                          <div className="flex flex-wrap gap-1">
+                            {course.sharedDepartments.map((dept, i) => (
+                              <span 
+                                key={i} 
+                                className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800"
+                              >
+                                {dept}
+                              </span>
+                            ))}
+                          </div>
+                        ) : "—"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
 
           {/* Upload Status */}
@@ -349,7 +511,7 @@ const ExamCourseUpload = ({ isOpen, onClose }: ExamCourseUploadProps) => {
                   Uploading...
                 </>
               ) : (
-                `Upload ${courses.length} Course${courses.length !== 1 ? 's' : ''}`
+                `Upload ${totalCoursesToUpload} Course${totalCoursesToUpload !== 1 ? 's' : ''}`
               )}
             </Button>
           </div>
