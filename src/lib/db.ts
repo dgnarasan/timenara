@@ -381,7 +381,7 @@ export const fetchUsers = async (): Promise<User[]> => {
   return (users || []).map(user => ({
     id: user.id,
     email: user.email,
-    role: user.role === 'admin' ? ('admin' as const) : ('student' as const),
+    role: (user.role === 'admin' ? 'admin' : 'student') as 'admin' | 'student',
   }));
 };
 
@@ -402,7 +402,7 @@ export const updateUserRole = async (id: string, role: string): Promise<User | n
   return data ? {
     id: data.id,
     email: data.email,
-    role: data.role === 'admin' ? ('admin' as const) : ('student' as const),
+    role: (data.role === 'admin' ? 'admin' : 'student') as 'admin' | 'student',
   } : null;
 };
 
