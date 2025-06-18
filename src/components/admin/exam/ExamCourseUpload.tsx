@@ -7,7 +7,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { addExamCourses } from "@/lib/db";
 import { useToast } from "@/hooks/use-toast";
 import { Upload, FileText, AlertCircle, CheckCircle, X, File, Share2 } from "lucide-react";
-import { ExamCourse } from "@/lib/types";
+import { ExamCourse, ExamCourseForUpload } from "@/lib/types";
 import * as XLSX from "xlsx";
 
 interface ExamCourseUploadProps {
@@ -23,16 +23,6 @@ interface ParsedExamCourse {
   level: string;
   studentCount: number;
   sharedDepartments?: string[];
-}
-
-// Define the shape that matches what addExamCourses expects
-interface ExamCourseForUpload {
-  courseCode: string;
-  courseTitle: string;
-  department: string;
-  college: string;
-  level: string;
-  studentCount: number;
 }
 
 const ExamCourseUpload = ({ isOpen, onClose }: ExamCourseUploadProps) => {

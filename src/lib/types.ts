@@ -1,4 +1,3 @@
-
 export interface Course {
   id: string;
   code: string;
@@ -173,6 +172,16 @@ export type DBExamSchedule = {
   published: boolean | null;
   created_at: string;
 };
+
+// Upload-specific interface for exam courses
+export interface ExamCourseForUpload {
+  courseCode: string;
+  courseTitle: string;
+  department: string;
+  college: string;
+  level: string;
+  studentCount: number;
+}
 
 export const collegeStructure: CollegeWithDepartments[] = [
   {

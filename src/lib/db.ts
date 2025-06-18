@@ -234,7 +234,7 @@ export const fetchExamCourses = async (): Promise<ExamCourse[]> => {
 };
 
 // Function to add exam courses
-export const addExamCourses = async (courses: Omit<ExamCourse, "id">[]) => {
+export const addExamCourses = async (courses: ExamCourseForUpload[]) => {
   console.log("Adding exam courses to database:", courses);
   
   // Validate the course data before sending to the backend
