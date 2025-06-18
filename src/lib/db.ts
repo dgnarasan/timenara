@@ -666,6 +666,6 @@ export const fetchUser = async (userId: string): Promise<UserProfile | null> => 
   return data ? {
     id: data.id,
     email: data.email,
-    role: (data.role === 'admin' ? 'admin' : 'student') as 'admin' | 'student',
+    role: data.role === 'admin' || data.role === 'student' ? data.role : 'student',
   } : null;
 };
