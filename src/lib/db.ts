@@ -2,6 +2,29 @@
 import { supabase } from '@/integrations/supabase/client';
 import { Course, ExamCourse, Room, ScheduleItem, User, ExamScheduleItem, ExamCourseForUpload, TimeSlot } from './types';
 
+// Helper function to safely convert TimeSlot[] to Json
+const timeSlotArrayToJson = (timeSlots: TimeSlot[] | undefined): any => {
+  return timeSlots ? JSON.parse(JSON.stringify(timeSlots)) : null;
+};
+
+// Helper function to safely convert Json to TimeSlot[]
+const jsonToTimeSlotArray = (json: any): TimeSlot[] => {
+  if (!json || !Array.isArray(json)) return [];
+  
+  return json.map((slot: any) => ({
+    day: slot.day as "Monday" | "Tuesday" | "Wednesday" | "Thursday" | "Friday",
+    startTime: slot.startTime,
+    endTime: slot.endTime,
+  }));
+};
+
+// Helper function to safely convert constraints
+const constraintsToArray = (constraints: any): string[] => {
+  if (!constraints) return [];
+  if (Array.isArray(constraints)) return constraints;
+  return [];
+};
+
 // Helper function to transform database course to frontend course
 const transformDbCourseToFrontend = (dbCourse: any): Course => {
   return {
@@ -12,8 +35,8 @@ const transformDbCourseToFrontend = (dbCourse: any): Course => {
     classSize: dbCourse.class_size,
     department: dbCourse.department,
     academicLevel: dbCourse.academic_level,
-    preferredSlots: Array.isArray(dbCourse.preferred_slots) ? dbCourse.preferred_slots as TimeSlot[] : [],
-    constraints: Array.isArray(dbCourse.constraints) ? dbCourse.constraints : [],
+    preferredSlots: jsonToTimeSlotArray(dbCourse.preferred_slots),
+    constraints: constraintsToArray(dbCourse.constraints),
   };
 };
 
@@ -26,7 +49,7 @@ const transformFrontendCourseToDb = (course: Omit<Course, 'id'>) => {
     class_size: course.classSize,
     department: course.department,
     academic_level: course.academicLevel,
-    preferred_slots: course.preferredSlots || null,
+    preferred_slots: timeSlotArrayToJson(course.preferredSlots),
     constraints: course.constraints || null,
   };
 };
@@ -37,7 +60,7 @@ const transformDbVenueToRoom = (dbVenue: any): Room => {
     id: dbVenue.id,
     name: dbVenue.name,
     capacity: dbVenue.capacity,
-    availability: Array.isArray(dbVenue.availability) ? dbVenue.availability as TimeSlot[] : [],
+    availability: jsonToTimeSlotArray(dbVenue.availability),
   };
 };
 
@@ -46,7 +69,7 @@ const transformRoomToDbVenue = (room: Omit<Room, 'id'>) => {
   return {
     name: room.name,
     capacity: room.capacity,
-    availability: room.availability || null,
+    availability: timeSlotArrayToJson(room.availability),
   };
 };
 
@@ -93,7 +116,7 @@ export const updateCourse = async (id: string, updates: Partial<Omit<Course, 'id
   if (updates.classSize !== undefined) dbUpdates.class_size = updates.classSize;
   if (updates.department !== undefined) dbUpdates.department = updates.department;
   if (updates.academicLevel !== undefined) dbUpdates.academic_level = updates.academicLevel;
-  if (updates.preferredSlots !== undefined) dbUpdates.preferred_slots = updates.preferredSlots;
+  if (updates.preferredSlots !== undefined) dbUpdates.preferred_slots = timeSlotArrayToJson(updates.preferredSlots);
   if (updates.constraints !== undefined) dbUpdates.constraints = updates.constraints;
 
   const { data, error } = await supabase
@@ -163,7 +186,7 @@ export const updateRoom = async (id: string, updates: Partial<Omit<Room, 'id'>>)
   
   if (updates.name !== undefined) dbUpdates.name = updates.name;
   if (updates.capacity !== undefined) dbUpdates.capacity = updates.capacity;
-  if (updates.availability !== undefined) dbUpdates.availability = updates.availability;
+  if (updates.availability !== undefined) dbUpdates.availability = timeSlotArrayToJson(updates.availability);
 
   const { data, error } = await supabase
     .from('venues')
@@ -218,13 +241,13 @@ export const fetchSchedule = async (): Promise<ScheduleItem[]> => {
     classSize: item.course.class_size,
     department: item.course.department,
     academicLevel: item.course.academic_level,
-    preferredSlots: Array.isArray(item.course.preferred_slots) ? item.course.preferred_slots as TimeSlot[] : [],
-    constraints: Array.isArray(item.course.constraints) ? item.course.constraints : [],
+    preferredSlots: jsonToTimeSlotArray(item.course.preferred_slots),
+    constraints: constraintsToArray(item.course.constraints),
     venue: {
       id: item.venue.id,
       name: item.venue.name,
       capacity: item.venue.capacity,
-      availability: Array.isArray(item.venue.availability) ? item.venue.availability as TimeSlot[] : [],
+      availability: jsonToTimeSlotArray(item.venue.availability),
     },
     timeSlot: {
       day: item.day as "Monday" | "Tuesday" | "Wednesday" | "Thursday" | "Friday",
@@ -265,13 +288,13 @@ export const addScheduleItem = async (item: Omit<ScheduleItem, 'course' | 'room'
     classSize: data.course.class_size,
     department: data.course.department,
     academicLevel: data.course.academic_level,
-    preferredSlots: Array.isArray(data.course.preferred_slots) ? data.course.preferred_slots as TimeSlot[] : [],
-    constraints: Array.isArray(data.course.constraints) ? data.course.constraints : [],
+    preferredSlots: jsonToTimeSlotArray(data.course.preferred_slots),
+    constraints: constraintsToArray(data.course.constraints),
     venue: {
       id: data.venue.id,
       name: data.venue.name,
       capacity: data.venue.capacity,
-      availability: Array.isArray(data.venue.availability) ? data.venue.availability as TimeSlot[] : [],
+      availability: jsonToTimeSlotArray(data.venue.availability),
     },
     timeSlot: {
       day: data.day as "Monday" | "Tuesday" | "Wednesday" | "Thursday" | "Friday",
@@ -316,13 +339,13 @@ export const updateScheduleItem = async (id: string, updates: Partial<Omit<Sched
     classSize: data.course.class_size,
     department: data.course.department,
     academicLevel: data.course.academic_level,
-    preferredSlots: Array.isArray(data.course.preferred_slots) ? data.course.preferred_slots as TimeSlot[] : [],
-    constraints: Array.isArray(data.course.constraints) ? data.course.constraints : [],
+    preferredSlots: jsonToTimeSlotArray(data.course.preferred_slots),
+    constraints: constraintsToArray(data.course.constraints),
     venue: {
       id: data.venue.id,
       name: data.venue.name,
       capacity: data.venue.capacity,
-      availability: Array.isArray(data.venue.availability) ? data.venue.availability as TimeSlot[] : [],
+      availability: jsonToTimeSlotArray(data.venue.availability),
     },
     timeSlot: {
       day: data.day as "Monday" | "Tuesday" | "Wednesday" | "Thursday" | "Friday",
