@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { Course, ExamCourse, Room, ScheduleItem, User, ExamScheduleItem } from './types';
+import { Course, ExamCourse, Room, ScheduleItem, User, ExamScheduleItem, ExamCourseForUpload } from './types';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
