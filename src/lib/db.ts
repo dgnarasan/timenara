@@ -1,6 +1,55 @@
 
+
 import { supabase } from '@/integrations/supabase/client';
 import { Course, ExamCourse, Room, ScheduleItem, User, ExamScheduleItem, ExamCourseForUpload } from './types';
+
+// Helper function to transform database course to frontend course
+const transformDbCourseToFrontend = (dbCourse: any): Course => {
+  return {
+    id: dbCourse.id,
+    code: dbCourse.code,
+    name: dbCourse.name,
+    lecturer: dbCourse.lecturer,
+    classSize: dbCourse.class_size, // Transform class_size to classSize
+    department: dbCourse.department,
+    academicLevel: dbCourse.academic_level,
+    preferredSlots: dbCourse.preferred_slots,
+    constraints: dbCourse.constraints,
+  };
+};
+
+// Helper function to transform frontend course to database format
+const transformFrontendCourseToDb = (course: Omit<Course, 'id'>) => {
+  return {
+    code: course.code,
+    name: course.name,
+    lecturer: course.lecturer,
+    class_size: course.classSize, // Transform classSize to class_size
+    department: course.department,
+    academic_level: course.academicLevel,
+    preferred_slots: course.preferredSlots,
+    constraints: course.constraints,
+  };
+};
+
+// Helper function to transform database venue to frontend room
+const transformDbVenueToRoom = (dbVenue: any): Room => {
+  return {
+    id: dbVenue.id,
+    name: dbVenue.name,
+    capacity: dbVenue.capacity,
+    availability: dbVenue.availability || [],
+  };
+};
+
+// Helper function to transform frontend room to database venue format
+const transformRoomToDbVenue = (room: Omit<Room, 'id'>) => {
+  return {
+    name: room.name,
+    capacity: room.capacity,
+    availability: room.availability,
+  };
+};
 
 // Function to fetch courses
 export const fetchCourses = async (): Promise<Course[]> => {
@@ -14,14 +63,16 @@ export const fetchCourses = async (): Promise<Course[]> => {
     throw error;
   }
 
-  return courses || [];
+  return (courses || []).map(transformDbCourseToFrontend);
 };
 
 // Function to add a new course
 export const addCourse = async (course: Omit<Course, 'id'>): Promise<Course> => {
+  const dbCourse = transformFrontendCourseToDb(course);
+  
   const { data, error } = await supabase
     .from('courses')
-    .insert([course])
+    .insert([dbCourse])
     .select()
     .single();
 
@@ -30,14 +81,25 @@ export const addCourse = async (course: Omit<Course, 'id'>): Promise<Course> => 
     throw error;
   }
 
-  return data;
+  return transformDbCourseToFrontend(data);
 };
 
 // Function to update an existing course
-export const updateCourse = async (id: number, updates: Partial<Omit<Course, 'id'>>): Promise<Course | null> => {
+export const updateCourse = async (id: string, updates: Partial<Omit<Course, 'id'>>): Promise<Course | null> => {
+  const dbUpdates: any = {};
+  
+  if (updates.code !== undefined) dbUpdates.code = updates.code;
+  if (updates.name !== undefined) dbUpdates.name = updates.name;
+  if (updates.lecturer !== undefined) dbUpdates.lecturer = updates.lecturer;
+  if (updates.classSize !== undefined) dbUpdates.class_size = updates.classSize;
+  if (updates.department !== undefined) dbUpdates.department = updates.department;
+  if (updates.academicLevel !== undefined) dbUpdates.academic_level = updates.academicLevel;
+  if (updates.preferredSlots !== undefined) dbUpdates.preferred_slots = updates.preferredSlots;
+  if (updates.constraints !== undefined) dbUpdates.constraints = updates.constraints;
+
   const { data, error } = await supabase
     .from('courses')
-    .update(updates)
+    .update(dbUpdates)
     .eq('id', id)
     .select()
     .single();
@@ -47,11 +109,11 @@ export const updateCourse = async (id: number, updates: Partial<Omit<Course, 'id
     throw error;
   }
 
-  return data;
+  return data ? transformDbCourseToFrontend(data) : null;
 };
 
 // Function to delete a course
-export const deleteCourse = async (id: number): Promise<void> => {
+export const deleteCourse = async (id: string): Promise<void> => {
   const { error } = await supabase
     .from('courses')
     .delete()
@@ -63,63 +125,71 @@ export const deleteCourse = async (id: number): Promise<void> => {
   }
 };
 
-// Function to fetch rooms
+// Function to fetch rooms (venues)
 export const fetchRooms = async (): Promise<Room[]> => {
-  const { data: rooms, error } = await supabase
-    .from('rooms')
+  const { data: venues, error } = await supabase
+    .from('venues')
     .select('*')
     .order('name', { ascending: true });
 
   if (error) {
-    console.error('Error fetching rooms:', error);
+    console.error('Error fetching venues:', error);
     throw error;
   }
 
-  return rooms || [];
+  return (venues || []).map(transformDbVenueToRoom);
 };
 
-// Function to add a new room
+// Function to add a new room (venue)
 export const addRoom = async (room: Omit<Room, 'id'>): Promise<Room> => {
+  const dbVenue = transformRoomToDbVenue(room);
+  
   const { data, error } = await supabase
-    .from('rooms')
-    .insert([room])
+    .from('venues')
+    .insert([dbVenue])
     .select()
     .single();
 
   if (error) {
-    console.error('Error adding room:', error);
+    console.error('Error adding venue:', error);
     throw error;
   }
 
-  return data;
+  return transformDbVenueToRoom(data);
 };
 
-// Function to update an existing room
-export const updateRoom = async (id: number, updates: Partial<Omit<Room, 'id'>>): Promise<Room | null> => {
+// Function to update an existing room (venue)
+export const updateRoom = async (id: string, updates: Partial<Omit<Room, 'id'>>): Promise<Room | null> => {
+  const dbUpdates: any = {};
+  
+  if (updates.name !== undefined) dbUpdates.name = updates.name;
+  if (updates.capacity !== undefined) dbUpdates.capacity = updates.capacity;
+  if (updates.availability !== undefined) dbUpdates.availability = updates.availability;
+
   const { data, error } = await supabase
-    .from('rooms')
-    .update(updates)
+    .from('venues')
+    .update(dbUpdates)
     .eq('id', id)
     .select()
     .single();
 
   if (error) {
-    console.error('Error updating room:', error);
+    console.error('Error updating venue:', error);
     throw error;
   }
 
-  return data;
+  return data ? transformDbVenueToRoom(data) : null;
 };
 
-// Function to delete a room
-export const deleteRoom = async (id: number): Promise<void> => {
+// Function to delete a room (venue)
+export const deleteRoom = async (id: string): Promise<void> => {
   const { error } = await supabase
-    .from('rooms')
+    .from('venues')
     .delete()
     .eq('id', id);
 
   if (error) {
-    console.error('Error deleting room:', error);
+    console.error('Error deleting venue:', error);
     throw error;
   }
 };
@@ -127,8 +197,13 @@ export const deleteRoom = async (id: number): Promise<void> => {
 // Function to fetch schedule
 export const fetchSchedule = async (): Promise<ScheduleItem[]> => {
   const { data: schedule, error } = await supabase
-    .from('schedule')
-    .select('*, course:course_id(*), room:room_id(*)')
+    .from('schedules')
+    .select(`
+      *,
+      course:course_id(*),
+      venue:venue_id(*)
+    `)
+    .eq('published', true)
     .order('start_time', { ascending: true });
 
   if (error) {
@@ -136,15 +211,46 @@ export const fetchSchedule = async (): Promise<ScheduleItem[]> => {
     throw error;
   }
 
-  return schedule || [];
+  return (schedule || []).map((item: any) => ({
+    id: item.course.id,
+    code: item.course.code,
+    name: item.course.name,
+    lecturer: item.course.lecturer,
+    classSize: item.course.class_size,
+    department: item.course.department,
+    academicLevel: item.course.academic_level,
+    preferredSlots: item.course.preferred_slots,
+    constraints: item.course.constraints,
+    venue: {
+      id: item.venue.id,
+      name: item.venue.name,
+      capacity: item.venue.capacity,
+      availability: item.venue.availability || [],
+    },
+    timeSlot: {
+      day: item.day,
+      startTime: item.start_time,
+      endTime: item.end_time,
+    },
+  }));
 };
 
 // Function to add a schedule item
 export const addScheduleItem = async (item: Omit<ScheduleItem, 'id' | 'course' | 'room'>): Promise<ScheduleItem> => {
   const { data, error } = await supabase
-    .from('schedule')
-    .insert([item])
-    .select('*, course:course_id(*), room:room_id(*)')
+    .from('schedules')
+    .insert([{
+      course_id: item.id,
+      venue_id: item.venue.id,
+      day: item.timeSlot.day,
+      start_time: item.timeSlot.startTime,
+      end_time: item.timeSlot.endTime,
+    }])
+    .select(`
+      *,
+      course:course_id(*),
+      venue:venue_id(*)
+    `)
     .single();
 
   if (error) {
@@ -152,16 +258,48 @@ export const addScheduleItem = async (item: Omit<ScheduleItem, 'id' | 'course' |
     throw error;
   }
 
-  return data;
+  return {
+    id: data.course.id,
+    code: data.course.code,
+    name: data.course.name,
+    lecturer: data.course.lecturer,
+    classSize: data.course.class_size,
+    department: data.course.department,
+    academicLevel: data.course.academic_level,
+    preferredSlots: data.course.preferred_slots,
+    constraints: data.course.constraints,
+    venue: {
+      id: data.venue.id,
+      name: data.venue.name,
+      capacity: data.venue.capacity,
+      availability: data.venue.availability || [],
+    },
+    timeSlot: {
+      day: data.day,
+      startTime: data.start_time,
+      endTime: data.end_time,
+    },
+  };
 };
 
 // Function to update a schedule item
-export const updateScheduleItem = async (id: number, updates: Partial<Omit<ScheduleItem, 'id' | 'course' | 'room'>>): Promise<ScheduleItem | null> => {
+export const updateScheduleItem = async (id: string, updates: Partial<Omit<ScheduleItem, 'id' | 'course' | 'room'>>): Promise<ScheduleItem | null> => {
+  const dbUpdates: any = {};
+  
+  if (updates.venue?.id) dbUpdates.venue_id = updates.venue.id;
+  if (updates.timeSlot?.day) dbUpdates.day = updates.timeSlot.day;
+  if (updates.timeSlot?.startTime) dbUpdates.start_time = updates.timeSlot.startTime;
+  if (updates.timeSlot?.endTime) dbUpdates.end_time = updates.timeSlot.endTime;
+
   const { data, error } = await supabase
-    .from('schedule')
-    .update(updates)
+    .from('schedules')
+    .update(dbUpdates)
     .eq('id', id)
-    .select('*, course:course_id(*), room:room_id(*)')
+    .select(`
+      *,
+      course:course_id(*),
+      venue:venue_id(*)
+    `)
     .single();
 
   if (error) {
@@ -169,13 +307,36 @@ export const updateScheduleItem = async (id: number, updates: Partial<Omit<Sched
     throw error;
   }
 
-  return data;
+  if (!data) return null;
+
+  return {
+    id: data.course.id,
+    code: data.course.code,
+    name: data.course.name,
+    lecturer: data.course.lecturer,
+    classSize: data.course.class_size,
+    department: data.course.department,
+    academicLevel: data.course.academic_level,
+    preferredSlots: data.course.preferred_slots,
+    constraints: data.course.constraints,
+    venue: {
+      id: data.venue.id,
+      name: data.venue.name,
+      capacity: data.venue.capacity,
+      availability: data.venue.availability || [],
+    },
+    timeSlot: {
+      day: data.day,
+      startTime: data.start_time,
+      endTime: data.end_time,
+    },
+  };
 };
 
 // Function to delete a schedule item
-export const deleteScheduleItem = async (id: number): Promise<void> => {
+export const deleteScheduleItem = async (id: string): Promise<void> => {
   const { error } = await supabase
-    .from('schedule')
+    .from('schedules')
     .delete()
     .eq('id', id);
 
@@ -187,7 +348,7 @@ export const deleteScheduleItem = async (id: number): Promise<void> => {
 // Function to fetch users
 export const fetchUsers = async (): Promise<User[]> => {
   const { data: users, error } = await supabase
-    .from('users')
+    .from('profiles')
     .select('*');
 
   if (error) {
@@ -195,13 +356,17 @@ export const fetchUsers = async (): Promise<User[]> => {
     throw error;
   }
 
-  return users || [];
+  return (users || []).map(user => ({
+    id: user.id,
+    email: user.email,
+    role: user.role,
+  }));
 };
 
 // Function to update user role
 export const updateUserRole = async (id: string, role: string): Promise<User | null> => {
   const { data, error } = await supabase
-    .from('users')
+    .from('profiles')
     .update({ role })
     .eq('id', id)
     .select()
@@ -212,7 +377,11 @@ export const updateUserRole = async (id: string, role: string): Promise<User | n
     throw error;
   }
 
-  return data;
+  return data ? {
+    id: data.id,
+    email: data.email,
+    role: data.role,
+  } : null;
 };
 
 // Function to fetch exam courses
@@ -227,7 +396,17 @@ export const fetchExamCourses = async (): Promise<ExamCourse[]> => {
     throw error;
   }
 
-  return exam_courses || [];
+  return (exam_courses || []).map(course => ({
+    id: course.id,
+    courseCode: course.course_code,
+    courseTitle: course.course_title,
+    department: course.department,
+    college: course.college,
+    level: course.level,
+    studentCount: course.student_count,
+    createdAt: course.created_at,
+    updatedAt: course.updated_at,
+  }));
 };
 
 // Function to add exam courses
@@ -275,7 +454,7 @@ export const deleteAllExamCourses = async (): Promise<void> => {
 // Function to fetch admin exam schedule
 export const fetchAdminExamSchedule = async (): Promise<any[]> => {
     const { data, error } = await supabase
-        .from('exam_schedule')
+        .from('exam_schedules')
         .select('*');
 
     if (error) {
@@ -289,8 +468,8 @@ export const fetchAdminExamSchedule = async (): Promise<any[]> => {
 // Function to publish exam schedule
 export const publishExamSchedule = async (isPublished: boolean): Promise<void> => {
   const { error } = await supabase
-    .from('exam_schedule')
-    .update({ is_published: isPublished })
+    .from('exam_schedules')
+    .update({ published: isPublished })
     .neq('id', 0); // Update all rows
 
   if (error) {
@@ -301,9 +480,11 @@ export const publishExamSchedule = async (isPublished: boolean): Promise<void> =
 
 // Function to add multiple courses
 export const addCourses = async (courses: Omit<Course, 'id'>[]): Promise<Course[]> => {
+  const dbCourses = courses.map(transformFrontendCourseToDb);
+  
   const { data, error } = await supabase
     .from('courses')
-    .insert(courses)
+    .insert(dbCourses)
     .select();
 
   if (error) {
@@ -311,7 +492,7 @@ export const addCourses = async (courses: Omit<Course, 'id'>[]): Promise<Course[
     throw error;
   }
 
-  return data || [];
+  return (data || []).map(transformDbCourseToFrontend);
 };
 
 // Function to delete all courses
@@ -437,3 +618,4 @@ export const fetchExamSchedule = async (): Promise<any[]> => {
 
   return data || [];
 };
+
