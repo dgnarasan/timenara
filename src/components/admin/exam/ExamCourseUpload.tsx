@@ -23,7 +23,7 @@ interface ParsedExamCourse {
   college: string;
   level: string;
   studentCount: number;
-  sharedDepartments?: string[];  // New field to track shared departments
+  sharedDepartments?: string[];
 }
 
 const ExamCourseUpload = ({ isOpen, onClose }: ExamCourseUploadProps) => {
@@ -38,8 +38,8 @@ const ExamCourseUpload = ({ isOpen, onClose }: ExamCourseUploadProps) => {
 
   const uploadMutation = useMutation({
     mutationFn: (coursesToUpload: ParsedExamCourse[]) => {
-      // Transform the courses to match the expected format by the backend
-      const transformedCourses = coursesToUpload.flatMap(course => {
+      // Flatten shared courses into separate entries for the backend
+      const flattenedCourses = coursesToUpload.flatMap(course => {
         // Create main course entry
         const mainCourse = {
           courseCode: course.courseCode,
@@ -50,12 +50,12 @@ const ExamCourseUpload = ({ isOpen, onClose }: ExamCourseUploadProps) => {
           studentCount: course.studentCount,
         };
         
-        // If there are shared departments, create duplicate entries for each
+        // Create entries for shared departments
         const sharedEntries = course.sharedDepartments?.map(dept => ({
           courseCode: course.courseCode,
           courseTitle: course.courseTitle,
           department: dept,
-          college: course.college,
+          college: course.college, // Keep same college or map to appropriate college
           level: course.level,
           studentCount: course.studentCount,
         })) || [];
@@ -63,14 +63,15 @@ const ExamCourseUpload = ({ isOpen, onClose }: ExamCourseUploadProps) => {
         return [mainCourse, ...sharedEntries];
       });
       
-      return addExamCourses(transformedCourses);
+      console.log("Flattened courses for upload:", flattenedCourses);
+      return addExamCourses(flattenedCourses);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['exam-courses'] });
       setUploadStatus('success');
       toast({
         title: "Success",
-        description: `${courses.length} exam courses uploaded successfully.`,
+        description: `Successfully uploaded ${totalCoursesToUpload} course entries (including shared departments).`,
       });
       setTimeout(() => {
         handleClose();
@@ -80,7 +81,7 @@ const ExamCourseUpload = ({ isOpen, onClose }: ExamCourseUploadProps) => {
       setUploadStatus('error');
       toast({
         title: "Upload Failed",
-        description: "Failed to upload exam courses. Please try again.",
+        description: "Failed to upload exam courses. Please check the data format and try again.",
         variant: "destructive",
       });
       console.error("Upload error:", error);
@@ -161,7 +162,6 @@ const ExamCourseUpload = ({ isOpen, onClose }: ExamCourseUploadProps) => {
         
         // Check if this is a shared department row (blank course code and student count, but has department)
         if (!courseCode && !studentCountText && department) {
-          // If we have a previous valid course, add this department as a shared department
           if (lastValidCourse) {
             if (!lastValidCourse.sharedDepartments) {
               lastValidCourse.sharedDepartments = [];
@@ -172,14 +172,13 @@ const ExamCourseUpload = ({ isOpen, onClose }: ExamCourseUploadProps) => {
               lastValidCourse.sharedDepartments.push(department);
             }
             
-            // Optional: Warn if a course is shared with more than 3 departments (including main department)
-            if (lastValidCourse.sharedDepartments.length > 2) {  // +1 for main department
+            // Warn if a course is shared with more than 3 departments
+            if (lastValidCourse.sharedDepartments.length > 2) {
               allErrors.push(`Warning: ${lastValidCourse.courseCode} is shared with more than 3 departments`);
             }
             
-            continue; // Skip to next row after processing this shared department
+            continue;
           } else {
-            // If there's no previous valid course, treat as an error
             allErrors.push(`Row ${i + 1}: Found a department without a course`);
             continue;
           }
@@ -192,10 +191,10 @@ const ExamCourseUpload = ({ isOpen, onClose }: ExamCourseUploadProps) => {
           courseCode,
           courseTitle: courseCode, // Use course code as title for now
           department,
-          college: determineCollege(department), // Helper function to determine college
-          level: determineLevel(courseCode), // Helper function to determine level
+          college: determineCollege(department),
+          level: determineLevel(courseCode),
           studentCount,
-          sharedDepartments: [] // Initialize empty array for shared departments
+          sharedDepartments: []
         };
         
         const courseErrors = validateCourse({
@@ -208,9 +207,9 @@ const ExamCourseUpload = ({ isOpen, onClose }: ExamCourseUploadProps) => {
         
         if (courseErrors.length === 0) {
           parsedCourses.push(courseData);
-          lastValidCourse = courseData; // Update the last valid course reference
+          lastValidCourse = courseData;
         } else {
-          lastValidCourse = null; // Reset last valid course if this one had errors
+          lastValidCourse = null;
         }
       }
       
@@ -224,7 +223,6 @@ const ExamCourseUpload = ({ isOpen, onClose }: ExamCourseUploadProps) => {
 
   // Helper function to determine college from department
   const determineCollege = (department: string): string => {
-    // This is a simplified mapping - could be expanded with a more comprehensive mapping
     const collegeMap: Record<string, string> = {
       "Computer Science": "Science",
       "Mathematics": "Science",
@@ -238,6 +236,7 @@ const ExamCourseUpload = ({ isOpen, onClose }: ExamCourseUploadProps) => {
       "Economics": "Business",
       "Business Administration": "Business",
       "Marketing": "Business",
+      "Finance": "Business",
       "English": "Arts",
       "History": "Arts",
       "Philosophy": "Arts",
@@ -251,11 +250,10 @@ const ExamCourseUpload = ({ isOpen, onClose }: ExamCourseUploadProps) => {
 
   // Helper function to determine level based on course code
   const determineLevel = (courseCode: string): string => {
-    // Extract level from course code (e.g., CHM 305 -> 300 level)
     const match = courseCode.match(/\d{3}/);
     if (match) {
       const levelNum = match[0].charAt(0);
-      return `${levelNum}00 Level`;
+      return `${levelNum}00`;
     }
     return "Undergraduate";
   };
@@ -313,7 +311,7 @@ const ExamCourseUpload = ({ isOpen, onClose }: ExamCourseUploadProps) => {
     }
   };
 
-  // Total number of courses including shared courses
+  // Total number of database entries (including shared courses)
   const totalCoursesToUpload = courses.reduce((total, course) => {
     return total + 1 + (course.sharedDepartments?.length || 0);
   }, 0);
@@ -428,6 +426,9 @@ const ExamCourseUpload = ({ isOpen, onClose }: ExamCourseUploadProps) => {
                   <p className="text-sm">
                     Total students: {courses.reduce((sum, course) => sum + course.studentCount, 0).toLocaleString()}
                   </p>
+                  <p className="text-sm">
+                    Database entries to create: {totalCoursesToUpload} (including shared departments)
+                  </p>
                   {courses.some(course => course.sharedDepartments && course.sharedDepartments.length > 0) && (
                     <p className="text-sm flex items-center gap-1">
                       <Share2 className="h-4 w-4" />
@@ -511,7 +512,7 @@ const ExamCourseUpload = ({ isOpen, onClose }: ExamCourseUploadProps) => {
                   Uploading...
                 </>
               ) : (
-                `Upload ${totalCoursesToUpload} Course${totalCoursesToUpload !== 1 ? 's' : ''}`
+                `Upload ${totalCoursesToUpload} Course Entries`
               )}
             </Button>
           </div>

@@ -90,7 +90,7 @@ const ExamCourseManagement = () => {
 
   return (
     <div className="space-y-6">
-      {/* Template Download Section */}
+      {/* Template Download Section - Moved outside upload modal */}
       <TemplateDownloadDropdown />
 
       {/* Upload and Actions */}
