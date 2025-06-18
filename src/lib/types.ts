@@ -11,6 +11,19 @@ export interface Course {
   constraints?: string[];
 }
 
+export interface Room {
+  id: string;
+  name: string;
+  capacity: number;
+  availability: TimeSlot[];
+}
+
+export interface User {
+  id: string;
+  email: string;
+  role: UserRole;
+}
+
 export type College = 
   | 'COLLEGE OF ENVIRONMENTAL SCIENCES & MANAGEMENT (COLENSMA)'
   | 'COLLEGE OF ARTS, SOCIAL AND MANAGEMENT SCIENCES (CASMAS)'

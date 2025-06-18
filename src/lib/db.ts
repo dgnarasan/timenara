@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { Course, ExamCourse, Room, ScheduleItem, User } from './types';
+import { Course, ExamCourse, Room, ScheduleItem, User, ExamScheduleItem } from './types';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
@@ -300,4 +300,143 @@ export const publishExamSchedule = async (isPublished: boolean): Promise<void> =
     console.error('Error publishing exam schedule:', error);
     throw error;
   }
+};
+
+// Function to add multiple courses
+export const addCourses = async (courses: Omit<Course, 'id'>[]): Promise<Course[]> => {
+  const { data, error } = await supabase
+    .from('courses')
+    .insert(courses)
+    .select();
+
+  if (error) {
+    console.error('Error adding courses:', error);
+    throw error;
+  }
+
+  return data || [];
+};
+
+// Function to delete all courses
+export const deleteAllCourses = async (): Promise<void> => {
+  const { error } = await supabase
+    .from('courses')
+    .delete()
+    .neq('id', 0); // This will delete all rows
+
+  if (error) {
+    console.error('Error deleting all courses:', error);
+    throw error;
+  }
+};
+
+// Function to save general schedule
+export const saveSchedule = async (schedule: ScheduleItem[], isPublished: boolean = false): Promise<void> => {
+  const scheduleData = schedule.map(item => ({
+    course_id: item.id,
+    venue_id: item.venue.id,
+    day: item.timeSlot.day,
+    start_time: item.timeSlot.startTime,
+    end_time: item.timeSlot.endTime,
+  }));
+
+  const { error } = await supabase
+    .rpc('clear_and_insert_schedule', {
+      schedule_data: scheduleData,
+      should_publish: isPublished
+    });
+
+  if (error) {
+    console.error('Error saving schedule:', error);
+    throw error;
+  }
+};
+
+// Function to fetch admin schedule
+export const fetchAdminSchedule = async (): Promise<any[]> => {
+  const { data, error } = await supabase
+    .from('schedules')
+    .select('*');
+
+  if (error) {
+    console.error('Error fetching admin schedule:', error);
+    throw error;
+  }
+
+  return data || [];
+};
+
+// Function to clear schedule
+export const clearSchedule = async (): Promise<void> => {
+  const { error } = await supabase
+    .from('schedules')
+    .delete()
+    .neq('id', 0); // This will delete all rows
+
+  if (error) {
+    console.error('Error clearing schedule:', error);
+    throw error;
+  }
+};
+
+// Function to publish schedule
+export const publishSchedule = async (isPublished: boolean): Promise<void> => {
+  const { error } = await supabase
+    .rpc('publish_schedule', { should_publish: isPublished });
+
+  if (error) {
+    console.error('Error publishing schedule:', error);
+    throw error;
+  }
+};
+
+// Function to save exam schedule
+export const saveExamSchedule = async (schedule: ExamScheduleItem[], isPublished: boolean = false): Promise<void> => {
+  const scheduleData = schedule.map(item => ({
+    exam_course_id: item.id,
+    day: item.day,
+    start_time: item.startTime,
+    end_time: item.endTime,
+    session_name: item.sessionName,
+    venue_name: item.venueName,
+  }));
+
+  const { error } = await supabase
+    .rpc('clear_and_insert_exam_schedule', {
+      schedule_data: scheduleData,
+      should_publish: isPublished
+    });
+
+  if (error) {
+    console.error('Error saving exam schedule:', error);
+    throw error;
+  }
+};
+
+// Function to clear exam schedule
+export const clearExamSchedule = async (): Promise<void> => {
+  const { error } = await supabase
+    .from('exam_schedules')
+    .delete()
+    .neq('id', 0); // This will delete all rows
+
+  if (error) {
+    console.error('Error clearing exam schedule:', error);
+    throw error;
+  }
+};
+
+// Function to fetch exam schedule (for students)
+export const fetchExamSchedule = async (): Promise<any[]> => {
+  const { data, error } = await supabase
+    .from('exam_schedules')
+    .select('*')
+    .eq('published', true);
+
+  if (error) {
+    console.error('Error fetching exam schedule:', error);
+    throw error;
+  }
+
+  return data || [];
 };

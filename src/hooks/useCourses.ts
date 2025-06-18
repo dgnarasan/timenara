@@ -69,7 +69,7 @@ export const useCourses = () => {
 
   const handleDeleteCourse = async (courseId: string) => {
     try {
-      await deleteCourse(courseId);
+      await deleteCourse(Number(courseId)); // Convert string to number for the API
       setCourses(prev => prev.filter(course => course.id !== courseId));
       toast({
         title: "Course Deleted",
