@@ -1,7 +1,6 @@
 
-
 import { supabase } from '@/integrations/supabase/client';
-import { Course, ExamCourse, Room, ScheduleItem, User, ExamScheduleItem, ExamCourseForUpload } from './types';
+import { Course, ExamCourse, Room, ScheduleItem, User, ExamScheduleItem, ExamCourseForUpload, TimeSlot } from './types';
 
 // Helper function to transform database course to frontend course
 const transformDbCourseToFrontend = (dbCourse: any): Course => {
@@ -10,11 +9,11 @@ const transformDbCourseToFrontend = (dbCourse: any): Course => {
     code: dbCourse.code,
     name: dbCourse.name,
     lecturer: dbCourse.lecturer,
-    classSize: dbCourse.class_size, // Transform class_size to classSize
+    classSize: dbCourse.class_size,
     department: dbCourse.department,
     academicLevel: dbCourse.academic_level,
-    preferredSlots: dbCourse.preferred_slots,
-    constraints: dbCourse.constraints,
+    preferredSlots: Array.isArray(dbCourse.preferred_slots) ? dbCourse.preferred_slots as TimeSlot[] : [],
+    constraints: Array.isArray(dbCourse.constraints) ? dbCourse.constraints : [],
   };
 };
 
@@ -24,11 +23,11 @@ const transformFrontendCourseToDb = (course: Omit<Course, 'id'>) => {
     code: course.code,
     name: course.name,
     lecturer: course.lecturer,
-    class_size: course.classSize, // Transform classSize to class_size
+    class_size: course.classSize,
     department: course.department,
     academic_level: course.academicLevel,
-    preferred_slots: course.preferredSlots,
-    constraints: course.constraints,
+    preferred_slots: course.preferredSlots || null,
+    constraints: course.constraints || null,
   };
 };
 
@@ -38,7 +37,7 @@ const transformDbVenueToRoom = (dbVenue: any): Room => {
     id: dbVenue.id,
     name: dbVenue.name,
     capacity: dbVenue.capacity,
-    availability: dbVenue.availability || [],
+    availability: Array.isArray(dbVenue.availability) ? dbVenue.availability as TimeSlot[] : [],
   };
 };
 
@@ -47,7 +46,7 @@ const transformRoomToDbVenue = (room: Omit<Room, 'id'>) => {
   return {
     name: room.name,
     capacity: room.capacity,
-    availability: room.availability,
+    availability: room.availability || null,
   };
 };
 
@@ -219,16 +218,16 @@ export const fetchSchedule = async (): Promise<ScheduleItem[]> => {
     classSize: item.course.class_size,
     department: item.course.department,
     academicLevel: item.course.academic_level,
-    preferredSlots: item.course.preferred_slots,
-    constraints: item.course.constraints,
+    preferredSlots: Array.isArray(item.course.preferred_slots) ? item.course.preferred_slots as TimeSlot[] : [],
+    constraints: Array.isArray(item.course.constraints) ? item.course.constraints : [],
     venue: {
       id: item.venue.id,
       name: item.venue.name,
       capacity: item.venue.capacity,
-      availability: item.venue.availability || [],
+      availability: Array.isArray(item.venue.availability) ? item.venue.availability as TimeSlot[] : [],
     },
     timeSlot: {
-      day: item.day,
+      day: item.day as "Monday" | "Tuesday" | "Wednesday" | "Thursday" | "Friday",
       startTime: item.start_time,
       endTime: item.end_time,
     },
@@ -236,7 +235,7 @@ export const fetchSchedule = async (): Promise<ScheduleItem[]> => {
 };
 
 // Function to add a schedule item
-export const addScheduleItem = async (item: Omit<ScheduleItem, 'id' | 'course' | 'room'>): Promise<ScheduleItem> => {
+export const addScheduleItem = async (item: Omit<ScheduleItem, 'course' | 'room'>): Promise<ScheduleItem> => {
   const { data, error } = await supabase
     .from('schedules')
     .insert([{
@@ -266,16 +265,16 @@ export const addScheduleItem = async (item: Omit<ScheduleItem, 'id' | 'course' |
     classSize: data.course.class_size,
     department: data.course.department,
     academicLevel: data.course.academic_level,
-    preferredSlots: data.course.preferred_slots,
-    constraints: data.course.constraints,
+    preferredSlots: Array.isArray(data.course.preferred_slots) ? data.course.preferred_slots as TimeSlot[] : [],
+    constraints: Array.isArray(data.course.constraints) ? data.course.constraints : [],
     venue: {
       id: data.venue.id,
       name: data.venue.name,
       capacity: data.venue.capacity,
-      availability: data.venue.availability || [],
+      availability: Array.isArray(data.venue.availability) ? data.venue.availability as TimeSlot[] : [],
     },
     timeSlot: {
-      day: data.day,
+      day: data.day as "Monday" | "Tuesday" | "Wednesday" | "Thursday" | "Friday",
       startTime: data.start_time,
       endTime: data.end_time,
     },
@@ -317,16 +316,16 @@ export const updateScheduleItem = async (id: string, updates: Partial<Omit<Sched
     classSize: data.course.class_size,
     department: data.course.department,
     academicLevel: data.course.academic_level,
-    preferredSlots: data.course.preferred_slots,
-    constraints: data.course.constraints,
+    preferredSlots: Array.isArray(data.course.preferred_slots) ? data.course.preferred_slots as TimeSlot[] : [],
+    constraints: Array.isArray(data.course.constraints) ? data.course.constraints : [],
     venue: {
       id: data.venue.id,
       name: data.venue.name,
       capacity: data.venue.capacity,
-      availability: data.venue.availability || [],
+      availability: Array.isArray(data.venue.availability) ? data.venue.availability as TimeSlot[] : [],
     },
     timeSlot: {
-      day: data.day,
+      day: data.day as "Monday" | "Tuesday" | "Wednesday" | "Thursday" | "Friday",
       startTime: data.start_time,
       endTime: data.end_time,
     },
@@ -359,7 +358,7 @@ export const fetchUsers = async (): Promise<User[]> => {
   return (users || []).map(user => ({
     id: user.id,
     email: user.email,
-    role: user.role,
+    role: user.role as "student" | "admin",
   }));
 };
 
@@ -380,7 +379,7 @@ export const updateUserRole = async (id: string, role: string): Promise<User | n
   return data ? {
     id: data.id,
     email: data.email,
-    role: data.role,
+    role: data.role as "student" | "admin",
   } : null;
 };
 
@@ -413,7 +412,6 @@ export const fetchExamCourses = async (): Promise<ExamCourse[]> => {
 export const addExamCourses = async (courses: ExamCourseForUpload[]) => {
   console.log("Adding exam courses to database:", courses);
   
-  // Validate the course data before sending to the backend
   const validatedCourses = courses.map(course => ({
     course_code: course.courseCode,
     course_title: course.courseTitle,
@@ -443,7 +441,7 @@ export const deleteAllExamCourses = async (): Promise<void> => {
   const { error } = await supabase
     .from('exam_courses')
     .delete()
-    .neq('id', 0); // This will delete all rows
+    .neq('id', '00000000-0000-0000-0000-000000000000');
 
   if (error) {
     console.error('Error deleting all exam courses:', error);
@@ -470,7 +468,7 @@ export const publishExamSchedule = async (isPublished: boolean): Promise<void> =
   const { error } = await supabase
     .from('exam_schedules')
     .update({ published: isPublished })
-    .neq('id', 0); // Update all rows
+    .neq('id', '00000000-0000-0000-0000-000000000000');
 
   if (error) {
     console.error('Error publishing exam schedule:', error);
@@ -500,7 +498,7 @@ export const deleteAllCourses = async (): Promise<void> => {
   const { error } = await supabase
     .from('courses')
     .delete()
-    .neq('id', 0); // This will delete all rows
+    .neq('id', '00000000-0000-0000-0000-000000000000');
 
   if (error) {
     console.error('Error deleting all courses:', error);
@@ -549,7 +547,7 @@ export const clearSchedule = async (): Promise<void> => {
   const { error } = await supabase
     .from('schedules')
     .delete()
-    .neq('id', 0); // This will delete all rows
+    .neq('id', '00000000-0000-0000-0000-000000000000');
 
   if (error) {
     console.error('Error clearing schedule:', error);
@@ -596,7 +594,7 @@ export const clearExamSchedule = async (): Promise<void> => {
   const { error } = await supabase
     .from('exam_schedules')
     .delete()
-    .neq('id', 0); // This will delete all rows
+    .neq('id', '00000000-0000-0000-0000-000000000000');
 
   if (error) {
     console.error('Error clearing exam schedule:', error);
@@ -618,4 +616,3 @@ export const fetchExamSchedule = async (): Promise<any[]> => {
 
   return data || [];
 };
-
