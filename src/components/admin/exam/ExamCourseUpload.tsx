@@ -7,7 +7,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { addExamCourses } from "@/lib/db";
 import { useToast } from "@/hooks/use-toast";
-import { Upload, FileText, AlertCircle, CheckCircle, Download } from "lucide-react";
+import { Upload, FileText, AlertCircle, CheckCircle, X, File } from "lucide-react";
 import { ExamCourse } from "@/lib/types";
 import * as XLSX from "xlsx";
 
@@ -21,6 +21,7 @@ const ExamCourseUpload = ({ isOpen, onClose }: ExamCourseUploadProps) => {
   const [file, setFile] = useState<File | null>(null);
   const [courses, setCourses] = useState<Omit<ExamCourse, "id" | "createdAt" | "updatedAt">[]>([]);
   const [errors, setErrors] = useState<string[]>([]);
+  const [uploadStatus, setUploadStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -29,13 +30,17 @@ const ExamCourseUpload = ({ isOpen, onClose }: ExamCourseUploadProps) => {
     mutationFn: addExamCourses,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['exam-courses'] });
+      setUploadStatus('success');
       toast({
         title: "Success",
         description: `${courses.length} exam courses uploaded successfully.`,
       });
-      handleClose();
+      setTimeout(() => {
+        handleClose();
+      }, 2000);
     },
     onError: (error) => {
+      setUploadStatus('error');
       toast({
         title: "Upload Failed",
         description: "Failed to upload exam courses. Please try again.",
@@ -49,36 +54,8 @@ const ExamCourseUpload = ({ isOpen, onClose }: ExamCourseUploadProps) => {
     setFile(null);
     setCourses([]);
     setErrors([]);
+    setUploadStatus('idle');
     onClose();
-  };
-
-  const downloadTemplate = () => {
-    // Create template with exact structure from the image
-    const template = [
-      ["Course", "No of Students", "Departments Offering The Course"],
-      ["SMS 301 (Acct.)", "165", "Accounting"],
-      ["BCH 401", "60", "Biochemistry"],
-      ["BCH 403", "60", "Biochemistry"],
-      ["CSC 413", "370", "Computer Science"],
-      ["CSC 433", "370", "Computer Science"],
-    ];
-
-    const ws = XLSX.utils.aoa_to_sheet(template);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Exam Courses");
-    
-    // Set column widths for better readability
-    ws["!cols"] = [
-      { width: 20 }, // Course
-      { width: 15 }, // No of Students
-      { width: 30 }  // Departments Offering The Course
-    ];
-    
-    XLSX.writeFile(wb, "exam_courses_template.xlsx");
-    toast({
-      title: "Template Downloaded",
-      description: "Excel template downloaded. Fill in your exam courses and upload it back.",
-    });
   };
 
   const validateCourse = (course: any, rowIndex: number): string[] => {
@@ -179,6 +156,9 @@ const ExamCourseUpload = ({ isOpen, onClose }: ExamCourseUploadProps) => {
     }
     
     setFile(selectedFile);
+    setErrors([]);
+    setCourses([]);
+    setUploadStatus('idle');
     
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -186,6 +166,13 @@ const ExamCourseUpload = ({ isOpen, onClose }: ExamCourseUploadProps) => {
       parseExcel(data);
     };
     reader.readAsArrayBuffer(selectedFile);
+  };
+
+  const clearFile = () => {
+    setFile(null);
+    setCourses([]);
+    setErrors([]);
+    setUploadStatus('idle');
   };
 
   const handleDrag = (e: React.DragEvent) => {
@@ -216,76 +203,97 @@ const ExamCourseUpload = ({ isOpen, onClose }: ExamCourseUploadProps) => {
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Upload Exam Courses</DialogTitle>
-          <DialogDescription>
-            Upload an Excel file containing exam course information
+          <DialogTitle className="text-2xl font-bold text-gray-900">Upload Exam Courses</DialogTitle>
+          <DialogDescription className="text-gray-600">
+            Upload an Excel file containing exam course information. Only .xlsx and .xls files are supported.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4">
-          {/* Template Download */}
-          <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
-            <div>
-              <h4 className="font-medium">Download Template</h4>
-              <p className="text-sm text-muted-foreground">
-                Get the Excel template with the correct format
-              </p>
-            </div>
-            <Button variant="outline" onClick={downloadTemplate}>
-              <Download className="h-4 w-4 mr-2" />
-              Download Template
-            </Button>
+        <div className="space-y-6">
+          {/* File Upload Area */}
+          <div className="space-y-4">
+            <Card
+              className={`border-2 border-dashed transition-all duration-200 cursor-pointer ${
+                dragActive 
+                  ? 'border-blue-400 bg-blue-50 shadow-lg scale-105' 
+                  : file 
+                    ? 'border-green-300 bg-green-50'
+                    : 'border-gray-300 hover:border-blue-300 hover:bg-blue-50'
+              }`}
+              onDragEnter={handleDrag}
+              onDragLeave={handleDrag}
+              onDragOver={handleDrag}
+              onDrop={handleDrop}
+              onClick={() => !file && fileInputRef.current?.click()}
+            >
+              <CardContent className="flex flex-col items-center justify-center py-12">
+                {file ? (
+                  <div className="text-center space-y-3">
+                    <div className="flex items-center justify-center gap-3">
+                      <File className="h-12 w-12 text-green-600" />
+                      <div className="text-left">
+                        <p className="text-lg font-semibold text-green-800">{file.name}</p>
+                        <p className="text-sm text-green-600">
+                          {(file.size / 1024 / 1024).toFixed(2)} MB
+                        </p>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          clearFile();
+                        }}
+                        className="ml-2 hover:bg-red-100 hover:text-red-600 transition-colors"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    <p className="text-sm text-gray-600">Click to select a different file</p>
+                  </div>
+                ) : (
+                  <div className="text-center space-y-4">
+                    <Upload className={`h-16 w-16 mx-auto transition-colors ${
+                      dragActive ? 'text-blue-500' : 'text-gray-400'
+                    }`} />
+                    <div>
+                      <p className="text-xl font-medium text-gray-700">
+                        Drop your Excel file here, or click to browse
+                      </p>
+                      <p className="text-sm text-gray-500 mt-2">
+                        Supports .xlsx and .xls files only • Maximum file size: 10MB
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".xlsx,.xls"
+              onChange={handleInputChange}
+              className="hidden"
+            />
           </div>
 
-          {/* File Upload Area */}
-          <Card
-            className={`border-2 border-dashed transition-colors cursor-pointer ${
-              dragActive ? 'border-primary bg-primary/5' : 'border-muted-foreground/25'
-            }`}
-            onDragEnter={handleDrag}
-            onDragLeave={handleDrag}
-            onDragOver={handleDrag}
-            onDrop={handleDrop}
-            onClick={() => fileInputRef.current?.click()}
-          >
-            <CardContent className="flex flex-col items-center justify-center py-8">
-              <Upload className="h-12 w-12 text-muted-foreground mb-4" />
-              <div className="text-center">
-                <p className="text-lg font-medium">
-                  {file ? file.name : 'Drop your Excel file here, or click to browse'}
-                </p>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Supports .xlsx and .xls files only
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".xlsx,.xls"
-            onChange={handleInputChange}
-            className="hidden"
-          />
-
-          {/* Errors */}
+          {/* Validation Results */}
           {errors.length > 0 && (
-            <Alert variant="destructive">
-              <AlertCircle className="h-4 w-4" />
+            <Alert variant="destructive" className="border-red-200 bg-red-50">
+              <AlertCircle className="h-5 w-5 text-red-600" />
               <AlertDescription>
-                <div className="space-y-1">
-                  <p className="font-medium">Found {errors.length} error(s):</p>
-                  <ul className="list-disc list-inside space-y-1">
-                    {errors.slice(0, 5).map((error, index) => (
-                      <li key={index} className="text-sm">{error}</li>
-                    ))}
-                    {errors.length > 5 && (
-                      <li className="text-sm">... and {errors.length - 5} more errors</li>
-                    )}
-                  </ul>
+                <div className="space-y-2">
+                  <p className="font-semibold text-red-800">Found {errors.length} error(s):</p>
+                  <div className="max-h-32 overflow-y-auto">
+                    <ul className="list-disc list-inside space-y-1">
+                      {errors.map((error, index) => (
+                        <li key={index} className="text-sm text-red-700">{error}</li>
+                      ))}
+                    </ul>
+                  </div>
                 </div>
               </AlertDescription>
             </Alert>
@@ -293,24 +301,56 @@ const ExamCourseUpload = ({ isOpen, onClose }: ExamCourseUploadProps) => {
 
           {/* Success Preview */}
           {courses.length > 0 && errors.length === 0 && (
-            <Alert>
-              <CheckCircle className="h-4 w-4" />
-              <AlertDescription>
-                Successfully parsed {courses.length} exam courses. Ready to upload!
+            <Alert className="border-green-200 bg-green-50">
+              <CheckCircle className="h-5 w-5 text-green-600" />
+              <AlertDescription className="text-green-800">
+                <div className="space-y-2">
+                  <p className="font-semibold">
+                    ✅ Successfully parsed {courses.length} exam courses!
+                  </p>
+                  <p className="text-sm">
+                    Total students: {courses.reduce((sum, course) => sum + course.studentCount, 0).toLocaleString()}
+                  </p>
+                </div>
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {/* Upload Status */}
+          {uploadStatus !== 'idle' && (
+            <Alert className={uploadStatus === 'success' ? "border-green-200 bg-green-50" : "border-red-200 bg-red-50"}>
+              {uploadStatus === 'success' ? (
+                <CheckCircle className="h-5 w-5 text-green-600" />
+              ) : (
+                <AlertCircle className="h-5 w-5 text-red-600" />
+              )}
+              <AlertDescription className={uploadStatus === 'success' ? "text-green-800" : "text-red-800"}>
+                {uploadStatus === 'success' 
+                  ? "Upload completed successfully! The dialog will close automatically."
+                  : "Upload failed. Please try again or contact support if the problem persists."
+                }
               </AlertDescription>
             </Alert>
           )}
 
           {/* Actions */}
-          <div className="flex justify-end gap-3">
-            <Button variant="outline" onClick={handleClose}>
+          <div className="flex justify-end gap-3 pt-4 border-t">
+            <Button variant="outline" onClick={handleClose} disabled={uploadMutation.isPending}>
               Cancel
             </Button>
             <Button
               onClick={() => uploadMutation.mutate(courses)}
-              disabled={courses.length === 0 || errors.length > 0 || uploadMutation.isPending}
+              disabled={courses.length === 0 || errors.length > 0 || uploadMutation.isPending || uploadStatus === 'success'}
+              className="bg-blue-600 hover:bg-blue-700 text-white transition-all duration-200 hover:scale-105 disabled:hover:scale-100"
             >
-              {uploadMutation.isPending ? "Uploading..." : `Upload ${courses.length} Courses`}
+              {uploadMutation.isPending ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  Uploading...
+                </>
+              ) : (
+                `Upload ${courses.length} Course${courses.length !== 1 ? 's' : ''}`
+              )}
             </Button>
           </div>
         </div>
