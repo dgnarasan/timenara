@@ -1,5 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
-import { Course, ExamCourse, Room, ScheduleItem, User, ExamScheduleItem, ExamCourseForUpload, TimeSlot } from './types';
+import { Course, ExamCourse, Room, ScheduleItem, User, ExamScheduleItem, ExamCourseForUpload, TimeSlot, UserProfile } from './types';
 
 // Helper function to safely convert TimeSlot[] to Json
 const timeSlotArrayToJson = (timeSlots: TimeSlot[] | undefined): any => {
@@ -380,7 +380,7 @@ export const fetchUsers = async (): Promise<UserProfile[]> => {
   return (users || []).map(user => ({
     id: user.id,
     email: user.email,
-    role: (user.role === 'admin' ? 'admin' : 'student') as const,
+    role: (user.role === 'admin' ? 'admin' : 'student') as 'admin' | 'student',
   }));
 };
 
@@ -666,6 +666,6 @@ export const fetchUser = async (userId: string): Promise<UserProfile | null> => 
   return data ? {
     id: data.id,
     email: data.email,
-    role: (data.role === 'admin' ? 'admin' : 'student') as const,
+    role: (data.role === 'admin' ? 'admin' : 'student') as 'admin' | 'student',
   } : null;
 };
