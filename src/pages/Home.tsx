@@ -142,6 +142,15 @@ const Home = () => {
           <div className="flex flex-col sm:flex-row justify-center gap-3">
             <Button
               size="lg"
+              className="text-base md:text-lg w-full sm:w-auto bg-primary hover:bg-primary/90"
+              onClick={() => navigate("/admin/exam-timetable-generator")}
+            >
+              <Settings className="mr-2 h-4 w-4" />
+              Exam Timetable Generator
+            </Button>
+            <Button
+              size="lg"
+              variant="outline"
               className="text-base md:text-lg w-full sm:w-auto"
               onClick={() => navigate("/schedule")}
             >
@@ -154,15 +163,6 @@ const Home = () => {
               onClick={() => navigate("/admin")}
             >
               Admin Dashboard
-            </Button>
-            <Button
-              size="lg"
-              variant="outline"
-              className="text-base md:text-lg w-full sm:w-auto"
-              onClick={() => navigate("/admin/exam-timetable-generator")}
-            >
-              <Settings className="mr-2 h-4 w-4" />
-              Exam Generator
             </Button>
           </div>
         </div>

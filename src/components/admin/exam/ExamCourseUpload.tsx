@@ -7,8 +7,9 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { addExamCourses } from "@/lib/db";
 import { useToast } from "@/hooks/use-toast";
-import { Upload, FileText, AlertCircle, CheckCircle } from "lucide-react";
+import { Upload, FileText, AlertCircle, CheckCircle, Download } from "lucide-react";
 import { ExamCourse } from "@/lib/types";
+import * as XLSX from "xlsx";
 
 interface ExamCourseUploadProps {
   isOpen: boolean;
@@ -51,84 +52,129 @@ const ExamCourseUpload = ({ isOpen, onClose }: ExamCourseUploadProps) => {
     onClose();
   };
 
+  const downloadTemplate = () => {
+    // Create template with exact structure from the image
+    const template = [
+      ["Course", "No of Students", "Departments Offering The Course"],
+      ["SMS 301 (Acct.)", "165", "Accounting"],
+      ["BCH 401", "60", "Biochemistry"],
+      ["BCH 403", "60", "Biochemistry"],
+      ["CSC 413", "370", "Computer Science"],
+      ["CSC 433", "370", "Computer Science"],
+    ];
+
+    const ws = XLSX.utils.aoa_to_sheet(template);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Exam Courses");
+    
+    // Set column widths for better readability
+    ws["!cols"] = [
+      { width: 20 }, // Course
+      { width: 15 }, // No of Students
+      { width: 30 }  // Departments Offering The Course
+    ];
+    
+    XLSX.writeFile(wb, "exam_courses_template.xlsx");
+    toast({
+      title: "Template Downloaded",
+      description: "Excel template downloaded. Fill in your exam courses and upload it back.",
+    });
+  };
+
   const validateCourse = (course: any, rowIndex: number): string[] => {
     const errors: string[] = [];
     
     if (!course.courseCode?.trim()) {
-      errors.push(`Row ${rowIndex + 2}: Course Code is required`);
+      errors.push(`Row ${rowIndex + 2}: Course is required`);
     }
     
-    if (!course.courseTitle?.trim()) {
-      errors.push(`Row ${rowIndex + 2}: Course Title is required`);
+    const studentCount = parseInt(course.studentCount);
+    if (isNaN(studentCount) || studentCount <= 0) {
+      errors.push(`Row ${rowIndex + 2}: No of Students must be a positive number`);
     }
     
     if (!course.department?.trim()) {
       errors.push(`Row ${rowIndex + 2}: Department is required`);
     }
     
-    if (!course.college?.trim()) {
-      errors.push(`Row ${rowIndex + 2}: College is required`);
-    }
-    
-    if (!course.level?.trim()) {
-      errors.push(`Row ${rowIndex + 2}: Level is required`);
-    }
-    
-    const studentCount = parseInt(course.studentCount);
-    if (isNaN(studentCount) || studentCount <= 0) {
-      errors.push(`Row ${rowIndex + 2}: Student Count must be a positive number`);
-    }
-    
     return errors;
   };
 
-  const parseCSV = (text: string) => {
-    const lines = text.trim().split('\n');
-    const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
-    
-    const requiredHeaders = ['Course Code', 'Course Title', 'Department', 'College', 'Level', 'Student Count'];
-    const missingHeaders = requiredHeaders.filter(h => !headers.includes(h));
-    
-    if (missingHeaders.length > 0) {
-      setErrors([`Missing required columns: ${missingHeaders.join(', ')}`]);
-      return;
-    }
-    
-    const parsedCourses: Omit<ExamCourse, "id" | "createdAt" | "updatedAt">[] = [];
-    const allErrors: string[] = [];
-    
-    for (let i = 1; i < lines.length; i++) {
-      const values = lines[i].split(',').map(v => v.trim().replace(/"/g, ''));
+  const parseExcel = (data: ArrayBuffer) => {
+    try {
+      const workbook = XLSX.read(data);
+      const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as string[][];
       
-      if (values.length !== headers.length) {
-        allErrors.push(`Row ${i + 1}: Incorrect number of columns`);
-        continue;
+      if (rows.length === 0) {
+        setErrors(['The uploaded file appears to be empty.']);
+        return;
       }
       
-      const courseData = {
-        courseCode: values[headers.indexOf('Course Code')],
-        courseTitle: values[headers.indexOf('Course Title')],
-        department: values[headers.indexOf('Department')],
-        college: values[headers.indexOf('College')],
-        level: values[headers.indexOf('Level')],
-        studentCount: parseInt(values[headers.indexOf('Student Count')]),
-      };
+      const headers = rows[0].map(h => h?.toString().trim());
+      const expectedHeaders = ['Course', 'No of Students', 'Departments Offering The Course'];
       
-      const courseErrors = validateCourse(courseData, i - 1);
-      allErrors.push(...courseErrors);
-      
-      if (courseErrors.length === 0) {
-        parsedCourses.push(courseData);
+      // Check if headers match
+      const headerMatches = expectedHeaders.every((expectedHeader, index) => {
+        const actualHeader = headers[index]?.toLowerCase();
+        const expectedLower = expectedHeader.toLowerCase();
+        return actualHeader === expectedLower || 
+               actualHeader === 'no of students' ||
+               actualHeader === 'departments offering the course';
+      });
+
+      if (!headerMatches) {
+        setErrors([`Invalid template format. Expected headers: ${expectedHeaders.join(", ")}`]);
+        return;
       }
+
+      const parsedCourses: Omit<ExamCourse, "id" | "createdAt" | "updatedAt">[] = [];
+      const allErrors: string[] = [];
+      
+      for (let i = 1; i < rows.length; i++) {
+        const values = rows[i];
+        
+        if (!values || values.length < 3 || !values.some(cell => cell?.toString().trim())) {
+          continue; // Skip empty rows
+        }
+        
+        const courseCode = values[0]?.toString().trim();
+        const studentCount = parseInt(values[1]?.toString()) || 0;
+        const department = values[2]?.toString().trim();
+        
+        const courseData = {
+          courseCode,
+          courseTitle: courseCode, // Use course code as title for now
+          department,
+          college: "Default College", // Default value
+          level: "Undergraduate", // Default value
+          studentCount,
+        };
+        
+        const courseErrors = validateCourse({
+          courseCode,
+          studentCount,
+          department
+        }, i - 1);
+        
+        allErrors.push(...courseErrors);
+        
+        if (courseErrors.length === 0) {
+          parsedCourses.push(courseData);
+        }
+      }
+      
+      setErrors(allErrors);
+      setCourses(parsedCourses);
+    } catch (error) {
+      setErrors(['Failed to parse Excel file. Please ensure it\'s a valid Excel file.']);
     }
-    
-    setErrors(allErrors);
-    setCourses(parsedCourses);
   };
 
   const handleFileSelect = (selectedFile: File) => {
-    if (selectedFile.type !== 'text/csv' && !selectedFile.name.endsWith('.csv')) {
-      setErrors(['Please select a CSV file']);
+    const fileExtension = selectedFile.name.split('.').pop()?.toLowerCase();
+    if (!['xlsx', 'xls'].includes(fileExtension || '')) {
+      setErrors(['Please select an Excel file (.xlsx or .xls)']);
       return;
     }
     
@@ -136,10 +182,10 @@ const ExamCourseUpload = ({ isOpen, onClose }: ExamCourseUploadProps) => {
     
     const reader = new FileReader();
     reader.onload = (e) => {
-      const text = e.target?.result as string;
-      parseCSV(text);
+      const data = e.target?.result as ArrayBuffer;
+      parseExcel(data);
     };
-    reader.readAsText(selectedFile);
+    reader.readAsArrayBuffer(selectedFile);
   };
 
   const handleDrag = (e: React.DragEvent) => {
@@ -174,11 +220,25 @@ const ExamCourseUpload = ({ isOpen, onClose }: ExamCourseUploadProps) => {
         <DialogHeader>
           <DialogTitle>Upload Exam Courses</DialogTitle>
           <DialogDescription>
-            Upload a CSV file containing exam course information
+            Upload an Excel file containing exam course information
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
+          {/* Template Download */}
+          <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
+            <div>
+              <h4 className="font-medium">Download Template</h4>
+              <p className="text-sm text-muted-foreground">
+                Get the Excel template with the correct format
+              </p>
+            </div>
+            <Button variant="outline" onClick={downloadTemplate}>
+              <Download className="h-4 w-4 mr-2" />
+              Download Template
+            </Button>
+          </div>
+
           {/* File Upload Area */}
           <Card
             className={`border-2 border-dashed transition-colors cursor-pointer ${
@@ -194,10 +254,10 @@ const ExamCourseUpload = ({ isOpen, onClose }: ExamCourseUploadProps) => {
               <Upload className="h-12 w-12 text-muted-foreground mb-4" />
               <div className="text-center">
                 <p className="text-lg font-medium">
-                  {file ? file.name : 'Drop your CSV file here, or click to browse'}
+                  {file ? file.name : 'Drop your Excel file here, or click to browse'}
                 </p>
                 <p className="text-sm text-muted-foreground mt-1">
-                  Supports CSV files only
+                  Supports .xlsx and .xls files only
                 </p>
               </div>
             </CardContent>
@@ -206,7 +266,7 @@ const ExamCourseUpload = ({ isOpen, onClose }: ExamCourseUploadProps) => {
           <input
             ref={fileInputRef}
             type="file"
-            accept=".csv"
+            accept=".xlsx,.xls"
             onChange={handleInputChange}
             className="hidden"
           />
