@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { Course, ExamCourse, Room, ScheduleItem, User, ExamScheduleItem, ExamCourseForUpload, TimeSlot } from './types';
 
@@ -368,10 +367,10 @@ export const deleteScheduleItem = async (id: string): Promise<void> => {
 };
 
 // Function to fetch users
-export const fetchUsers = async (): Promise<User[]> => {
+export const fetchUsers = async (): Promise<UserProfile[]> => {
   const { data: users, error } = await supabase
     .from('profiles')
-    .select('*');
+    .select('id, email, role');
 
   if (error) {
     console.error('Error fetching users:', error);
@@ -381,7 +380,7 @@ export const fetchUsers = async (): Promise<User[]> => {
   return (users || []).map(user => ({
     id: user.id,
     email: user.email,
-    role: (user.role === 'admin' || user.role === 'student') ? user.role : 'student',
+    role: (user.role === 'admin' ? 'admin' : 'student') as const,
   }));
 };
 
@@ -649,4 +648,24 @@ export const fetchExamSchedule = async (): Promise<any[]> => {
   }
 
   return data || [];
+};
+
+// Function to fetch user
+export const fetchUser = async (userId: string): Promise<UserProfile | null> => {
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('id, email, role')
+    .eq('id', userId)
+    .single();
+
+  if (error) {
+    console.error('Error fetching user:', error);
+    return null;
+  }
+
+  return data ? {
+    id: data.id,
+    email: data.email,
+    role: (data.role === 'admin' ? 'admin' : 'student') as const,
+  } : null;
 };
