@@ -5,7 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
-import { Calendar, FileText, Download, GraduationCap } from "lucide-react";
+import { Calendar, FileText, Download, GraduationCap, Clock, MapPin } from "lucide-react";
 import { Button } from "../ui/button";
 import { Card } from "../ui/card";
 import CollegeLevelExamFilter from "./CollegeLevelExamFilter";
@@ -17,18 +17,30 @@ import {
 } from "../ui/dropdown-menu";
 
 interface ExamTimetableViewProps {
-  examCourses: ExamCourse[];
-  examSchedule: ExamScheduleItem[];
+  examCourses?: ExamCourse[];
+  examSchedule?: ExamScheduleItem[];
+  schedule?: any[];
+  viewMode?: "timetable" | "list";
 }
 
-const ExamTimetableView = ({ examCourses, examSchedule }: ExamTimetableViewProps) => {
+const ExamTimetableView = ({ 
+  examCourses = [], 
+  examSchedule = [], 
+  schedule = [],
+  viewMode = "timetable" 
+}: ExamTimetableViewProps) => {
   const { toast } = useToast();
 
+  // Determine which data to use - prioritize examCourses if available
+  const displayData = examCourses.length > 0 ? examCourses : 
+                     examSchedule.length > 0 ? examSchedule : 
+                     schedule;
+
   const handleExport = (format: "pdf" | "csv") => {
-    if (examCourses.length === 0) {
+    if (displayData.length === 0) {
       toast({
         title: "No Data to Export",
-        description: "No exam courses available to export.",
+        description: "No exam data available to export.",
         variant: "destructive",
       });
       return;
@@ -42,36 +54,42 @@ const ExamTimetableView = ({ examCourses, examSchedule }: ExamTimetableViewProps
   };
 
   const exportToCSV = () => {
-    const data = examCourses.map((course) => ({
-      "Course Code": course.courseCode,
-      "Course Title": course.courseTitle,
-      "Department": course.department,
-      "College": course.college,
-      "Level": course.level,
-      "Student Count": course.studentCount,
+    const data = displayData.map((item: any) => ({
+      "Course Code": item.courseCode || item.course_code || 'N/A',
+      "Course Title": item.courseTitle || item.course_title || 'N/A',
+      "Department": item.department || 'N/A',
+      "College": item.college || 'N/A',
+      "Level": item.level || 'N/A',
+      "Student Count": item.studentCount || item.student_count || 0,
+      ...(item.day && {
+        "Date": item.day,
+        "Time": `${item.startTime || item.start_time} - ${item.endTime || item.end_time}`,
+        "Session": item.sessionName || item.session_name,
+        "Venue": item.venueName || item.venue_name || 'TBD'
+      })
     }));
 
     const ws = XLSX.utils.json_to_sheet(data);
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Exam Courses");
-    XLSX.writeFile(wb, "exam-courses.xlsx");
+    XLSX.utils.book_append_sheet(wb, ws, "Exam Data");
+    XLSX.writeFile(wb, "exam-data.xlsx");
 
     toast({
       title: "Data Exported",
-      description: "Exam courses have been exported to Excel format.",
+      description: "Exam data has been exported to Excel format.",
     });
   };
 
   const exportToPDF = () => {
     const doc = new jsPDF();
     
-    const tableData = examCourses.map((course) => [
-      course.courseCode,
-      course.courseTitle,
-      course.department,
-      course.college,
-      course.level,
-      course.studentCount.toString(),
+    const tableData = displayData.map((item: any) => [
+      item.courseCode || item.course_code || 'N/A',
+      item.courseTitle || item.course_title || 'N/A',
+      item.department || 'N/A',
+      item.college || 'N/A',
+      item.level || 'N/A',
+      (item.studentCount || item.student_count || 0).toString(),
     ]);
 
     doc.autoTable({
@@ -83,12 +101,68 @@ const ExamTimetableView = ({ examCourses, examSchedule }: ExamTimetableViewProps
       headStyles: { fillColor: [41, 128, 185], textColor: 255 },
     });
 
-    doc.save("exam-courses.pdf");
+    doc.save("exam-data.pdf");
 
     toast({
       title: "Data Exported",
-      description: "Exam courses have been exported to PDF format.",
+      description: "Exam data has been exported to PDF format.",
     });
+  };
+
+  // Render exam schedule as timetable view
+  const renderTimetableView = () => {
+    if (examSchedule.length === 0 && schedule.length === 0) {
+      return (
+        <Card className="p-8 text-center">
+          <Calendar className="h-12 w-12 mx-auto mb-4 opacity-20" />
+          <p className="text-muted-foreground">No exam schedule available yet.</p>
+        </Card>
+      );
+    }
+
+    const scheduleData = examSchedule.length > 0 ? examSchedule : schedule;
+
+    return (
+      <div className="space-y-4">
+        {scheduleData.map((item: any, index: number) => (
+          <Card key={index} className="p-4">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <h3 className="font-semibold text-primary">
+                    {item.courseCode || item.course_code}
+                  </h3>
+                  <span className="text-sm text-muted-foreground">
+                    {item.courseTitle || item.course_title}
+                  </span>
+                </div>
+                <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                  <div className="flex items-center gap-1">
+                    <Calendar className="h-4 w-4" />
+                    <span>{item.day}</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Clock className="h-4 w-4" />
+                    <span>{item.startTime || item.start_time} - {item.endTime || item.end_time}</span>
+                  </div>
+                  {(item.venueName || item.venue_name) && (
+                    <div className="flex items-center gap-1">
+                      <MapPin className="h-4 w-4" />
+                      <span>{item.venueName || item.venue_name}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+              {item.sessionName && (
+                <div className="text-sm font-medium text-primary">
+                  {item.sessionName}
+                </div>
+              )}
+            </div>
+          </Card>
+        ))}
+      </div>
+    );
   };
 
   return (
@@ -97,10 +171,13 @@ const ExamTimetableView = ({ examCourses, examSchedule }: ExamTimetableViewProps
         <div className="space-y-2">
           <h2 className="text-xl font-semibold flex items-center gap-2">
             <GraduationCap className="h-6 w-6 text-primary" />
-            Exam Courses
+            {examSchedule.length > 0 || schedule.length > 0 ? "Exam Schedule" : "Exam Courses"}
           </h2>
           <p className="text-sm text-muted-foreground">
-            View exam courses organized by college and academic level
+            {examSchedule.length > 0 || schedule.length > 0 
+              ? "View your examination schedule and details"
+              : "View exam courses organized by college and academic level"
+            }
           </p>
         </div>
         
@@ -151,14 +228,17 @@ const ExamTimetableView = ({ examCourses, examSchedule }: ExamTimetableViewProps
         </div>
       </div>
 
-      <CollegeLevelExamFilter examCourses={examCourses} />
-
-      {examCourses.length === 0 && (
+      {/* Show appropriate view based on data type */}
+      {examCourses.length > 0 ? (
+        <CollegeLevelExamFilter examCourses={examCourses} />
+      ) : (examSchedule.length > 0 || schedule.length > 0) && viewMode === "timetable" ? (
+        renderTimetableView()
+      ) : (
         <Card className="p-8 text-center">
           <Calendar className="h-12 w-12 mx-auto mb-4 opacity-20" />
-          <p className="text-muted-foreground">No exam courses uploaded yet.</p>
+          <p className="text-muted-foreground">No exam data available yet.</p>
           <p className="text-sm text-muted-foreground mt-2">
-            Upload an Excel file with exam courses to get started.
+            Upload exam courses or generate a schedule to get started.
           </p>
         </Card>
       )}
