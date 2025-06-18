@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { Course, ExamCourse, Room, ScheduleItem, User, ExamScheduleItem, ExamCourseForUpload, TimeSlot, UserProfile } from './types';
 
@@ -400,8 +401,8 @@ export const updateUserRole = async (id: string, role: string): Promise<User | n
 
   if (!data) return null;
 
-  // Ensure the role is one of the expected values
-  const validRole: 'admin' | 'student' = (data.role === 'admin' || data.role === 'student') ? data.role : 'student';
+  // Ensure the role is one of the expected values with proper typing
+  const validRole = (data.role === 'admin' || data.role === 'student') ? data.role as 'admin' | 'student' : 'student' as const;
 
   return {
     id: data.id,
