@@ -7,20 +7,28 @@ import { AlertCircle, Calendar, Clock, MapPin, BookOpen } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import CollegeLevelExamFilter from "./CollegeLevelExamFilter";
 
-const ExamTimetableView = () => {
+interface ExamTimetableViewProps {
+  schedule?: any[];
+  viewMode?: "timetable" | "list";
+}
+
+const ExamTimetableView = ({ schedule: propSchedule, viewMode }: ExamTimetableViewProps) => {
   // Fetch exam courses for classification
   const { data: examCourses = [], isLoading: isLoadingCourses } = useQuery({
     queryKey: ['exam-courses'],
     queryFn: fetchExamCourses,
   });
 
-  // Fetch published exam schedule
-  const { data: examSchedule = [], isLoading: isLoadingSchedule } = useQuery({
+  // Fetch published exam schedule only if not provided as prop
+  const { data: fetchedExamSchedule = [], isLoading: isLoadingSchedule } = useQuery({
     queryKey: ['exam-schedule'],
     queryFn: fetchExamSchedule,
+    enabled: !propSchedule, // Only fetch if schedule not provided as prop
   });
 
-  const isLoading = isLoadingCourses || isLoadingSchedule;
+  // Use prop schedule if provided, otherwise use fetched schedule
+  const examSchedule = propSchedule || fetchedExamSchedule;
+  const isLoading = isLoadingCourses || (!propSchedule && isLoadingSchedule);
 
   if (isLoading) {
     return (
