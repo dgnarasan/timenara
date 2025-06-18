@@ -398,11 +398,16 @@ export const updateUserRole = async (id: string, role: string): Promise<User | n
     throw error;
   }
 
-  return data ? {
+  if (!data) return null;
+
+  // Ensure the role is one of the expected values
+  const validRole: 'admin' | 'student' = (data.role === 'admin' || data.role === 'student') ? data.role : 'student';
+
+  return {
     id: data.id,
     email: data.email,
-    role: (data.role === 'admin' || data.role === 'student') ? data.role as 'admin' | 'student' : 'student',
-  } : null;
+    role: validRole,
+  };
 };
 
 // Function to fetch exam courses
