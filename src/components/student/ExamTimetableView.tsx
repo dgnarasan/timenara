@@ -1,247 +1,151 @@
 
-import { useState, useEffect } from "react";
-import { ExamCourse, ExamScheduleItem } from "@/lib/types";
-import { useToast } from "@/hooks/use-toast";
-import * as XLSX from "xlsx";
-import jsPDF from "jspdf";
-import "jspdf-autotable";
-import { Calendar, FileText, Download, GraduationCap, Clock, MapPin } from "lucide-react";
-import { Button } from "../ui/button";
-import { Card } from "../ui/card";
+import { useQuery } from "@tanstack/react-query";
+import { fetchExamSchedule, fetchExamCourses } from "@/lib/db";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { AlertCircle, Calendar, Clock, MapPin, BookOpen } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import CollegeLevelExamFilter from "./CollegeLevelExamFilter";
-import { 
-  DropdownMenu, 
-  DropdownMenuContent, 
-  DropdownMenuItem, 
-  DropdownMenuTrigger 
-} from "../ui/dropdown-menu";
 
-interface ExamTimetableViewProps {
-  examCourses?: ExamCourse[];
-  examSchedule?: ExamScheduleItem[];
-  schedule?: any[];
-  viewMode?: "timetable" | "list";
-}
+const ExamTimetableView = () => {
+  // Fetch exam courses for classification
+  const { data: examCourses = [], isLoading: isLoadingCourses } = useQuery({
+    queryKey: ['exam-courses'],
+    queryFn: fetchExamCourses,
+  });
 
-const ExamTimetableView = ({ 
-  examCourses = [], 
-  examSchedule = [], 
-  schedule = [],
-  viewMode = "timetable" 
-}: ExamTimetableViewProps) => {
-  const { toast } = useToast();
+  // Fetch published exam schedule
+  const { data: examSchedule = [], isLoading: isLoadingSchedule } = useQuery({
+    queryKey: ['exam-schedule'],
+    queryFn: fetchExamSchedule,
+  });
 
-  // Determine which data to use - prioritize examCourses if available
-  const displayData = examCourses.length > 0 ? examCourses : 
-                     examSchedule.length > 0 ? examSchedule : 
-                     schedule;
+  const isLoading = isLoadingCourses || isLoadingSchedule;
 
-  const handleExport = (format: "pdf" | "csv") => {
-    if (displayData.length === 0) {
-      toast({
-        title: "No Data to Export",
-        description: "No exam data available to export.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (format === "csv") {
-      exportToCSV();
-    } else {
-      exportToPDF();
-    }
-  };
-
-  const exportToCSV = () => {
-    const data = displayData.map((item: any) => ({
-      "Course Code": item.courseCode || item.course_code || 'N/A',
-      "Course Title": item.courseTitle || item.course_title || 'N/A',
-      "Department": item.department || 'N/A',
-      "College": item.college || 'N/A',
-      "Level": item.level || 'N/A',
-      "Student Count": item.studentCount || item.student_count || 0,
-      ...(item.day && {
-        "Date": item.day,
-        "Time": `${item.startTime || item.start_time} - ${item.endTime || item.end_time}`,
-        "Session": item.sessionName || item.session_name,
-        "Venue": item.venueName || item.venue_name || 'TBD'
-      })
-    }));
-
-    const ws = XLSX.utils.json_to_sheet(data);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Exam Data");
-    XLSX.writeFile(wb, "exam-data.xlsx");
-
-    toast({
-      title: "Data Exported",
-      description: "Exam data has been exported to Excel format.",
-    });
-  };
-
-  const exportToPDF = () => {
-    const doc = new jsPDF();
-    
-    const tableData = displayData.map((item: any) => [
-      item.courseCode || item.course_code || 'N/A',
-      item.courseTitle || item.course_title || 'N/A',
-      item.department || 'N/A',
-      item.college || 'N/A',
-      item.level || 'N/A',
-      (item.studentCount || item.student_count || 0).toString(),
-    ]);
-
-    doc.autoTable({
-      head: [["Code", "Title", "Department", "College", "Level", "Students"]],
-      body: tableData,
-      startY: 20,
-      theme: "grid",
-      styles: { fontSize: 8, cellPadding: 1 },
-      headStyles: { fillColor: [41, 128, 185], textColor: 255 },
-    });
-
-    doc.save("exam-data.pdf");
-
-    toast({
-      title: "Data Exported",
-      description: "Exam data has been exported to PDF format.",
-    });
-  };
-
-  // Render exam schedule as timetable view
-  const renderTimetableView = () => {
-    if (examSchedule.length === 0 && schedule.length === 0) {
-      return (
-        <Card className="p-8 text-center">
-          <Calendar className="h-12 w-12 mx-auto mb-4 opacity-20" />
-          <p className="text-muted-foreground">No exam schedule available yet.</p>
-        </Card>
-      );
-    }
-
-    const scheduleData = examSchedule.length > 0 ? examSchedule : schedule;
-
+  if (isLoading) {
     return (
-      <div className="space-y-4">
-        {scheduleData.map((item: any, index: number) => (
-          <Card key={index} className="p-4">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <h3 className="font-semibold text-primary">
-                    {item.courseCode || item.course_code}
-                  </h3>
-                  <span className="text-sm text-muted-foreground">
-                    {item.courseTitle || item.course_title}
-                  </span>
-                </div>
-                <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                  <div className="flex items-center gap-1">
-                    <Calendar className="h-4 w-4" />
-                    <span>{item.day}</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <Clock className="h-4 w-4" />
-                    <span>{item.startTime || item.start_time} - {item.endTime || item.end_time}</span>
-                  </div>
-                  {(item.venueName || item.venue_name) && (
-                    <div className="flex items-center gap-1">
-                      <MapPin className="h-4 w-4" />
-                      <span>{item.venueName || item.venue_name}</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-              {item.sessionName && (
-                <div className="text-sm font-medium text-primary">
-                  {item.sessionName}
-                </div>
-              )}
-            </div>
-          </Card>
-        ))}
+      <div className="space-y-6">
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+            <p className="text-muted-foreground">Loading exam information...</p>
+          </div>
+        </div>
       </div>
     );
-  };
+  }
+
+  // Group schedule by date for better organization
+  const scheduleByDate = examSchedule.reduce((acc, item) => {
+    const date = item.day;
+    if (!acc[date]) {
+      acc[date] = [];
+    }
+    acc[date].push(item);
+    return acc;
+  }, {} as Record<string, typeof examSchedule>);
+
+  const sortedDates = Object.keys(scheduleByDate).sort();
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-        <div className="space-y-2">
-          <h2 className="text-xl font-semibold flex items-center gap-2">
-            <GraduationCap className="h-6 w-6 text-primary" />
-            {examSchedule.length > 0 || schedule.length > 0 ? "Exam Schedule" : "Exam Courses"}
-          </h2>
-          <p className="text-sm text-muted-foreground">
-            {examSchedule.length > 0 || schedule.length > 0 
-              ? "View your examination schedule and details"
-              : "View exam courses organized by college and academic level"
-            }
-          </p>
-        </div>
-        
-        <div className="flex items-center gap-2 w-full sm:w-auto">
-          {/* Mobile export dropdown */}
-          <div className="sm:hidden flex-1">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="w-full">
-                  <Download className="h-4 w-4 mr-2" />
-                  Export
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent className="w-48">
-                <DropdownMenuItem onClick={() => handleExport("csv")}>
-                  <FileText className="h-4 w-4 mr-2" />
-                  Export as CSV
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handleExport("pdf")}>
-                  <FileText className="h-4 w-4 mr-2" />
-                  Export as PDF
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-
-          {/* Desktop export buttons */}
-          <div className="hidden sm:flex items-center gap-2">
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={() => handleExport("csv")}
-              className="shadow-sm hover:bg-secondary/80 transition-all duration-200 font-medium"
-            >
-              <FileText className="h-4 w-4 mr-2" />
-              CSV
-            </Button>
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={() => handleExport("pdf")}
-              className="shadow-sm hover:bg-secondary/80 transition-all duration-200 font-medium"
-            >
-              <FileText className="h-4 w-4 mr-2" />
-              PDF
-            </Button>
-          </div>
-        </div>
+      {/* Header */}
+      <div className="space-y-2">
+        <h2 className="text-2xl font-bold text-primary">Examination Timetable</h2>
+        <p className="text-muted-foreground">
+          View your examination schedule and course classifications
+        </p>
       </div>
 
-      {/* Show appropriate view based on data type */}
-      {examCourses.length > 0 ? (
-        <CollegeLevelExamFilter examCourses={examCourses} />
-      ) : (examSchedule.length > 0 || schedule.length > 0) && viewMode === "timetable" ? (
-        renderTimetableView()
-      ) : (
-        <Card className="p-8 text-center">
-          <Calendar className="h-12 w-12 mx-auto mb-4 opacity-20" />
-          <p className="text-muted-foreground">No exam data available yet.</p>
-          <p className="text-sm text-muted-foreground mt-2">
-            Upload exam courses or generate a schedule to get started.
-          </p>
-        </Card>
-      )}
+      {/* College Level Classification */}
+      <CollegeLevelExamFilter examCourses={examCourses} />
+
+      {/* Exam Schedule Section */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Calendar className="h-5 w-5" />
+            Published Exam Schedule
+          </CardTitle>
+          <CardDescription>
+            {examSchedule.length > 0 
+              ? `${examSchedule.length} examinations scheduled`
+              : "No examinations scheduled yet"
+            }
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {examSchedule.length === 0 ? (
+            <Alert>
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                No examination schedule has been published yet. Please check back later.
+              </AlertDescription>
+            </Alert>
+          ) : (
+            <div className="space-y-6">
+              {sortedDates.map(date => (
+                <div key={date} className="space-y-3">
+                  <div className="flex items-center gap-2 border-b pb-2">
+                    <Calendar className="h-4 w-4 text-primary" />
+                    <h3 className="font-semibold text-lg">
+                      {new Date(date).toLocaleDateString('en-US', {
+                        weekday: 'long',
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric'
+                      })}
+                    </h3>
+                    <Badge variant="secondary">
+                      {scheduleByDate[date].length} exam{scheduleByDate[date].length !== 1 ? 's' : ''}
+                    </Badge>
+                  </div>
+                  
+                  <div className="grid gap-3">
+                    {scheduleByDate[date]
+                      .sort((a, b) => a.start_time.localeCompare(b.start_time))
+                      .map((exam, index) => (
+                        <Card key={index} className="border-l-4 border-l-primary">
+                          <CardContent className="p-4">
+                            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                              <div className="space-y-2">
+                                <div className="flex items-center gap-2">
+                                  <BookOpen className="h-4 w-4 text-primary" />
+                                  <span className="font-semibold text-primary">
+                                    {exam.course_code || 'N/A'}
+                                  </span>
+                                  <Badge variant="outline" className="text-xs">
+                                    {exam.session_name}
+                                  </Badge>
+                                </div>
+                                <p className="text-sm text-muted-foreground">
+                                  {exam.course_title || 'Course Title Not Available'}
+                                </p>
+                              </div>
+                              
+                              <div className="flex flex-col sm:flex-row gap-2 text-sm">
+                                <div className="flex items-center gap-1 text-muted-foreground">
+                                  <Clock className="h-3 w-3" />
+                                  <span>{exam.start_time} - {exam.end_time}</span>
+                                </div>
+                                {exam.venue_name && (
+                                  <div className="flex items-center gap-1 text-muted-foreground">
+                                    <MapPin className="h-3 w-3" />
+                                    <span>{exam.venue_name}</span>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 };
