@@ -385,7 +385,7 @@ export const fetchUsers = async (): Promise<UserProfile[]> => {
 };
 
 // Function to update user role
-export const updateUserRole = async (id: string, role: string): Promise<User | null> => {
+export const updateUserRole = async (id: string, role: 'admin' | 'student'): Promise<User | null> => {
   const { data, error } = await supabase
     .from('profiles')
     .update({ role })
