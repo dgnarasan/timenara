@@ -10,28 +10,15 @@ interface CollegeLevelExamFilterProps {
   examCourses: ExamCourse[];
 }
 
-// College to department mapping
+// Updated College to department mapping based on user's provided list
 const COLLEGE_DEPARTMENTS = {
   "COLLEGE OF ARTS, SOCIAL AND MANAGEMENT SCIENCES (CASMAS)": [
-    "Accounting", "Banking and Finance", "Business Administration", "Criminology and Security Studies",
-    "Economics", "International Relations", "Mass Communication", "Peace Studies and Conflict Resolution",
-    "Political Science", "Public Administration", "Psychology", "Taxation"
+    "Accounting", "Banking and Finance", "Business Administration", "Bus. Administration",
+    "Criminology", "Economics", "International Relations", "Mass Communication",
+    "Political Science", "Psychology"
   ],
   "COLLEGE OF PURE AND APPLIED SCIENCES (COPAS)": [
-    "Biochemistry", "Computer Science", "Cyber Security", "Environmental Management and Toxicology",
-    "Industrial Chemistry", "Information Systems", "Microbiology and Industrial Biotechnology", "Software Engineering"
-  ],
-  "COLLEGE OF ENVIRONMENTAL SCIENCES & MANAGEMENT (COLENSMA)": [
-    "Architecture", "Estate Management"
-  ],
-  "COLLEGE OF NURSING AND BASIC MEDICAL SCIENCES": [
-    "Maternal and Child Health Nursing", "Community and Public Health Nursing",
-    "Adult Health/Medical and Surgical Nursing", "Mental Health and Psychiatric Nursing",
-    "Nursing Management and Education", "Human Physiology", "Human Anatomy"
-  ],
-  "COLLEGE OF EDUCATION (COLED)": [
-    "Education/Christian Religious Studies", "Guidance & Counselling",
-    "Early Childhood Education", "Educational Management"
+    "Biochemistry", "Computer Science", "Cyber Security", "Industrial Chemistry", "Microbiology"
   ]
 };
 
@@ -50,10 +37,7 @@ const getCollegeFromDepartment = (department: string): string => {
 const getCollegeAbbreviation = (college: string): string => {
   const abbreviations: Record<string, string> = {
     "COLLEGE OF ARTS, SOCIAL AND MANAGEMENT SCIENCES (CASMAS)": "CASMAS",
-    "COLLEGE OF PURE AND APPLIED SCIENCES (COPAS)": "COPAS",
-    "COLLEGE OF ENVIRONMENTAL SCIENCES & MANAGEMENT (COLENSMA)": "COLENSMA",
-    "COLLEGE OF NURSING AND BASIC MEDICAL SCIENCES": "NURSING",
-    "COLLEGE OF EDUCATION (COLED)": "COLED"
+    "COLLEGE OF PURE AND APPLIED SCIENCES (COPAS)": "COPAS"
   };
   return abbreviations[college] || "GENERAL";
 };
