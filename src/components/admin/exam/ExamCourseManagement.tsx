@@ -60,11 +60,11 @@ const ExamCourseManagement = () => {
 
   if (isLoading) {
     return (
-      <Card className="border-0 shadow-lg">
+      <Card className="border shadow-sm">
         <CardContent className="flex items-center justify-center h-64">
           <div className="text-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-            <p className="text-muted-foreground">Loading exam courses...</p>
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-300 mx-auto mb-4"></div>
+            <p className="text-gray-500">Loading exam courses...</p>
           </div>
         </CardContent>
       </Card>
@@ -77,7 +77,7 @@ const ExamCourseManagement = () => {
       <TemplateDownloadDropdown />
 
       {/* Upload and Actions */}
-      <Card className="border-0 shadow-lg">
+      <Card className="border shadow-sm">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <FileText className="h-5 w-5" />
@@ -91,7 +91,7 @@ const ExamCourseManagement = () => {
           <div className="flex flex-wrap gap-3">
             <Button 
               onClick={() => setIsUploadOpen(true)}
-              className="bg-blue-600 hover:bg-blue-700 text-white transition-all duration-200 hover:scale-105 shadow-md hover:shadow-lg"
+              className="transition-all duration-200"
             >
               <Upload className="h-4 w-4 mr-2" />
               Upload Courses
@@ -101,7 +101,7 @@ const ExamCourseManagement = () => {
                 onClick={handleDeleteAll}
                 variant="destructive"
                 disabled={deleteAllMutation.isPending}
-                className="transition-all duration-200 hover:scale-105"
+                className="transition-all duration-200"
               >
                 <Trash2 className="h-4 w-4 mr-2" />
                 {deleteAllMutation.isPending ? "Deleting..." : "Delete All"}
@@ -110,9 +110,9 @@ const ExamCourseManagement = () => {
           </div>
 
           {examCourses.length === 0 && (
-            <Alert className="border-blue-200 bg-blue-50">
-              <AlertCircle className="h-4 w-4 text-blue-600" />
-              <AlertDescription className="text-blue-800">
+            <Alert className="border-gray-200 bg-gray-50">
+              <AlertCircle className="h-4 w-4 text-gray-600" />
+              <AlertDescription className="text-gray-700">
                 No exam courses found. Download the template above and upload your course data to get started.
               </AlertDescription>
             </Alert>
@@ -126,8 +126,8 @@ const ExamCourseManagement = () => {
         const totalStudents = courses.reduce((sum, course) => sum + course.studentCount, 0);
 
         return (
-          <Card key={groupKey} className="border-0 shadow-lg hover:shadow-xl transition-all duration-300">
-            <CardHeader className="bg-gradient-to-r from-gray-50 to-gray-100">
+          <Card key={groupKey} className="border shadow-sm">
+            <CardHeader className="bg-gray-50">
               <div className="flex items-center justify-between">
                 <div>
                   <CardTitle className="text-lg text-gray-900">
@@ -138,11 +138,11 @@ const ExamCourseManagement = () => {
                   </CardDescription>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Badge variant="secondary" className="bg-blue-100 text-blue-800 border-blue-200">
+                  <Badge variant="secondary" className="bg-gray-100 text-gray-700 border-gray-200">
                     <Building className="h-3 w-3 mr-1" />
                     {courses.length} courses
                   </Badge>
-                  <Badge variant="outline" className="bg-green-100 text-green-800 border-green-200">
+                  <Badge variant="outline" className="bg-white text-gray-700 border-gray-200">
                     <Users className="h-3 w-3 mr-1" />
                     {totalStudents.toLocaleString()} students
                   </Badge>
@@ -153,7 +153,7 @@ const ExamCourseManagement = () => {
               <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
-                    <TableRow className="bg-gray-50/50">
+                    <TableRow className="bg-gray-50">
                       <TableHead className="font-semibold text-gray-700">Course Code</TableHead>
                       <TableHead className="font-semibold text-gray-700">Course Title</TableHead>
                       <TableHead className="font-semibold text-gray-700">Department</TableHead>
@@ -168,7 +168,7 @@ const ExamCourseManagement = () => {
                           index % 2 === 0 ? 'bg-white' : 'bg-gray-25'
                         }`}
                       >
-                        <TableCell className="font-medium text-blue-600">{course.courseCode}</TableCell>
+                        <TableCell className="font-medium text-gray-900">{course.courseCode}</TableCell>
                         <TableCell className="text-gray-700">{course.courseTitle}</TableCell>
                         <TableCell className="text-gray-600">{course.department}</TableCell>
                         <TableCell className="text-right font-semibold text-gray-900">

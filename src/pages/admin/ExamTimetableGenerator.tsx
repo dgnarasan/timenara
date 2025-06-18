@@ -64,16 +64,16 @@ const ExamTimetableGenerator = () => {
   const totalStudents = examCourses.reduce((sum, course) => sum + course.studentCount, 0);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
+    <div className="min-h-screen bg-gray-50">
       <div className="container mx-auto p-6 space-y-8">
-        {/* Enhanced Header */}
+        {/* Header */}
         <div className="text-center space-y-4 py-8">
           <div className="flex items-center justify-center gap-3 mb-4">
-            <div className="p-3 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl shadow-lg">
-              <CalendarDays className="h-8 w-8 text-white" />
+            <div className="p-3 bg-white border rounded-xl shadow-sm">
+              <CalendarDays className="h-8 w-8 text-gray-700" />
             </div>
             <div>
-              <h1 className="text-4xl font-bold tracking-tight bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+              <h1 className="text-4xl font-bold tracking-tight text-gray-900">
                 Exam Timetable Generator
               </h1>
             </div>
@@ -86,11 +86,7 @@ const ExamTimetableGenerator = () => {
           <div className="flex items-center justify-center gap-4 mt-6">
             <Badge 
               variant={isPublished ? "default" : "secondary"} 
-              className={`px-4 py-2 text-sm font-medium ${
-                isPublished 
-                  ? "bg-green-100 text-green-800 border-green-200" 
-                  : "bg-gray-100 text-gray-600 border-gray-200"
-              }`}
+              className="px-4 py-2 text-sm font-medium"
             >
               {isPublished ? "📅 Published" : "📝 Draft"}
             </Badge>
@@ -100,7 +96,7 @@ const ExamTimetableGenerator = () => {
                 size="sm"
                 onClick={isPublished ? handleUnpublish : handlePublish}
                 disabled={publishMutation.isPending}
-                className="transition-all duration-200 hover:scale-105"
+                className="transition-all duration-200"
               >
                 {isPublished ? (
                   <>
@@ -118,51 +114,42 @@ const ExamTimetableGenerator = () => {
           </div>
         </div>
 
-        {/* Enhanced Stats Cards */}
+        {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <Card className="relative overflow-hidden border-0 shadow-lg hover:shadow-xl transition-all duration-300 bg-gradient-to-br from-blue-500 to-blue-600 text-white">
-            <div className="absolute top-0 right-0 w-32 h-32 transform translate-x-8 -translate-y-8">
-              <div className="absolute w-full h-full bg-white/10 rounded-full"></div>
-            </div>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative z-10">
-              <CardTitle className="text-sm font-medium text-blue-100">Total Courses</CardTitle>
-              <BookOpen className="h-6 w-6 text-blue-200" />
+          <Card className="border shadow-sm">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-gray-600">Total Courses</CardTitle>
+              <BookOpen className="h-5 w-5 text-gray-500" />
             </CardHeader>
-            <CardContent className="relative z-10">
-              <div className="text-3xl font-bold">{examCourses.length}</div>
-              <p className="text-xs text-blue-100 mt-1">
+            <CardContent>
+              <div className="text-2xl font-bold text-gray-900">{examCourses.length}</div>
+              <p className="text-xs text-gray-500 mt-1">
                 Exam courses registered
               </p>
             </CardContent>
           </Card>
 
-          <Card className="relative overflow-hidden border-0 shadow-lg hover:shadow-xl transition-all duration-300 bg-gradient-to-br from-green-500 to-green-600 text-white">
-            <div className="absolute top-0 right-0 w-32 h-32 transform translate-x-8 -translate-y-8">
-              <div className="absolute w-full h-full bg-white/10 rounded-full"></div>
-            </div>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative z-10">
-              <CardTitle className="text-sm font-medium text-green-100">Total Students</CardTitle>
-              <Users className="h-6 w-6 text-green-200" />
+          <Card className="border shadow-sm">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-gray-600">Total Students</CardTitle>
+              <Users className="h-5 w-5 text-gray-500" />
             </CardHeader>
-            <CardContent className="relative z-10">
-              <div className="text-3xl font-bold">{totalStudents.toLocaleString()}</div>
-              <p className="text-xs text-green-100 mt-1">
+            <CardContent>
+              <div className="text-2xl font-bold text-gray-900">{totalStudents.toLocaleString()}</div>
+              <p className="text-xs text-gray-500 mt-1">
                 Students taking exams
               </p>
             </CardContent>
           </Card>
 
-          <Card className="relative overflow-hidden border-0 shadow-lg hover:shadow-xl transition-all duration-300 bg-gradient-to-br from-purple-500 to-purple-600 text-white">
-            <div className="absolute top-0 right-0 w-32 h-32 transform translate-x-8 -translate-y-8">
-              <div className="absolute w-full h-full bg-white/10 rounded-full"></div>
-            </div>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative z-10">
-              <CardTitle className="text-sm font-medium text-purple-100">Scheduled Exams</CardTitle>
-              <Calendar className="h-6 w-6 text-purple-200" />
+          <Card className="border shadow-sm">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-gray-600">Scheduled Exams</CardTitle>
+              <Calendar className="h-5 w-5 text-gray-500" />
             </CardHeader>
-            <CardContent className="relative z-10">
-              <div className="text-3xl font-bold">{examSchedule.length}</div>
-              <p className="text-xs text-purple-100 mt-1">
+            <CardContent>
+              <div className="text-2xl font-bold text-gray-900">{examSchedule.length}</div>
+              <p className="text-xs text-gray-500 mt-1">
                 {examSchedule.length > 0 ? "Exams in timetable" : "No schedule generated"}
               </p>
             </CardContent>
@@ -170,10 +157,10 @@ const ExamTimetableGenerator = () => {
         </div>
 
         {/* Main Content */}
-        <Card className="border-0 shadow-xl bg-white/70 backdrop-blur-sm">
+        <Card className="border shadow-sm">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
             <div className="p-6 pb-0">
-              <TabsList className="grid w-full grid-cols-3 bg-gray-100/80 p-1 rounded-lg">
+              <TabsList className="grid w-full grid-cols-3 bg-gray-100 p-1 rounded-lg">
                 <TabsTrigger 
                   value="courses" 
                   className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm transition-all duration-200"

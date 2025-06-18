@@ -69,7 +69,7 @@ CSC 433,370,Computer Science`;
   };
 
   return (
-    <Card className="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-dashed border-blue-200 hover:border-blue-300 transition-all duration-200">
+    <Card className="p-4 bg-gray-50 border border-gray-200">
       <div className="flex items-center justify-between">
         <div className="space-y-1">
           <h3 className="font-semibold text-gray-900">Download Template</h3>
@@ -81,7 +81,7 @@ CSC 433,370,Computer Science`;
           <DropdownMenuTrigger asChild>
             <Button 
               variant="outline" 
-              className="ml-4 bg-white hover:bg-blue-50 border-blue-200 hover:border-blue-300 transition-all duration-200 shadow-sm hover:shadow-md"
+              className="ml-4 bg-white hover:bg-gray-50 border-gray-200 transition-all duration-200"
             >
               <Download className="h-4 w-4 mr-2" />
               Download Template
@@ -90,16 +90,16 @@ CSC 433,370,Computer Science`;
           <DropdownMenuContent align="end" className="w-56 bg-white border shadow-lg">
             <DropdownMenuItem 
               onClick={downloadExcelTemplate}
-              className="cursor-pointer hover:bg-blue-50 transition-colors duration-150"
+              className="cursor-pointer hover:bg-gray-50 transition-colors duration-150"
             >
-              <File className="h-4 w-4 mr-2 text-green-600" />
+              <File className="h-4 w-4 mr-2 text-gray-600" />
               <span>Download as Excel (.xlsx)</span>
             </DropdownMenuItem>
             <DropdownMenuItem 
               onClick={downloadCSVTemplate}
-              className="cursor-pointer hover:bg-blue-50 transition-colors duration-150"
+              className="cursor-pointer hover:bg-gray-50 transition-colors duration-150"
             >
-              <FileText className="h-4 w-4 mr-2 text-blue-600" />
+              <FileText className="h-4 w-4 mr-2 text-gray-600" />
               <span>Download as CSV</span>
             </DropdownMenuItem>
           </DropdownMenuContent>
