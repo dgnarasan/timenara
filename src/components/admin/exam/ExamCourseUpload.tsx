@@ -1,4 +1,3 @@
-
 import { useState, useRef } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -26,6 +25,16 @@ interface ParsedExamCourse {
   sharedDepartments?: string[];
 }
 
+// Define the shape that matches what addExamCourses expects
+interface ExamCourseForUpload {
+  courseCode: string;
+  courseTitle: string;
+  department: string;
+  college: string;
+  level: string;
+  studentCount: number;
+}
+
 const ExamCourseUpload = ({ isOpen, onClose }: ExamCourseUploadProps) => {
   const [dragActive, setDragActive] = useState(false);
   const [file, setFile] = useState<File | null>(null);
@@ -39,9 +48,9 @@ const ExamCourseUpload = ({ isOpen, onClose }: ExamCourseUploadProps) => {
   const uploadMutation = useMutation({
     mutationFn: (coursesToUpload: ParsedExamCourse[]) => {
       // Flatten shared courses into separate entries for the backend
-      const flattenedCourses = coursesToUpload.flatMap(course => {
+      const flattenedCourses: ExamCourseForUpload[] = coursesToUpload.flatMap(course => {
         // Create main course entry
-        const mainCourse = {
+        const mainCourse: ExamCourseForUpload = {
           courseCode: course.courseCode,
           courseTitle: course.courseTitle,
           department: course.department,
@@ -51,7 +60,7 @@ const ExamCourseUpload = ({ isOpen, onClose }: ExamCourseUploadProps) => {
         };
         
         // Create entries for shared departments
-        const sharedEntries = course.sharedDepartments?.map(dept => ({
+        const sharedEntries: ExamCourseForUpload[] = course.sharedDepartments?.map(dept => ({
           courseCode: course.courseCode,
           courseTitle: course.courseTitle,
           department: dept,
