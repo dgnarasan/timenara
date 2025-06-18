@@ -380,7 +380,7 @@ export const fetchUsers = async (): Promise<User[]> => {
   return (users || []).map(user => ({
     id: user.id,
     email: user.email,
-    role: user.role as "student" | "admin",
+    role: (user.role === 'admin' ? 'admin' : 'student') as "student" | "admin",
   }));
 };
 
@@ -401,7 +401,7 @@ export const updateUserRole = async (id: string, role: string): Promise<User | n
   return data ? {
     id: data.id,
     email: data.email,
-    role: data.role as "student" | "admin",
+    role: (data.role === 'admin' ? 'admin' : 'student') as "student" | "admin",
   } : null;
 };
 
@@ -445,17 +445,28 @@ export const addExamCourses = async (courses: ExamCourseForUpload[]) => {
   
   console.log("Validated courses for database:", validatedCourses);
   
-  const { data, error } = await supabase
-    .rpc('clear_and_insert_exam_courses', {
-      courses_data: validatedCourses
-    });
+  try {
+    const { data, error } = await supabase
+      .rpc('clear_and_insert_exam_courses', {
+        courses_data: validatedCourses
+      });
 
-  if (error) {
-    console.error("Database error:", error);
+    if (error) {
+      console.error("Database error details:", {
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        code: error.code
+      });
+      throw new Error(`Database error: ${error.message}`);
+    }
+
+    console.log("Successfully added exam courses:", data);
+    return data;
+  } catch (error) {
+    console.error("Exam courses upload error:", error);
     throw error;
   }
-
-  return data;
 };
 
 // Function to delete all exam courses

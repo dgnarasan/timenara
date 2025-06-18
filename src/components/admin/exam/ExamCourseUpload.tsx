@@ -1,3 +1,4 @@
+
 import { useState, useRef } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -36,7 +37,9 @@ const ExamCourseUpload = ({ isOpen, onClose }: ExamCourseUploadProps) => {
   const queryClient = useQueryClient();
 
   const uploadMutation = useMutation({
-    mutationFn: (coursesToUpload: ParsedExamCourse[]) => {
+    mutationFn: async (coursesToUpload: ParsedExamCourse[]) => {
+      console.log("Starting mutation with courses:", coursesToUpload);
+      
       // Flatten shared courses into separate entries for the backend
       const flattenedCourses: ExamCourseForUpload[] = coursesToUpload.flatMap(course => {
         // Create main course entry
@@ -63,9 +66,18 @@ const ExamCourseUpload = ({ isOpen, onClose }: ExamCourseUploadProps) => {
       });
       
       console.log("Flattened courses for upload:", flattenedCourses);
-      return addExamCourses(flattenedCourses);
+      
+      try {
+        const result = await addExamCourses(flattenedCourses);
+        console.log("Upload mutation completed successfully:", result);
+        return result;
+      } catch (error) {
+        console.error("Upload mutation failed:", error);
+        throw error;
+      }
     },
     onSuccess: () => {
+      console.log("Upload mutation onSuccess called");
       queryClient.invalidateQueries({ queryKey: ['exam-courses'] });
       setUploadStatus('success');
       toast({
@@ -77,13 +89,21 @@ const ExamCourseUpload = ({ isOpen, onClose }: ExamCourseUploadProps) => {
       }, 2000);
     },
     onError: (error) => {
+      console.error("Upload mutation onError called with:", error);
       setUploadStatus('error');
+      
+      let errorMessage = "Failed to upload exam courses. ";
+      if (error instanceof Error) {
+        errorMessage += error.message;
+      } else {
+        errorMessage += "Unknown error occurred.";
+      }
+      
       toast({
         title: "Upload Failed",
-        description: "Failed to upload exam courses. Please check the data format and try again.",
+        description: errorMessage,
         variant: "destructive",
       });
-      console.error("Upload error:", error);
     },
   });
 
@@ -489,7 +509,7 @@ const ExamCourseUpload = ({ isOpen, onClose }: ExamCourseUploadProps) => {
               <AlertDescription className={uploadStatus === 'success' ? "text-green-800" : "text-red-800"}>
                 {uploadStatus === 'success' 
                   ? "Upload completed successfully! The dialog will close automatically."
-                  : "Upload failed. Please try again or contact support if the problem persists."
+                  : "Upload failed. Please check the console for detailed error information and try again."
                 }
               </AlertDescription>
             </Alert>
@@ -501,7 +521,10 @@ const ExamCourseUpload = ({ isOpen, onClose }: ExamCourseUploadProps) => {
               Cancel
             </Button>
             <Button
-              onClick={() => uploadMutation.mutate(courses)}
+              onClick={() => {
+                console.log("Upload button clicked, starting mutation...");
+                uploadMutation.mutate(courses);
+              }}
               disabled={courses.length === 0 || errors.length > 0 || uploadMutation.isPending || uploadStatus === 'success'}
               className="bg-blue-600 hover:bg-blue-700 text-white transition-all duration-200 hover:scale-105 disabled:hover:scale-100"
             >
