@@ -96,7 +96,7 @@ const ExamScheduleGenerator = ({ onScheduleGenerated }: ExamScheduleGeneratorPro
     setIsGenerating(true);
 
     try {
-      console.log("Starting enhanced exam schedule generation for", examCourses.length, "courses");
+      console.log("Starting IMPROVED exam schedule generation for", examCourses.length, "courses");
       
       const schedule: ExamScheduleItem[] = [];
       const sessions = [
@@ -107,88 +107,96 @@ const ExamScheduleGenerator = ({ onScheduleGenerated }: ExamScheduleGeneratorPro
 
       const startDate = new Date(config.startDate);
       const endDate = new Date(config.endDate);
-      const maxExamsPerStudent = parseInt(config.maxExamsPerStudent);
-      
-      // Create a map to track student exam counts per day
-      const studentExamCounts: Record<string, Record<string, number>> = {};
       
       // Sort courses by student count (larger classes first for better venue allocation)
       const sortedCourses = [...examCourses].sort((a, b) => b.studentCount - a.studentCount);
+      console.log("Sorted courses:", sortedCourses.length, "courses to schedule");
       
       let currentDate = new Date(startDate);
-      let courseIndex = 0;
+      let scheduledCount = 0;
       
       // Generate schedule spanning across exam period
-      while (currentDate <= endDate && courseIndex < sortedCourses.length) {
+      while (currentDate <= endDate && scheduledCount < sortedCourses.length) {
         const dayKey = currentDate.toISOString().split('T')[0];
         const dayName = currentDate.toLocaleDateString('en-US', { weekday: 'long' });
         
-        // Skip weekends unless we're running out of days
-        const isWeekend = dayName === 'Saturday' || dayName === 'Sunday';
-        const remainingWeekdays = Math.floor((endDate.getTime() - currentDate.getTime()) / (1000 * 60 * 60 * 24)) - 
-          Math.floor(((endDate.getTime() - currentDate.getTime()) / (1000 * 60 * 60 * 24)) / 7) * 2;
-        const remainingCourses = sortedCourses.length - courseIndex;
-        const needWeekendsForCapacity = remainingCourses > (remainingWeekdays * sessions.length * availableVenues.length);
+        console.log(`Processing date: ${dayKey} (${dayName})`);
         
-        if (isWeekend && !needWeekendsForCapacity) {
+        // Skip weekends for now (can be enabled if needed)
+        const isWeekend = dayName === 'Saturday' || dayName === 'Sunday';
+        if (isWeekend) {
+          console.log(`Skipping weekend: ${dayName}`);
           currentDate.setDate(currentDate.getDate() + 1);
           continue;
         }
 
         // Schedule courses for each session of the day
         for (const session of sessions) {
-          if (courseIndex >= sortedCourses.length) break;
+          if (scheduledCount >= sortedCourses.length) break;
 
-          // Try to schedule multiple courses in parallel sessions (different venues)
-          const coursesToSchedule = [];
-          let venueIndex = 0;
+          console.log(`Processing session: ${session.name} (${session.startTime} - ${session.endTime})`);
 
-          while (courseIndex < sortedCourses.length && venueIndex < availableVenues.length) {
-            const course = sortedCourses[courseIndex];
+          // Try to schedule courses in parallel (different venues)
+          for (let venueIndex = 0; venueIndex < availableVenues.length && scheduledCount < sortedCourses.length; venueIndex++) {
             const venue = availableVenues[venueIndex];
+            const course = sortedCourses[scheduledCount];
 
-            // Check if venue can accommodate the course
-            if (course.studentCount <= venue.capacity) {
-              // Simulate checking if students don't exceed max exams per day
-              // In a real system, this would check actual student overlap
-              const canSchedule = true; // Simplified for this implementation
+            console.log(`Attempting to schedule course ${course.courseCode} (${course.studentCount} students) in ${venue.name} (capacity: ${venue.capacity})`);
+
+            // Simple capacity check - allow some flexibility
+            const canFitInVenue = course.studentCount <= venue.capacity * 1.1; // Allow 10% over capacity
+            
+            if (canFitInVenue) {
+              // Schedule the course
+              const scheduleItem: ExamScheduleItem = {
+                id: course.id,
+                courseCode: course.courseCode,
+                courseTitle: course.courseTitle,
+                department: course.department,
+                college: course.college,
+                level: course.level,
+                studentCount: course.studentCount,
+                day: dayKey,
+                startTime: session.startTime,
+                endTime: session.endTime,
+                sessionName: session.name,
+                venueName: venue.name,
+              };
+
+              schedule.push(scheduleItem);
+              scheduledCount++;
               
-              if (canSchedule) {
-                coursesToSchedule.push({
-                  course,
-                  venue,
-                  session
-                });
-                courseIndex++;
-              }
+              console.log(`✅ Successfully scheduled: ${course.courseCode} in ${venue.name} on ${dayKey} at ${session.startTime}`);
+            } else {
+              console.log(`❌ Cannot fit ${course.courseCode} (${course.studentCount} students) in ${venue.name} (capacity: ${venue.capacity})`);
             }
-            venueIndex++;
           }
-
-          // Add scheduled courses to the final schedule
-          coursesToSchedule.forEach(({ course, venue, session }) => {
-            schedule.push({
-              ...course,
-              day: dayKey,
-              startTime: session.startTime,
-              endTime: session.endTime,
-              sessionName: session.name,
-              venueName: venue.name,
-            });
-          });
         }
 
         currentDate.setDate(currentDate.getDate() + 1);
       }
 
-      console.log(`Successfully scheduled ${schedule.length} out of ${sortedCourses.length} courses`);
+      console.log(`FINAL RESULT: Successfully scheduled ${schedule.length} out of ${sortedCourses.length} courses`);
+
+      if (schedule.length === 0) {
+        toast({
+          title: "No Courses Scheduled",
+          description: "No courses could be scheduled with the current configuration. Please check venue capacities and date range.",
+          variant: "destructive",
+        });
+        return;
+      }
 
       if (schedule.length < sortedCourses.length) {
         const scheduledPercentage = Math.round((schedule.length / sortedCourses.length) * 100);
         toast({
           title: "Partial Schedule Generated",
           description: `Scheduled ${schedule.length} out of ${sortedCourses.length} courses (${scheduledPercentage}%). Consider extending the date range or adding more venues.`,
-          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Complete Schedule Generated",
+          description: `Successfully scheduled all ${schedule.length} courses!`,
         });
       }
 
