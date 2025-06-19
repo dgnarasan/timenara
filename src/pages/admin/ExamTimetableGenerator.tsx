@@ -1,21 +1,13 @@
 
-import { useState } from "react";
-import { Card } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useQuery } from "@tanstack/react-query";
 import { fetchExamCourses, fetchAdminExamSchedule } from "@/lib/db";
-import { FileText, Settings, Eye, ArrowRight, CalendarDays } from "lucide-react";
+import { CalendarDays, BookOpen, Users } from "lucide-react";
 import ExamCourseManagement from "@/components/admin/exam/ExamCourseManagement";
 import ExamScheduleGenerator from "@/components/admin/exam/ExamScheduleGenerator";
 import ExamSchedulePreview from "@/components/admin/exam/ExamSchedulePreview";
-import ExamCourseGroupDisplay from "@/components/admin/exam/ExamCourseGroupDisplay";
-import WorkflowProgress from "@/components/admin/exam/timetable/WorkflowProgress";
-import StatsCards from "@/components/admin/exam/timetable/StatsCards";
 
 const ExamTimetableGenerator = () => {
-  const [activeTab, setActiveTab] = useState("courses");
-
   // Fetch exam courses
   const { data: examCourses = [] } = useQuery({
     queryKey: ['exam-courses'],
@@ -28,14 +20,7 @@ const ExamTimetableGenerator = () => {
     queryFn: fetchAdminExamSchedule,
   });
 
-  // Workflow step determination
-  const getWorkflowStep = () => {
-    if (examCourses.length === 0) return 1;
-    if (examSchedule.length === 0) return 2;
-    return 3;
-  };
-
-  const currentStep = getWorkflowStep();
+  const totalStudents = examCourses.reduce((sum, course) => sum + (course.studentCount || 0), 0);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -43,108 +28,93 @@ const ExamTimetableGenerator = () => {
         {/* Header */}
         <div className="text-center space-y-4 py-8">
           <div className="flex items-center justify-center gap-3 mb-4">
-            <div className="p-3 bg-white border rounded-xl shadow-sm">
-              <CalendarDays className="h-8 w-8 text-gray-700" />
-            </div>
-            <div>
-              <h1 className="text-4xl font-bold tracking-tight text-gray-900">
-                Exam Timetable Generator
-              </h1>
-            </div>
+            <CalendarDays className="h-8 w-8 text-gray-700" />
+            <h1 className="text-4xl font-bold tracking-tight text-gray-900">
+              Exam Timetable Generator
+            </h1>
           </div>
           <p className="text-xl text-gray-600 max-w-2xl mx-auto leading-relaxed">
-            Generate and manage exam schedules with intelligent conflict detection and resource allocation
+            Manage exam courses and generate optimized exam schedules with intelligent conflict detection and resource allocation
           </p>
+          <div className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-gray-100 text-gray-600">
+            📝 Draft
+          </div>
         </div>
 
-        {/* Workflow Progress */}
-        <WorkflowProgress currentStep={currentStep} />
-
         {/* Stats Cards */}
-        <StatsCards examCourses={examCourses} examSchedule={examSchedule} />
-
-        {/* Main Content */}
-        <Card className="border shadow-sm">
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-            <div className="p-6 pb-0">
-              <TabsList className="grid w-full grid-cols-3 bg-gray-100 p-1 rounded-lg">
-                <TabsTrigger 
-                  value="courses" 
-                  className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm transition-all duration-200"
-                >
-                  <FileText className="h-4 w-4" />
-                  Step 1: Upload & Preview
-                </TabsTrigger>
-                <TabsTrigger 
-                  value="generate" 
-                  className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm transition-all duration-200"
-                  disabled={examCourses.length === 0}
-                >
-                  <Settings className="h-4 w-4" />
-                  Step 2: Configure & Generate
-                </TabsTrigger>
-                <TabsTrigger 
-                  value="preview" 
-                  className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm transition-all duration-200"
-                  disabled={examSchedule.length === 0}
-                >
-                  <Eye className="h-4 w-4" />
-                  Step 3: Review & Publish
-                </TabsTrigger>
-              </TabsList>
-            </div>
-
-            <div className="p-6 pt-0">
-              <TabsContent value="courses" className="space-y-4 mt-0">
-                <div className="mb-4">
-                  <h3 className="text-lg font-semibold mb-2">Step 1: Upload and Preview Courses</h3>
-                  <p className="text-muted-foreground">
-                    Upload your exam courses and review the parsed data grouped by college and level.
-                  </p>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <Card className="bg-white border shadow-sm">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Total Courses</p>
+                  <p className="text-3xl font-bold text-gray-900">{examCourses.length}</p>
+                  <p className="text-sm text-gray-500">Exam courses registered</p>
                 </div>
-                
-                {/* Upload Section */}
-                <ExamCourseManagement />
-                
-                {/* Course Groups Display - Only show after upload */}
-                {examCourses.length > 0 && (
-                  <div className="space-y-4">
-                    <div className="border-t pt-6">
-                      <h4 className="text-md font-semibold mb-4">Course Preview (Grouped by College + Level)</h4>
-                      <ExamCourseGroupDisplay courses={examCourses} />
-                    </div>
-                    
-                    <div className="flex justify-end pt-4">
-                      <Button onClick={() => setActiveTab("generate")} className="gap-2">
-                        Proceed to Configuration <ArrowRight className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                )}
-              </TabsContent>
-
-              <TabsContent value="generate" className="space-y-4 mt-0">
-                <div className="mb-4">
-                  <h3 className="text-lg font-semibold mb-2">Step 2: Configure Generation Parameters</h3>
-                  <p className="text-muted-foreground">
-                    Set exam dates, duration, and constraints before generating the timetable.
-                  </p>
+                <div className="p-3 bg-blue-50 rounded-full">
+                  <BookOpen className="h-6 w-6 text-blue-600" />
                 </div>
-                <ExamScheduleGenerator onScheduleGenerated={() => setActiveTab("preview")} />
-              </TabsContent>
+              </div>
+            </CardContent>
+          </Card>
 
-              <TabsContent value="preview" className="space-y-4 mt-0">
-                <div className="mb-4">
-                  <h3 className="text-lg font-semibold mb-2">Step 3: Review and Publish Schedule</h3>
-                  <p className="text-muted-foreground">
-                    Review the generated exam schedule and publish it for students to view.
-                  </p>
+          <Card className="bg-white border shadow-sm">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Total Students</p>
+                  <p className="text-3xl font-bold text-gray-900">{totalStudents.toLocaleString()}</p>
+                  <p className="text-sm text-gray-500">Students taking exams</p>
                 </div>
-                <ExamSchedulePreview />
-              </TabsContent>
-            </div>
-          </Tabs>
-        </Card>
+                <div className="p-3 bg-green-50 rounded-full">
+                  <Users className="h-6 w-6 text-green-600" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-white border shadow-sm">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Scheduled Exams</p>
+                  <p className="text-3xl font-bold text-gray-900">{examSchedule.length}</p>
+                  <p className="text-sm text-gray-500">No schedule generated</p>
+                </div>
+                <div className="p-3 bg-purple-50 rounded-full">
+                  <CalendarDays className="h-6 w-6 text-purple-600" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Course Management Section */}
+        <div className="space-y-6">
+          <div className="flex items-center gap-3">
+            <BookOpen className="h-6 w-6 text-gray-700" />
+            <h2 className="text-2xl font-semibold text-gray-900">Course Management</h2>
+          </div>
+          <ExamCourseManagement />
+        </div>
+
+        {/* Generate Schedule Section */}
+        <div className="space-y-6">
+          <div className="flex items-center gap-3">
+            <CalendarDays className="h-6 w-6 text-gray-700" />
+            <h2 className="text-2xl font-semibold text-gray-900">Generate Schedule</h2>
+          </div>
+          <ExamScheduleGenerator onScheduleGenerated={() => {}} />
+        </div>
+
+        {/* Schedule Preview Section */}
+        <div className="space-y-6">
+          <div className="flex items-center gap-3">
+            <CalendarDays className="h-6 w-6 text-gray-700" />
+            <h2 className="text-2xl font-semibold text-gray-900">Schedule Preview</h2>
+          </div>
+          <ExamSchedulePreview />
+        </div>
       </div>
     </div>
   );
