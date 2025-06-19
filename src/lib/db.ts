@@ -602,7 +602,7 @@ export const publishSchedule = async (isPublished: boolean): Promise<void> => {
 // Function to save exam schedule
 export const saveExamSchedule = async (schedule: ExamScheduleItem[], isPublished: boolean = false): Promise<void> => {
   const scheduleData = schedule.map(item => ({
-    exam_course_id: item.id,
+    exam_course_id: item.id, // This should be the actual exam course UUID from the database
     day: item.day,
     start_time: item.startTime,
     end_time: item.endTime,
