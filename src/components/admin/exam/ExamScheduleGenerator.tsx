@@ -155,6 +155,8 @@ const ExamScheduleGenerator = ({ onScheduleGenerated }: ExamScheduleGeneratorPro
                 college: course.college,
                 level: course.level,
                 studentCount: course.studentCount,
+                createdAt: course.createdAt,
+                updatedAt: course.updatedAt,
                 day: dayKey,
                 startTime: session.startTime,
                 endTime: session.endTime,
