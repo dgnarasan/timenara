@@ -1,23 +1,22 @@
 
 import { useState } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { fetchExamCourses, saveExamSchedule } from "@/lib/db";
 import { useToast } from "@/hooks/use-toast";
-import { Settings, Play, Calendar, Clock, AlertCircle, CheckCircle, Loader2 } from "lucide-react";
+import { Play, Loader2 } from "lucide-react";
 import { ExamScheduleItem } from "@/lib/types";
+import GenerationParameters, { GenerationConfig } from "./generator/GenerationParameters";
+import CourseAnalysis from "./generator/CourseAnalysis";
+import GenerationProgress from "./generator/GenerationProgress";
+import GenerationValidation from "./generator/GenerationValidation";
 
 interface ExamScheduleGeneratorProps {
   onScheduleGenerated: () => void;
 }
 
 const ExamScheduleGenerator = ({ onScheduleGenerated }: ExamScheduleGeneratorProps) => {
-  const [config, setConfig] = useState({
+  const [config, setConfig] = useState<GenerationConfig>({
     startDate: "",
     endDate: "",
     sessionDuration: "3", // hours
@@ -241,232 +240,61 @@ const ExamScheduleGenerator = ({ onScheduleGenerated }: ExamScheduleGeneratorPro
       courseCodeCounts[course.courseCode] = (courseCodeCounts[course.courseCode] || 0) + 1;
     }
   });
-  const sharedCoursesCount = Object.values(courseCodeCounts).filter(count => count > 1).length;
   const uniqueCoursesCount = Object.keys(courseCodeCounts).length;
 
   if (isLoading) {
     return (
-      <Card>
-        <CardContent className="flex items-center justify-center h-64">
-          <div className="text-center">
-            <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
-            <p className="text-muted-foreground">Loading configuration...</p>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
+          <p className="text-muted-foreground">Loading configuration...</p>
+        </div>
+      </div>
     );
   }
 
   return (
     <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Settings className="h-5 w-5" />
-            Generation Parameters
-          </CardTitle>
-          <CardDescription>
-            Configure exam schedule parameters for {uniqueCoursesCount} unique courses
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          {/* Course Statistics */}
-          <div className="bg-blue-50 p-4 rounded-lg">
-            <h4 className="font-medium mb-2">Course Analysis</h4>
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              <div>
-                <span className="font-medium">{examCourses.length}</span> Total Courses
-              </div>
-              <div>
-                <span className="font-medium">{uniqueCoursesCount}</span> Unique Courses
-              </div>
-              <div>
-                <span className="font-medium">{sharedCoursesCount}</span> Shared Courses
-              </div>
-              <div>
-                <span className="font-medium">{examCourses.reduce((sum, c) => sum + (c?.studentCount || 0), 0).toLocaleString()}</span> Total Students
-              </div>
-            </div>
-          </div>
+      <GenerationParameters
+        config={config}
+        onConfigChange={setConfig}
+        uniqueCoursesCount={uniqueCoursesCount}
+      />
 
-          {/* Date Range - Fixed Calendar Input */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="start-date" className="flex items-center gap-2">
-                <Calendar className="h-4 w-4" />
-                Exam Start Date
-              </Label>
-              <Input
-                id="start-date"
-                type="date"
-                value={config.startDate}
-                onChange={(e) => setConfig(prev => ({ ...prev, startDate: e.target.value }))}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="end-date" className="flex items-center gap-2">
-                <Calendar className="h-4 w-4" />
-                Exam End Date
-              </Label>
-              <Input
-                id="end-date"
-                type="date"
-                value={config.endDate}
-                onChange={(e) => setConfig(prev => ({ ...prev, endDate: e.target.value }))}
-                min={config.startDate}
-              />
-            </div>
-          </div>
+      <CourseAnalysis examCourses={examCourses} />
 
-          {/* Time Configuration */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="start-time" className="flex items-center gap-2">
-                <Clock className="h-4 w-4" />
-                Daily Start Time
-              </Label>
-              <Input
-                id="start-time"
-                type="time"
-                value={config.preferredStartTime}
-                onChange={(e) => setConfig(prev => ({ ...prev, preferredStartTime: e.target.value }))}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="end-time" className="flex items-center gap-2">
-                <Clock className="h-4 w-4" />
-                Daily End Time
-              </Label>
-              <Input
-                id="end-time"
-                type="time"
-                value={config.preferredEndTime}
-                onChange={(e) => setConfig(prev => ({ ...prev, preferredEndTime: e.target.value }))}
-              />
-            </div>
-          </div>
+      <GenerationValidation
+        examCourses={examCourses}
+        isConfigValid={isConfigValid}
+        uniqueCoursesCount={uniqueCoursesCount}
+      />
 
-          {/* Session Configuration */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="session-duration">Exam Duration (hours)</Label>
-              <Select
-                value={config.sessionDuration}
-                onValueChange={(value) => setConfig(prev => ({ ...prev, sessionDuration: value }))}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="2">2 hours</SelectItem>
-                  <SelectItem value="3">3 hours</SelectItem>
-                  <SelectItem value="4">4 hours</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+      <GenerationProgress
+        isGenerating={isGenerating}
+        progress={generationProgress}
+      />
 
-            <div className="space-y-2">
-              <Label htmlFor="break-time">Break Between Exams (hours)</Label>
-              <Select
-                value={config.breakBetweenSessions}
-                onValueChange={(value) => setConfig(prev => ({ ...prev, breakBetweenSessions: value }))}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="0.5">30 minutes</SelectItem>
-                  <SelectItem value="1">1 hour</SelectItem>
-                  <SelectItem value="1.5">1.5 hours</SelectItem>
-                  <SelectItem value="2">2 hours</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="max-exams">Max Exams Per Student/Day</Label>
-              <Select
-                value={config.maxExamsPerDay}
-                onValueChange={(value) => setConfig(prev => ({ ...prev, maxExamsPerDay: value }))}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="1">1 exam</SelectItem>
-                  <SelectItem value="2">2 exams (recommended)</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          {/* Validation Messages */}
-          {examCourses.length === 0 && (
-            <Alert variant="destructive">
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>
-                No exam courses available. Please upload courses first.
-              </AlertDescription>
-            </Alert>
+      {/* Generate Button */}
+      <div className="flex justify-end">
+        <Button
+          onClick={generateSchedule}
+          disabled={!isConfigValid || examCourses.length === 0 || isGenerating}
+          size="lg"
+          className="min-w-[160px]"
+        >
+          {isGenerating ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              Generating...
+            </>
+          ) : (
+            <>
+              <Play className="h-4 w-4 mr-2" />
+              Generate Schedule
+            </> 
           )}
-
-          {!isConfigValid && examCourses.length > 0 && (
-            <Alert variant="destructive">
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>
-                Please ensure start date is before end date and both dates are selected.
-              </AlertDescription>
-            </Alert>
-          )}
-
-          {isConfigValid && examCourses.length > 0 && (
-            <Alert>
-              <CheckCircle className="h-4 w-4" />
-              <AlertDescription>
-                Ready to generate schedule for {uniqueCoursesCount} unique courses ({examCourses.length} total entries).
-              </AlertDescription>
-            </Alert>
-          )}
-
-          {/* Progress Bar */}
-          {isGenerating && (
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-sm">
-                <span>Generating schedule...</span>
-                <span>{generationProgress}%</span>
-              </div>
-              <div className="h-2 bg-secondary rounded-full overflow-hidden">
-                <div 
-                  className="h-full bg-primary transition-all duration-300"
-                  style={{ width: `${generationProgress}%` }}
-                />
-              </div>
-            </div>
-          )}
-
-          {/* Generate Button */}
-          <div className="flex justify-end">
-            <Button
-              onClick={generateSchedule}
-              disabled={!isConfigValid || examCourses.length === 0 || isGenerating}
-              size="lg"
-              className="min-w-[160px]"
-            >
-              {isGenerating ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                  Generating...
-                </>
-              ) : (
-                <>
-                  <Play className="h-4 w-4 mr-2" />
-                  Generate Schedule
-                </> 
-              )}
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+        </Button>
+      </div>
     </div>
   );
 };

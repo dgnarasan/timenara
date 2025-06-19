@@ -1,74 +1,32 @@
 
 import { useState } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { fetchExamCourses, fetchAdminExamSchedule, publishExamSchedule } from "@/lib/db";
-import { useToast } from "@/hooks/use-toast";
-import { FileText, Calendar, Settings, Users, Play, Square, Eye, BookOpen, CalendarDays, CheckCircle, ArrowRight } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { fetchExamCourses, fetchAdminExamSchedule } from "@/lib/db";
+import { FileText, Settings, Eye, ArrowRight, CalendarDays } from "lucide-react";
 import ExamCourseManagement from "@/components/admin/exam/ExamCourseManagement";
 import ExamScheduleGenerator from "@/components/admin/exam/ExamScheduleGenerator";
 import ExamSchedulePreview from "@/components/admin/exam/ExamSchedulePreview";
 import ExamCourseGroupDisplay from "@/components/admin/exam/ExamCourseGroupDisplay";
+import WorkflowProgress from "@/components/admin/exam/timetable/WorkflowProgress";
+import StatsCards from "@/components/admin/exam/timetable/StatsCards";
 
 const ExamTimetableGenerator = () => {
   const [activeTab, setActiveTab] = useState("courses");
-  const { toast } = useToast();
-  const queryClient = useQueryClient();
 
   // Fetch exam courses
-  const { data: examCourses = [], isLoading: isLoadingCourses } = useQuery({
+  const { data: examCourses = [] } = useQuery({
     queryKey: ['exam-courses'],
     queryFn: fetchExamCourses,
   });
 
   // Fetch exam schedule
-  const { data: examSchedule = [], isLoading: isLoadingSchedule } = useQuery({
+  const { data: examSchedule = [] } = useQuery({
     queryKey: ['admin-exam-schedule'],
     queryFn: fetchAdminExamSchedule,
   });
-
-  // Publish/unpublish mutation
-  const publishMutation = useMutation({
-    mutationFn: publishExamSchedule,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin-exam-schedule'] });
-      toast({
-        title: "Success",
-        description: "Exam schedule publication status updated successfully.",
-      });
-    },
-    onError: (error) => {
-      toast({
-        title: "Error",
-        description: "Failed to update publication status. Please try again.",
-        variant: "destructive",
-      });
-      console.error("Publish error:", error);
-    },
-  });
-
-  const handlePublish = () => {
-    publishMutation.mutate(true);
-  };
-
-  const handleUnpublish = () => {
-    publishMutation.mutate(false);
-  };
-
-  const isPublished = examSchedule.length > 0;
-  const totalStudents = examCourses.reduce((sum, course) => sum + (course?.studentCount || 0), 0);
-
-  // Calculate shared courses - with safety checks
-  const courseCodeCounts: Record<string, number> = {};
-  examCourses.forEach(course => {
-    if (course?.courseCode) {
-      courseCodeCounts[course.courseCode] = (courseCodeCounts[course.courseCode] || 0) + 1;
-    }
-  });
-  const sharedCoursesCount = Object.values(courseCodeCounts).filter(count => count > 1).length;
 
   // Workflow step determination
   const getWorkflowStep = () => {
@@ -100,86 +58,10 @@ const ExamTimetableGenerator = () => {
         </div>
 
         {/* Workflow Progress */}
-        <Card className="bg-gradient-to-r from-blue-50 to-purple-50 border-blue-200">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              📋 3-Step Workflow Progress
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center justify-between">
-              <div className={`flex items-center gap-2 ${currentStep >= 1 ? 'text-green-600' : 'text-gray-400'}`}>
-                {currentStep >= 1 ? <CheckCircle className="h-5 w-5" /> : <div className="h-5 w-5 rounded-full border-2 border-current" />}
-                <span className="font-medium">Step 1: Upload & Preview</span>
-              </div>
-              <ArrowRight className="h-4 w-4 text-gray-400" />
-              <div className={`flex items-center gap-2 ${currentStep >= 2 ? 'text-green-600' : 'text-gray-400'}`}>
-                {currentStep >= 2 ? <CheckCircle className="h-5 w-5" /> : <div className="h-5 w-5 rounded-full border-2 border-current" />}
-                <span className="font-medium">Step 2: Configure Parameters</span>
-              </div>
-              <ArrowRight className="h-4 w-4 text-gray-400" />
-              <div className={`flex items-center gap-2 ${currentStep >= 3 ? 'text-green-600' : 'text-gray-400'}`}>
-                {currentStep >= 3 ? <CheckCircle className="h-5 w-5" /> : <div className="h-5 w-5 rounded-full border-2 border-current" />}
-                <span className="font-medium">Step 3: Generate & Publish</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        <WorkflowProgress currentStep={currentStep} />
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          <Card className="border shadow-sm">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">Total Courses</CardTitle>
-              <BookOpen className="h-5 w-5 text-gray-500" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-gray-900">{examCourses.length}</div>
-              <p className="text-xs text-gray-500 mt-1">
-                Courses uploaded
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card className="border shadow-sm">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">Total Students</CardTitle>
-              <Users className="h-5 w-5 text-gray-500" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-gray-900">{totalStudents.toLocaleString()}</div>
-              <p className="text-xs text-gray-500 mt-1">
-                Students taking exams
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card className="border shadow-sm">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">Shared Courses</CardTitle>
-              <div className="h-5 w-5 text-gray-500">🔗</div>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-gray-900">{sharedCoursesCount}</div>
-              <p className="text-xs text-gray-500 mt-1">
-                Cross-department courses
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card className="border shadow-sm">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">Scheduled Exams</CardTitle>
-              <Calendar className="h-5 w-5 text-gray-500" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-gray-900">{examSchedule.length}</div>
-              <p className="text-xs text-gray-500 mt-1">
-                {examSchedule.length > 0 ? "Exams in timetable" : "No schedule generated"}
-              </p>
-            </CardContent>
-          </Card>
-        </div>
+        <StatsCards examCourses={examCourses} examSchedule={examSchedule} />
 
         {/* Main Content */}
         <Card className="border shadow-sm">
