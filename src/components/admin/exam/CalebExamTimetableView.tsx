@@ -1,6 +1,6 @@
 
 import { useState } from "react";
-import { Car, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Download, Calendar, Clock, MapPin } from "lucide-react";
