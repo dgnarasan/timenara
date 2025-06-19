@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -20,22 +19,22 @@ interface ExamScheduleGeneratorProps {
   onScheduleGenerated?: () => void;
 }
 
-// Official Caleb University venue list with exact capacities
+// Official Caleb University venue list with updated capacities
 const OFFICIAL_VENUES = [
-  { name: "Mass Comm Auditorium", capacity: 300 },
-  { name: "Multipurpose Hall", capacity: 250 }, 
+  { name: "Mass Comm Auditorium", capacity: 500 },
+  { name: "Multipurpose Hall", capacity: 300 }, 
+  { name: "R101", capacity: 280 },
+  { name: "R102", capacity: 280 },
+  { name: "L101", capacity: 260 },
+  { name: "L102", capacity: 260 },
+  { name: "UPEB Room 1", capacity: 200 },
+  { name: "UPEB Room 2", capacity: 200 },
+  { name: "Library Hall", capacity: 200 },
   { name: "Psychology Building", capacity: 120 },
-  { name: "UPEB Room 1", capacity: 100 },
-  { name: "UPEB Room 2", capacity: 100 },
-  { name: "R101", capacity: 80 },
-  { name: "R102", capacity: 80 },
-  { name: "L101", capacity: 60 },
-  { name: "L102", capacity: 60 },
-  { name: "Library Hall", capacity: 100 },
+  { name: "Conference Room A", capacity: 100 },
+  { name: "Conference Room B", capacity: 100 },
   { name: "CHM Lab", capacity: 80 },
-  { name: "Conference Room A", capacity: 40 },
-  { name: "Conference Room B", capacity: 40 },
-  { name: "Computer Lab 1", capacity: 30 },
+  { name: "Computer Lab 1", capacity: 80 },
 ];
 
 // Official time slots matching Caleb University format
@@ -450,12 +449,12 @@ const ExamScheduleGenerator = ({ onScheduleGenerated }: ExamScheduleGeneratorPro
         </CardContent>
       </Card>
 
-      {/* Official Venues */}
+      {/* Updated Official Venues */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Building className="h-5 w-5" />
-            Official Caleb University Venues
+            Official Caleb University Venues (Updated Capacities)
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -468,6 +467,11 @@ const ExamScheduleGenerator = ({ onScheduleGenerated }: ExamScheduleGeneratorPro
                 </Badge>
               </div>
             ))}
+          </div>
+          <div className="mt-4 p-3 bg-blue-50 rounded-lg">
+            <p className="text-sm text-blue-700">
+              <strong>Total Capacity:</strong> {OFFICIAL_VENUES.reduce((sum, venue) => sum + venue.capacity, 0).toLocaleString()} seats across {OFFICIAL_VENUES.length} venues
+            </p>
           </div>
         </CardContent>
       </Card>
