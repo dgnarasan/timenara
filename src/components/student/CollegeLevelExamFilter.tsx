@@ -34,20 +34,30 @@ const COLLEGE_DEPARTMENTS: Record<string, string[]> = {
 };
 
 const getCollegeFromDepartment = (department: string): string => {
+  console.log("Checking department:", department);
+  
   for (const [college, departments] of Object.entries(COLLEGE_DEPARTMENTS)) {
-    if (departments.some(dept => 
-      dept.toLowerCase().includes(department.toLowerCase()) || 
-      department.toLowerCase().includes(dept.toLowerCase())
-    )) {
+    const match = departments.some(dept => 
+      dept.toLowerCase().trim() === department.toLowerCase().trim() ||
+      department.toLowerCase().trim().includes(dept.toLowerCase().trim()) ||
+      dept.toLowerCase().trim().includes(department.toLowerCase().trim())
+    );
+    
+    if (match) {
+      console.log(`Found match: ${department} → ${college}`);
       return college;
     }
   }
+  
+  console.log(`No match found for department: ${department}, assigning to Other Departments`);
   return "Other Departments";
 };
 
 const extractLevel = (courseCode: string): string => {
   const match = courseCode.match(/(\d)/);
-  return match ? `${match[1]}00` : "000";
+  const level = match ? `${match[1]}00` : "000";
+  console.log(`Course code ${courseCode} → Level ${level}`);
+  return level;
 };
 
 interface GroupedCourse {
@@ -60,11 +70,18 @@ interface GroupedCourse {
 const CollegeLevelExamFilter = ({ examCourses }: CollegeLevelExamFilterProps) => {
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
 
+  useEffect(() => {
+    console.log("Exam courses received:", examCourses);
+    console.log("Number of courses:", examCourses.length);
+  }, [examCourses]);
+
   // Group courses by college and level
   const groupedCourses = examCourses.reduce((groups, course) => {
     const college = getCollegeFromDepartment(course.department);
     const level = extractLevel(course.courseCode);
     const groupKey = `${college} – Level ${level}`;
+    
+    console.log(`Grouping course ${course.courseCode} (${course.department}) into: ${groupKey}`);
     
     if (!groups[groupKey]) {
       groups[groupKey] = {
@@ -79,6 +96,9 @@ const CollegeLevelExamFilter = ({ examCourses }: CollegeLevelExamFilterProps) =>
     groups[groupKey].totalStudents += course.studentCount;
     return groups;
   }, {} as Record<string, GroupedCourse>);
+
+  console.log("Final grouped courses:", groupedCourses);
+  console.log("Group keys:", Object.keys(groupedCourses));
 
   const toggleGroup = (groupKey: string) => {
     setExpandedGroups(prev => {
