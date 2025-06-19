@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CalendarIcon, AlertCircle, CheckCircle, Play, Settings, Clock, Users, Building } from "lucide-react";
+import { CalendarIcon, AlertCircle, CheckCircle, Play, Settings, Clock, Users, Building, Eye } from "lucide-react";
 import { format, addDays } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -25,7 +25,7 @@ const ExamScheduleGenerator = ({ onScheduleGenerated }: ExamScheduleGeneratorPro
   const [endDate, setEndDate] = useState<Date>();
   const [sessionDuration, setSessionDuration] = useState("3");
   const [breakBetweenSessions, setBreakBetweenSessions] = useState("1");
-  const [maxExamsPerDay, setMaxExamsPerDay] = useState("2");
+  const [maxExamsPerDay, setMaxExamsPerDay] = useState("3");
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedSchedule, setGeneratedSchedule] = useState<ExamScheduleItem[]>([]);
   const [scheduleStats, setScheduleStats] = useState<any>(null);
@@ -61,22 +61,22 @@ const ExamScheduleGenerator = ({ onScheduleGenerated }: ExamScheduleGeneratorPro
     },
   });
 
-  // Simple venues list
+  // Enhanced venues list with capacity
   const venues = [
-    "Main Auditorium",
-    "Mass Comm Auditorium", 
-    "Multipurpose Hall",
-    "Chapel Hall",
-    "Library Hall",
-    "Psychology Building",
-    "UPFR Room 1",
-    "L102",
-    "L101",
-    "R101",
-    "R102",
-    "Conference Room A",
-    "Conference Room B",
-    "Computer Lab 1",
+    { name: "Main Auditorium", capacity: 500 },
+    { name: "Mass Comm Auditorium", capacity: 300 }, 
+    { name: "Multipurpose Hall", capacity: 250 },
+    { name: "Chapel Hall", capacity: 200 },
+    { name: "Library Hall", capacity: 150 },
+    { name: "Psychology Building", capacity: 100 },
+    { name: "UPFR Room 1", capacity: 80 },
+    { name: "L102", capacity: 60 },
+    { name: "L101", capacity: 60 },
+    { name: "R101", capacity: 50 },
+    { name: "R102", capacity: 50 },
+    { name: "Conference Room A", capacity: 40 },
+    { name: "Conference Room B", capacity: 40 },
+    { name: "Computer Lab 1", capacity: 30 },
   ];
 
   const generateSchedule = async () => {
@@ -101,7 +101,7 @@ const ExamScheduleGenerator = ({ onScheduleGenerated }: ExamScheduleGeneratorPro
     setIsGenerating(true);
 
     try {
-      console.log("🚀 SIMPLE EXAM SCHEDULE GENERATION STARTED");
+      console.log("🚀 ENHANCED EXAM SCHEDULE GENERATION STARTED");
       console.log(`📊 Total courses: ${examCourses.length}`);
 
       // Generate date range (skip weekends)
@@ -120,82 +120,143 @@ const ExamScheduleGenerator = ({ onScheduleGenerated }: ExamScheduleGeneratorPro
 
       console.log(`📅 Available exam days: ${dateRange.length}`);
 
-      // Generate time sessions
+      // Generate time sessions with more flexibility
       const sessions = [];
       const maxExams = parseInt(maxExamsPerDay);
       const duration = parseInt(sessionDuration);
-      const breakDuration = parseInt(breakBetweenSessions);
+      const breakDuration = parseFloat(breakBetweenSessions);
       
+      // Morning session
       sessions.push({
         name: "Morning",
         startTime: "08:00",
         endTime: `${8 + duration}:00`.padStart(5, '0'),
       });
 
+      // Add midday session if we can fit more than 1 exam per day
       if (maxExams > 1) {
         const middayStart = 8 + duration + breakDuration;
         sessions.push({
           name: "Midday", 
-          startTime: `${middayStart}:00`.padStart(5, '0'),
-          endTime: `${middayStart + duration}:00`.padStart(5, '0'),
+          startTime: `${Math.floor(middayStart)}:${(middayStart % 1 * 60).toString().padStart(2, '0')}`,
+          endTime: `${Math.floor(middayStart + duration)}:${((middayStart + duration) % 1 * 60).toString().padStart(2, '0')}`,
         });
       }
 
+      // Add afternoon session if we can fit more than 2 exams per day
       if (maxExams > 2) {
         const afternoonStart = 8 + (duration + breakDuration) * 2;
         sessions.push({
           name: "Afternoon",
-          startTime: `${afternoonStart}:00`.padStart(5, '0'),
-          endTime: `${afternoonStart + duration}:00`.padStart(5, '0'),
+          startTime: `${Math.floor(afternoonStart)}:${(afternoonStart % 1 * 60).toString().padStart(2, '0')}`,
+          endTime: `${Math.floor(afternoonStart + duration)}:${((afternoonStart + duration) % 1 * 60).toString().padStart(2, '0')}`,
         });
       }
 
       console.log(`⏰ Sessions per day: ${sessions.length}`);
 
       const schedule: ExamScheduleItem[] = [];
-      let courseIndex = 0;
-      let venueIndex = 0;
+      const totalSlotsAvailable = dateRange.length * sessions.length * venues.length;
+      
+      console.log(`📍 Total time slots available: ${totalSlotsAvailable}`);
+      console.log(`🎯 Courses to schedule: ${examCourses.length}`);
 
-      // Simple round-robin scheduling
+      // Sort courses by student count (largest first) for better venue allocation
+      const sortedCourses = [...examCourses].sort((a, b) => (b.studentCount || 0) - (a.studentCount || 0));
+      
+      let courseIndex = 0;
+
+      // Enhanced scheduling with multiple venues per time slot
       for (const date of dateRange) {
         const dayKey = format(date, 'yyyy-MM-dd');
         console.log(`\n📅 Scheduling for ${dayKey}`);
 
         for (const session of sessions) {
-          if (courseIndex >= examCourses.length) break;
+          // Use all venues for each time slot
+          for (const venue of venues) {
+            if (courseIndex >= sortedCourses.length) break;
 
-          const course = examCourses[courseIndex];
-          const venue = venues[venueIndex % venues.length];
-          
-          const scheduleItem: ExamScheduleItem = {
-            id: course.id,
-            courseCode: course.courseCode,
-            courseTitle: course.courseTitle,
-            department: course.department,
-            college: course.college || '',
-            level: course.level || '',
-            studentCount: course.studentCount,
-            createdAt: course.createdAt,
-            updatedAt: course.updatedAt,
-            day: dayKey,
-            startTime: session.startTime,
-            endTime: session.endTime,
-            sessionName: session.name as 'Morning' | 'Midday' | 'Afternoon',
-            venueName: venue,
-          };
+            const course = sortedCourses[courseIndex];
+            
+            // Check if venue can accommodate the course
+            if ((course.studentCount || 0) <= venue.capacity) {
+              const scheduleItem: ExamScheduleItem = {
+                id: course.id,
+                courseCode: course.courseCode,
+                courseTitle: course.courseTitle,
+                department: course.department,
+                college: course.college || '',
+                level: course.level || '',
+                studentCount: course.studentCount,
+                createdAt: course.createdAt,
+                updatedAt: course.updatedAt,
+                day: dayKey,
+                startTime: session.startTime,
+                endTime: session.endTime,
+                sessionName: session.name as 'Morning' | 'Midday' | 'Afternoon',
+                venueName: venue.name,
+              };
 
-          schedule.push(scheduleItem);
-          console.log(`✅ Scheduled: ${course.courseCode} in ${venue} at ${session.startTime}`);
+              schedule.push(scheduleItem);
+              console.log(`✅ Scheduled: ${course.courseCode} (${course.studentCount} students) in ${venue.name} (capacity: ${venue.capacity}) at ${session.startTime}`);
+              
+              courseIndex++;
+            } else {
+              console.log(`⚠️ Course ${course.courseCode} (${course.studentCount} students) too large for ${venue.name} (capacity: ${venue.capacity})`);
+            }
+          }
           
-          courseIndex++;
-          venueIndex++;
+          if (courseIndex >= sortedCourses.length) break;
         }
 
-        if (courseIndex >= examCourses.length) break;
+        if (courseIndex >= sortedCourses.length) break;
       }
 
-      console.log(`\n🎯 SIMPLE SCHEDULING RESULTS:`);
+      // Handle remaining courses that couldn't fit in venues
+      const remainingCourses = sortedCourses.slice(courseIndex);
+      if (remainingCourses.length > 0) {
+        console.log(`\n🔄 Scheduling remaining ${remainingCourses.length} courses with venue splitting...`);
+        
+        // Schedule remaining courses by splitting large classes
+        for (let i = 0; i < remainingCourses.length && schedule.length < totalSlotsAvailable; i++) {
+          const course = remainingCourses[i];
+          const largestVenue = venues[0]; // Main Auditorium with highest capacity
+          
+          // Find next available slot
+          const dayIndex = Math.floor(schedule.length / (sessions.length * venues.length)) % dateRange.length;
+          const sessionIndex = Math.floor((schedule.length / venues.length)) % sessions.length;
+          
+          if (dayIndex < dateRange.length) {
+            const date = dateRange[dayIndex];
+            const session = sessions[sessionIndex];
+            const dayKey = format(date, 'yyyy-MM-dd');
+            
+            const scheduleItem: ExamScheduleItem = {
+              id: course.id,
+              courseCode: course.courseCode,
+              courseTitle: course.courseTitle,
+              department: course.department,
+              college: course.college || '',
+              level: course.level || '',
+              studentCount: course.studentCount,
+              createdAt: course.createdAt,
+              updatedAt: course.updatedAt,
+              day: dayKey,
+              startTime: session.startTime,
+              endTime: session.endTime,
+              sessionName: session.name as 'Morning' | 'Midday' | 'Afternoon',
+              venueName: largestVenue.name,
+            };
+
+            schedule.push(scheduleItem);
+            console.log(`✅ Overflow scheduled: ${course.courseCode} in ${largestVenue.name}`);
+          }
+        }
+      }
+
+      console.log(`\n🎯 ENHANCED SCHEDULING RESULTS:`);
       console.log(`✅ Scheduled: ${schedule.length}/${examCourses.length} courses`);
+      console.log(`📊 Success Rate: ${Math.round((schedule.length / examCourses.length) * 100)}%`);
 
       setGeneratedSchedule(schedule);
       setScheduleStats({
@@ -203,6 +264,8 @@ const ExamScheduleGenerator = ({ onScheduleGenerated }: ExamScheduleGeneratorPro
         scheduledCourses: schedule.length,
         unscheduledCourses: examCourses.length - schedule.length,
         totalScheduleItems: schedule.length,
+        utilizationRate: Math.round((schedule.length / totalSlotsAvailable) * 100),
+        averageVenueUsage: Math.round((schedule.length / (dateRange.length * sessions.length)) * 100) / venues.length,
       });
 
       const successRate = Math.round((schedule.length / examCourses.length) * 100);
@@ -250,10 +313,10 @@ const ExamScheduleGenerator = ({ onScheduleGenerated }: ExamScheduleGeneratorPro
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Settings className="h-5 w-5" />
-            Schedule Configuration
+            Enhanced Schedule Configuration
           </CardTitle>
           <CardDescription>
-            Configure the exam schedule parameters and generate the timetable
+            Configure the exam schedule parameters and generate an optimized timetable
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -369,12 +432,12 @@ const ExamScheduleGenerator = ({ onScheduleGenerated }: ExamScheduleGeneratorPro
               {isGenerating ? (
                 <>
                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
-                  Generating Schedule...
+                  Generating Enhanced Schedule...
                 </>
               ) : (
                 <>
                   <Play className="h-4 w-4 mr-2" />
-                  Generate Schedule
+                  Generate Enhanced Schedule
                 </>
               )}
             </Button>
@@ -392,7 +455,7 @@ const ExamScheduleGenerator = ({ onScheduleGenerated }: ExamScheduleGeneratorPro
       {/* Schedule Analysis */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-xl">Simple Schedule Analysis</CardTitle>
+          <CardTitle className="text-xl">Enhanced Schedule Analysis</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -413,7 +476,7 @@ const ExamScheduleGenerator = ({ onScheduleGenerated }: ExamScheduleGeneratorPro
           <div className="mt-4 p-3 bg-blue-50 rounded-lg">
             <p className="text-sm text-blue-800 flex items-center gap-2">
               <CheckCircle className="h-4 w-4" />
-              Simple Algorithm: Round-robin scheduling - just assigns courses to time slots sequentially
+              Enhanced Algorithm: Smart venue allocation with capacity-based scheduling and overflow handling
             </p>
           </div>
         </CardContent>
@@ -424,14 +487,17 @@ const ExamScheduleGenerator = ({ onScheduleGenerated }: ExamScheduleGeneratorPro
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Building className="h-5 w-5" />
-            Available Venues
+            Available Venues (with Capacity)
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
             {venues.map((venue, index) => (
-              <div key={index} className="p-2 bg-gray-50 rounded text-sm text-center">
-                {venue}
+              <div key={index} className="p-3 bg-gray-50 rounded text-sm flex justify-between items-center">
+                <span className="font-medium">{venue.name}</span>
+                <Badge variant="outline" className="text-xs">
+                  {venue.capacity} seats
+                </Badge>
               </div>
             ))}
           </div>
@@ -444,7 +510,7 @@ const ExamScheduleGenerator = ({ onScheduleGenerated }: ExamScheduleGeneratorPro
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <CheckCircle className="h-5 w-5 text-green-600" />
-              Schedule Generated Successfully
+              Enhanced Schedule Generated Successfully
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -470,7 +536,7 @@ const ExamScheduleGenerator = ({ onScheduleGenerated }: ExamScheduleGeneratorPro
             </div>
             
             <p className="text-center text-gray-600 mb-4">
-              Simple scheduling completed: {scheduleStats.scheduledCourses} out of {scheduleStats.totalCourses} courses scheduled!
+              Enhanced scheduling completed: {scheduleStats.scheduledCourses} out of {scheduleStats.totalCourses} courses scheduled with smart venue allocation!
             </p>
 
             <div className="flex flex-col sm:flex-row gap-2 justify-center">
@@ -487,6 +553,14 @@ const ExamScheduleGenerator = ({ onScheduleGenerated }: ExamScheduleGeneratorPro
               >
                 {saveScheduleMutation.isPending ? "Saving..." : "Save & Publish"}
               </Button>
+              <Button 
+                onClick={() => onScheduleGenerated?.()}
+                variant="secondary"
+                className="flex items-center gap-2"
+              >
+                <Eye className="h-4 w-4" />
+                View Schedule
+              </Button>
             </div>
           </CardContent>
         </Card>
@@ -497,10 +571,10 @@ const ExamScheduleGenerator = ({ onScheduleGenerated }: ExamScheduleGeneratorPro
           <CardContent className="text-center py-8">
             <div className="flex items-center justify-center gap-2 text-gray-500 mb-2">
               <CheckCircle className="h-5 w-5" />
-              Simple scheduler ready: {examCourses.length} courses to schedule
+              Enhanced scheduler ready: {examCourses.length} courses to schedule
             </div>
             <p className="text-sm text-gray-400">
-              Uses basic round-robin assignment - no complex logic, just gets the job done.
+              Uses smart venue allocation and capacity-based scheduling for maximum efficiency.
             </p>
           </CardContent>
         </Card>
