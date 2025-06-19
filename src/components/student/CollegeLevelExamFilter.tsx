@@ -17,6 +17,7 @@ const COLLEGE_DEPARTMENTS: Record<string, string[]> = {
     "Banking and Finance", 
     "Business Administration", 
     "Bus. Administration",
+    "Bus. Admin",
     "Criminology", 
     "Economics", 
     "International Relations", 
@@ -36,12 +37,85 @@ const COLLEGE_DEPARTMENTS: Record<string, string[]> = {
 const getCollegeFromDepartment = (department: string): string => {
   console.log("Checking department:", department);
   
+  // Clean and normalize the department name
+  const cleanDepartment = department.toLowerCase().trim();
+  
   for (const [college, departments] of Object.entries(COLLEGE_DEPARTMENTS)) {
-    const match = departments.some(dept => 
-      dept.toLowerCase().trim() === department.toLowerCase().trim() ||
-      department.toLowerCase().trim().includes(dept.toLowerCase().trim()) ||
-      dept.toLowerCase().trim().includes(department.toLowerCase().trim())
-    );
+    const match = departments.some(dept => {
+      const cleanDept = dept.toLowerCase().trim();
+      
+      // Exact match
+      if (cleanDept === cleanDepartment) {
+        return true;
+      }
+      
+      // Partial matches for common abbreviations
+      if (cleanDepartment.includes('accounting') && cleanDept.includes('accounting')) {
+        return true;
+      }
+      
+      if (cleanDepartment.includes('business') && cleanDept.includes('business')) {
+        return true;
+      }
+      
+      if (cleanDepartment.includes('bus.') && cleanDept.includes('business')) {
+        return true;
+      }
+      
+      if (cleanDepartment.includes('computer') && cleanDept.includes('computer')) {
+        return true;
+      }
+      
+      if (cleanDepartment.includes('chemistry') && cleanDept.includes('chemistry')) {
+        return true;
+      }
+      
+      if (cleanDepartment.includes('biochemistry') && cleanDept.includes('biochemistry')) {
+        return true;
+      }
+      
+      if (cleanDepartment.includes('microbiology') && cleanDept.includes('microbiology')) {
+        return true;
+      }
+      
+      if (cleanDepartment.includes('cyber') && cleanDept.includes('cyber')) {
+        return true;
+      }
+      
+      if (cleanDepartment.includes('economics') && cleanDept.includes('economics')) {
+        return true;
+      }
+      
+      if (cleanDepartment.includes('psychology') && cleanDept.includes('psychology')) {
+        return true;
+      }
+      
+      if (cleanDepartment.includes('political') && cleanDept.includes('political')) {
+        return true;
+      }
+      
+      if (cleanDepartment.includes('mass communication') && cleanDept.includes('mass communication')) {
+        return true;
+      }
+      
+      if (cleanDepartment.includes('banking') && cleanDept.includes('banking')) {
+        return true;
+      }
+      
+      if (cleanDepartment.includes('finance') && cleanDept.includes('finance')) {
+        return true;
+      }
+      
+      if (cleanDepartment.includes('criminology') && cleanDept.includes('criminology')) {
+        return true;
+      }
+      
+      if (cleanDepartment.includes('international') && cleanDept.includes('international')) {
+        return true;
+      }
+      
+      return false;
+    });
     
     if (match) {
       console.log(`Found match: ${department} → ${college}`);
