@@ -9,17 +9,21 @@ import { fetchAdminExamSchedule, publishExamSchedule, clearExamSchedule } from "
 import { useToast } from "@/hooks/use-toast";
 import { Eye, Download, Trash2, Play, Square, Calendar, CalendarDays, BookOpen, Users, Building } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { ExamScheduleItem } from "@/lib/types";
 
 const ExamSchedulePreview = () => {
   const [viewMode, setViewMode] = useState<"simple" | "detailed">("simple");
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Fetch exam schedule
-  const { data: examSchedule = [], isLoading } = useQuery({
+  // Fetch exam schedule with proper typing
+  const { data: examScheduleData, isLoading } = useQuery({
     queryKey: ['admin-exam-schedule'],
     queryFn: fetchAdminExamSchedule,
   });
+
+  // Ensure examSchedule is properly typed as an array
+  const examSchedule: ExamScheduleItem[] = Array.isArray(examScheduleData) ? examScheduleData : [];
 
   // Publish/unpublish mutation
   const publishMutation = useMutation({
@@ -119,7 +123,7 @@ const ExamSchedulePreview = () => {
     }
     acc[date].push(item);
     return acc;
-  }, {} as Record<string, typeof examSchedule>);
+  }, {} as Record<string, ExamScheduleItem[]>);
 
   if (isLoading) {
     return (
