@@ -11,14 +11,25 @@ interface CollegeLevelExamFilterProps {
 }
 
 // Updated College to department mapping based on user's provided list
-const COLLEGE_DEPARTMENTS = {
+const COLLEGE_DEPARTMENTS: Record<string, string[]> = {
   "COLLEGE OF ARTS, SOCIAL AND MANAGEMENT SCIENCES (CASMAS)": [
-    "Accounting", "Banking and Finance", "Business Administration", "Bus. Administration",
-    "Criminology", "Economics", "International Relations", "Mass Communication",
-    "Political Science", "Psychology"
+    "Accounting", 
+    "Banking and Finance", 
+    "Business Administration", 
+    "Bus. Administration",
+    "Criminology", 
+    "Economics", 
+    "International Relations", 
+    "Mass Communication",
+    "Political Science", 
+    "Psychology"
   ],
   "COLLEGE OF PURE AND APPLIED SCIENCES (COPAS)": [
-    "Biochemistry", "Computer Science", "Cyber Security", "Industrial Chemistry", "Microbiology"
+    "Biochemistry", 
+    "Computer Science", 
+    "Cyber Security", 
+    "Industrial Chemistry", 
+    "Microbiology"
   ]
 };
 
@@ -47,6 +58,13 @@ const extractLevel = (courseCode: string): string => {
   return match ? `${match[1]}00` : "000";
 };
 
+interface GroupedCourse {
+  courses: ExamCourse[];
+  college: string;
+  level: string;
+  totalStudents: number;
+}
+
 const CollegeLevelExamFilter = ({ examCourses }: CollegeLevelExamFilterProps) => {
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
 
@@ -69,7 +87,7 @@ const CollegeLevelExamFilter = ({ examCourses }: CollegeLevelExamFilterProps) =>
     groups[groupKey].courses.push(course);
     groups[groupKey].totalStudents += course.studentCount;
     return groups;
-  }, {} as Record<string, { courses: ExamCourse[], college: string, level: string, totalStudents: number }>);
+  }, {} as Record<string, GroupedCourse>);
 
   const toggleGroup = (groupKey: string) => {
     setExpandedGroups(prev => {
