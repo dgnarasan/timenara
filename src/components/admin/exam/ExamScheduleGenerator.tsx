@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -73,6 +74,53 @@ const ExamScheduleGenerator = ({ onScheduleGenerated }: ExamScheduleGeneratorPro
     { name: "Library Hall", capacity: 150 },
   ];
 
+  // Multi-venue splitting logic
+  const splitCourseAcrossVenues = (course: any, availableVenuesForSlot: any[], session: any, dayKey: string) => {
+    const scheduleItems: ExamScheduleItem[] = [];
+    let remainingStudents = course.studentCount;
+    
+    // Sort venues by capacity (largest first) for efficient allocation
+    const sortedVenues = [...availableVenuesForSlot].sort((a, b) => b.capacity - a.capacity);
+    
+    console.log(`Splitting course ${course.courseCode} (${course.studentCount} students) across venues`);
+    
+    for (const venue of sortedVenues) {
+      if (remainingStudents <= 0) break;
+      
+      const studentsInThisVenue = Math.min(remainingStudents, venue.capacity);
+      
+      // Create a schedule item for this venue
+      const scheduleItem: ExamScheduleItem = {
+        id: `${course.id}_${venue.name}`, // Unique ID for each venue split
+        courseCode: course.courseCode,
+        courseTitle: course.courseTitle,
+        department: course.department,
+        college: course.college,
+        level: course.level,
+        studentCount: studentsInThisVenue, // Students assigned to this specific venue
+        createdAt: course.createdAt,
+        updatedAt: course.updatedAt,
+        day: dayKey,
+        startTime: session.startTime,
+        endTime: session.endTime,
+        sessionName: session.name,
+        venueName: venue.name,
+      };
+
+      scheduleItems.push(scheduleItem);
+      remainingStudents -= studentsInThisVenue;
+      
+      console.log(`  - ${venue.name}: ${studentsInThisVenue} students (${remainingStudents} remaining)`);
+    }
+    
+    if (remainingStudents > 0) {
+      console.warn(`Could not accommodate ${remainingStudents} students for course ${course.courseCode}`);
+      return null; // Return null if we couldn't fit all students
+    }
+    
+    return scheduleItems;
+  };
+
   const generateSchedule = async () => {
     if (!config.startDate || !config.endDate) {
       toast({
@@ -95,7 +143,7 @@ const ExamScheduleGenerator = ({ onScheduleGenerated }: ExamScheduleGeneratorPro
     setIsGenerating(true);
 
     try {
-      console.log("Starting IMPROVED exam schedule generation for", examCourses.length, "courses");
+      console.log("Starting ENHANCED exam schedule generation with multi-venue splitting for", examCourses.length, "courses");
       
       const schedule: ExamScheduleItem[] = [];
       const sessions: Array<{ name: 'Morning' | 'Midday' | 'Afternoon'; startTime: string; endTime: string }> = [
@@ -112,10 +160,11 @@ const ExamScheduleGenerator = ({ onScheduleGenerated }: ExamScheduleGeneratorPro
       console.log("Sorted courses:", sortedCourses.length, "courses to schedule");
       
       let currentDate = new Date(startDate);
-      let scheduledCount = 0;
+      let courseIndex = 0;
+      let failedCourses: string[] = [];
       
       // Generate schedule spanning across exam period
-      while (currentDate <= endDate && scheduledCount < sortedCourses.length) {
+      while (currentDate <= endDate && courseIndex < sortedCourses.length) {
         const dayKey = currentDate.toISOString().split('T')[0];
         const dayName = currentDate.toLocaleDateString('en-US', { weekday: 'long' });
         
@@ -131,53 +180,45 @@ const ExamScheduleGenerator = ({ onScheduleGenerated }: ExamScheduleGeneratorPro
 
         // Schedule courses for each session of the day
         for (const session of sessions) {
-          if (scheduledCount >= sortedCourses.length) break;
+          if (courseIndex >= sortedCourses.length) break;
 
           console.log(`Processing session: ${session.name} (${session.startTime} - ${session.endTime})`);
 
-          // Try to schedule courses in parallel (different venues)
-          for (let venueIndex = 0; venueIndex < availableVenues.length && scheduledCount < sortedCourses.length; venueIndex++) {
-            const venue = availableVenues[venueIndex];
-            const course = sortedCourses[scheduledCount];
+          // Get total venue capacity for this session
+          const totalCapacity = availableVenues.reduce((sum, venue) => sum + venue.capacity, 0);
+          const course = sortedCourses[courseIndex];
+          
+          console.log(`Attempting to schedule course ${course.courseCode} (${course.studentCount} students)`);
+          console.log(`Total available capacity: ${totalCapacity}`);
 
-            console.log(`Attempting to schedule course ${course.courseCode} (${course.studentCount} students) in ${venue.name} (capacity: ${venue.capacity})`);
+          // Check if we have enough total capacity
+          if (course.studentCount > totalCapacity) {
+            console.error(`Not enough combined venue capacity for course ${course.courseCode} (${course.studentCount} students vs ${totalCapacity} total capacity)`);
+            failedCourses.push(`${course.courseCode}: Not enough combined venue capacity (${course.studentCount} students, ${totalCapacity} total capacity)`);
+            courseIndex++;
+            continue;
+          }
 
-            // Simple capacity check - allow some flexibility
-            const canFitInVenue = course.studentCount <= venue.capacity * 1.1; // Allow 10% over capacity
+          // Try to split the course across multiple venues
+          const splitScheduleItems = splitCourseAcrossVenues(course, availableVenues, session, dayKey);
+          
+          if (splitScheduleItems) {
+            schedule.push(...splitScheduleItems);
+            courseIndex++;
             
-            if (canFitInVenue) {
-              // Schedule the course
-              const scheduleItem: ExamScheduleItem = {
-                id: course.id,
-                courseCode: course.courseCode,
-                courseTitle: course.courseTitle,
-                department: course.department,
-                college: course.college,
-                level: course.level,
-                studentCount: course.studentCount,
-                createdAt: course.createdAt,
-                updatedAt: course.updatedAt,
-                day: dayKey,
-                startTime: session.startTime,
-                endTime: session.endTime,
-                sessionName: session.name,
-                venueName: venue.name,
-              };
-
-              schedule.push(scheduleItem);
-              scheduledCount++;
-              
-              console.log(`✅ Successfully scheduled: ${course.courseCode} in ${venue.name} on ${dayKey} at ${session.startTime}`);
-            } else {
-              console.log(`❌ Cannot fit ${course.courseCode} (${course.studentCount} students) in ${venue.name} (capacity: ${venue.capacity})`);
-            }
+            console.log(`✅ Successfully scheduled ${course.courseCode} across ${splitScheduleItems.length} venues on ${dayKey} at ${session.startTime}`);
+          } else {
+            console.error(`❌ Failed to schedule ${course.courseCode} even with venue splitting`);
+            failedCourses.push(`${course.courseCode}: Failed to split across available venues`);
+            courseIndex++;
           }
         }
 
         currentDate.setDate(currentDate.getDate() + 1);
       }
 
-      console.log(`FINAL RESULT: Successfully scheduled ${schedule.length} out of ${sortedCourses.length} courses`);
+      console.log(`FINAL RESULT: Successfully scheduled ${courseIndex} out of ${sortedCourses.length} courses`);
+      console.log(`Total schedule items created: ${schedule.length}`);
 
       if (schedule.length === 0) {
         toast({
@@ -188,16 +229,20 @@ const ExamScheduleGenerator = ({ onScheduleGenerated }: ExamScheduleGeneratorPro
         return;
       }
 
-      if (schedule.length < sortedCourses.length) {
-        const scheduledPercentage = Math.round((schedule.length / sortedCourses.length) * 100);
+      // Show results and any warnings
+      if (failedCourses.length > 0) {
+        console.warn("Failed courses:", failedCourses);
+        const scheduledCourses = courseIndex - failedCourses.length;
+        const scheduledPercentage = Math.round((scheduledCourses / sortedCourses.length) * 100);
+        
         toast({
           title: "Partial Schedule Generated",
-          description: `Scheduled ${schedule.length} out of ${sortedCourses.length} courses (${scheduledPercentage}%). Consider extending the date range or adding more venues.`,
+          description: `Scheduled ${scheduledCourses} out of ${sortedCourses.length} courses (${scheduledPercentage}%). ${failedCourses.length} courses could not be scheduled due to capacity constraints.`,
         });
       } else {
         toast({
           title: "Complete Schedule Generated",
-          description: `Successfully scheduled all ${schedule.length} courses!`,
+          description: `Successfully scheduled all ${sortedCourses.length} courses across ${schedule.length} venue assignments!`,
         });
       }
 
@@ -219,9 +264,7 @@ const ExamScheduleGenerator = ({ onScheduleGenerated }: ExamScheduleGeneratorPro
   const calculateEstimatedDays = () => {
     if (examCourses.length === 0) return 0;
     const availableSlots = 3; // sessions per day
-    const availableVenues = 14; // total venues
-    const slotsPerDay = availableSlots * availableVenues;
-    return Math.ceil(examCourses.length / slotsPerDay);
+    return Math.ceil(examCourses.length / availableSlots); // One course per session
   };
 
   const isConfigValid = config.startDate && config.endDate && config.startDate <= config.endDate;
@@ -354,8 +397,18 @@ const ExamScheduleGenerator = ({ onScheduleGenerated }: ExamScheduleGeneratorPro
                   <span className="font-medium ml-2">{availableVenues.length}</span>
                 </div>
               </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm mt-2">
+                <div>
+                  <span className="text-blue-700">Total Venue Capacity:</span>
+                  <span className="font-medium ml-2">{availableVenues.reduce((sum, venue) => sum + venue.capacity, 0).toLocaleString()}</span>
+                </div>
+                <div>
+                  <span className="text-blue-700">Multi-Venue Splitting:</span>
+                  <span className="font-medium ml-2 text-green-600">Enabled</span>
+                </div>
+              </div>
               <div className="text-xs text-blue-600 mt-2">
-                * Course Registrations represents total enrollment across all courses (students may be counted multiple times)
+                * Large courses will be automatically split across multiple venues within the same exam session
               </div>
               {selectedDateRange > 0 && estimatedDays > selectedDateRange && (
                 <Alert className="mt-2">
@@ -382,6 +435,9 @@ const ExamScheduleGenerator = ({ onScheduleGenerated }: ExamScheduleGeneratorPro
                 <div className="text-green-600">+{availableVenues.length - 8} more...</div>
               )}
             </div>
+            <div className="text-xs text-green-600 mt-2">
+              Total combined capacity: {availableVenues.reduce((sum, venue) => sum + venue.capacity, 0).toLocaleString()} students per session
+            </div>
           </div>
 
           {/* Validation Messages */}
@@ -407,7 +463,7 @@ const ExamScheduleGenerator = ({ onScheduleGenerated }: ExamScheduleGeneratorPro
             <Alert>
               <CheckCircle className="h-4 w-4" />
               <AlertDescription>
-                Ready to generate schedule for {examCourses.length} exam courses using {availableVenues.length} venues.
+                Ready to generate schedule for {examCourses.length} exam courses with multi-venue splitting enabled.
               </AlertDescription>
             </Alert>
           )}
