@@ -42,15 +42,7 @@ const getCollegeFromDepartment = (department: string): string => {
       return college;
     }
   }
-  return "General";
-};
-
-const getCollegeAbbreviation = (college: string): string => {
-  const abbreviations: Record<string, string> = {
-    "COLLEGE OF ARTS, SOCIAL AND MANAGEMENT SCIENCES (CASMAS)": "CASMAS",
-    "COLLEGE OF PURE AND APPLIED SCIENCES (COPAS)": "COPAS"
-  };
-  return abbreviations[college] || "GENERAL";
+  return "Other Departments";
 };
 
 const extractLevel = (courseCode: string): string => {
@@ -72,8 +64,7 @@ const CollegeLevelExamFilter = ({ examCourses }: CollegeLevelExamFilterProps) =>
   const groupedCourses = examCourses.reduce((groups, course) => {
     const college = getCollegeFromDepartment(course.department);
     const level = extractLevel(course.courseCode);
-    const collegeAbbrev = getCollegeAbbreviation(college);
-    const groupKey = `${collegeAbbrev} Level ${level}`;
+    const groupKey = `${college} – Level ${level}`;
     
     if (!groups[groupKey]) {
       groups[groupKey] = {
@@ -101,15 +92,15 @@ const CollegeLevelExamFilter = ({ examCourses }: CollegeLevelExamFilterProps) =>
     });
   };
 
-  // Sort groups by college abbreviation and level
+  // Sort groups by college name and level
   const sortedGroupKeys = Object.keys(groupedCourses).sort((a, b) => {
-    const [collegeA, levelA] = a.split(' Level ');
-    const [collegeB, levelB] = b.split(' Level ');
+    const [collegeA, levelPartA] = a.split(' – Level ');
+    const [collegeB, levelPartB] = b.split(' – Level ');
     
     if (collegeA !== collegeB) {
       return collegeA.localeCompare(collegeB);
     }
-    return parseInt(levelA) - parseInt(levelB);
+    return parseInt(levelPartA) - parseInt(levelPartB);
   });
 
   if (examCourses.length === 0) {
