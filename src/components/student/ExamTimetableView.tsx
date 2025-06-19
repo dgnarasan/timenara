@@ -19,13 +19,18 @@ import {
 interface ExamTimetableViewProps {
   examCourses: ExamCourse[];
   examSchedule: ExamScheduleItem[];
+  schedule?: ExamScheduleItem[];
+  viewMode?: "timetable" | "list";
 }
 
-const ExamTimetableView = ({ examCourses, examSchedule }: ExamTimetableViewProps) => {
+const ExamTimetableView = ({ examCourses, examSchedule, schedule, viewMode = "timetable" }: ExamTimetableViewProps) => {
   const { toast } = useToast();
 
+  // Use schedule prop if provided, otherwise use examCourses
+  const displayData = schedule || examCourses;
+
   const handleExport = (format: "pdf" | "csv") => {
-    if (examCourses.length === 0) {
+    if (displayData.length === 0) {
       toast({
         title: "No Data to Export",
         description: "No exam courses available to export.",
@@ -42,9 +47,9 @@ const ExamTimetableView = ({ examCourses, examSchedule }: ExamTimetableViewProps
   };
 
   const exportToCSV = () => {
-    const data = examCourses.map((course) => ({
-      "Course Code": course.courseCode,
-      "Course Title": course.courseTitle,
+    const data = displayData.map((course) => ({
+      "Course Code": 'courseCode' in course ? course.courseCode : course.courseCode,
+      "Course Title": 'courseTitle' in course ? course.courseTitle : course.courseTitle,
       "Department": course.department,
       "College": course.college,
       "Level": course.level,
@@ -65,9 +70,9 @@ const ExamTimetableView = ({ examCourses, examSchedule }: ExamTimetableViewProps
   const exportToPDF = () => {
     const doc = new jsPDF();
     
-    const tableData = examCourses.map((course) => [
-      course.courseCode,
-      course.courseTitle,
+    const tableData = displayData.map((course) => [
+      'courseCode' in course ? course.courseCode : course.courseCode,
+      'courseTitle' in course ? course.courseTitle : course.courseTitle,
       course.department,
       course.college,
       course.level,
@@ -153,7 +158,7 @@ const ExamTimetableView = ({ examCourses, examSchedule }: ExamTimetableViewProps
 
       <CollegeLevelExamFilter examCourses={examCourses} />
 
-      {examCourses.length === 0 && (
+      {displayData.length === 0 && (
         <Card className="p-8 text-center">
           <Calendar className="h-12 w-12 mx-auto mb-4 opacity-20" />
           <p className="text-muted-foreground">No exam courses uploaded yet.</p>

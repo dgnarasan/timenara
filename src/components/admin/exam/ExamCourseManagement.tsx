@@ -12,6 +12,43 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import ExamCourseUpload from "./ExamCourseUpload";
 import TemplateDownloadDropdown from "./TemplateDownloadDropdown";
 
+// Updated College to department mapping based on user requirements
+const COLLEGE_DEPARTMENTS = {
+  "COLLEGE OF ARTS, SOCIAL AND MANAGEMENT SCIENCES (CASMAS)": [
+    "Accounting", "Banking and Finance", "Bus. Administration", "Business Administration", 
+    "Criminology", "Economics", "International Relations", "Mass Communication", 
+    "Political Science", "Psychology"
+  ],
+  "COLLEGE OF PURE AND APPLIED SCIENCES (COPAS)": [
+    "Biochemistry", "Computer Science", "Cyber Security", "Industrial Chemistry", "Microbiology"
+  ]
+};
+
+const getCollegeFromDepartment = (department: string): string => {
+  for (const [college, departments] of Object.entries(COLLEGE_DEPARTMENTS)) {
+    if (departments.some(dept => 
+      dept.toLowerCase().includes(department.toLowerCase()) || 
+      department.toLowerCase().includes(dept.toLowerCase())
+    )) {
+      return college;
+    }
+  }
+  return "General";
+};
+
+const getCollegeAbbreviation = (college: string): string => {
+  const abbreviations: Record<string, string> = {
+    "COLLEGE OF ARTS, SOCIAL AND MANAGEMENT SCIENCES (CASMAS)": "CASMAS",
+    "COLLEGE OF PURE AND APPLIED SCIENCES (COPAS)": "COPAS"
+  };
+  return abbreviations[college] || "GENERAL";
+};
+
+const extractLevel = (courseCode: string): string => {
+  const match = courseCode.match(/(\d)/);
+  return match ? `${match[1]}00` : "000";
+};
+
 const ExamCourseManagement = () => {
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const { toast } = useToast();
@@ -51,7 +88,11 @@ const ExamCourseManagement = () => {
 
   // Group courses by college and level, also identify shared courses
   const groupedCourses = examCourses.reduce((acc, course) => {
-    const key = `${course.college}-${course.level}`;
+    const college = getCollegeFromDepartment(course.department);
+    const level = extractLevel(course.courseCode);
+    const collegeAbbrev = getCollegeAbbreviation(college);
+    const key = `${collegeAbbrev} Level ${level}`;
+    
     if (!acc[key]) {
       acc[key] = [];
     }
@@ -165,7 +206,6 @@ const ExamCourseManagement = () => {
 
       {/* Course List */}
       {Object.entries(groupedCourses).map(([groupKey, courses]) => {
-        const [college, level] = groupKey.split('-');
         const totalStudents = courses.reduce((sum, course) => sum + course.studentCount, 0);
 
         return (
@@ -174,7 +214,7 @@ const ExamCourseManagement = () => {
               <div className="flex items-center justify-between">
                 <div>
                   <CardTitle className="text-lg text-gray-900">
-                    {college.split('(')[0].trim()} - Level {level}
+                    {groupKey}
                   </CardTitle>
                   <CardDescription className="text-gray-600">
                     {courses.length} courses • {totalStudents.toLocaleString()} total students
