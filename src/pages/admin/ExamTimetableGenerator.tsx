@@ -61,7 +61,7 @@ const ExamTimetableGenerator = () => {
     examSchedule.find(s => s.id === item.id)
   );
 
-  const totalStudents = examCourses.reduce((sum, course) => sum + course.studentCount, 0);
+  const totalCourseRegistrations = examCourses.reduce((sum, course) => sum + course.studentCount, 0);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -131,13 +131,16 @@ const ExamTimetableGenerator = () => {
 
           <Card className="border shadow-sm">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">Total Students</CardTitle>
+              <CardTitle className="text-sm font-medium text-gray-600">Course Registrations</CardTitle>
               <Users className="h-5 w-5 text-gray-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-gray-900">{totalStudents.toLocaleString()}</div>
+              <div className="text-2xl font-bold text-gray-900">{totalCourseRegistrations.toLocaleString()}</div>
               <p className="text-xs text-gray-500 mt-1">
-                Students taking exams
+                Total course enrollments*
+              </p>
+              <p className="text-xs text-gray-400 mt-1">
+                *Students may be counted multiple times
               </p>
             </CardContent>
           </Card>

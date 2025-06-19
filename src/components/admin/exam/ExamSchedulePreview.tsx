@@ -8,10 +8,9 @@ import { fetchAdminExamSchedule, publishExamSchedule, clearExamSchedule } from "
 import { useToast } from "@/hooks/use-toast";
 import { Eye, Download, Trash2, Play, Square, Calendar } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import ExamTimetableView from "@/components/student/ExamTimetableView";
+import CalebExamTimetableView from "./CalebExamTimetableView";
 
 const ExamSchedulePreview = () => {
-  const [viewMode, setViewMode] = useState<"timetable" | "list">("timetable");
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -75,39 +74,8 @@ const ExamSchedulePreview = () => {
     }
   };
 
-  const handleExportPDF = () => {
-    // Simple export functionality - in production, this would generate a proper PDF
-    const scheduleData = examSchedule.map(item => ({
-      'Course Code': item.courseCode,
-      'Course Title': item.courseTitle,
-      'Date': new Date(item.day).toLocaleDateString(),
-      'Time': `${item.startTime} - ${item.endTime}`,
-      'Session': item.sessionName,
-      'Venue': item.venueName || 'TBD',
-      'Department': item.department,
-      'Students': item.studentCount,
-    }));
-
-    const csvContent = "data:text/csv;charset=utf-8," + 
-      Object.keys(scheduleData[0] || {}).join(",") + "\n" +
-      scheduleData.map(row => Object.values(row).join(",")).join("\n");
-
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `exam_schedule_${new Date().toISOString().split('T')[0]}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-
-    toast({
-      title: "Export Successful",
-      description: "Exam schedule has been exported to CSV.",
-    });
-  };
-
-  // Check if any exams are published
-  const isPublished = examSchedule.length > 0; // For this demo, we'll consider any schedule as potentially published
+  // Check if any exams are published (simplified for demo)
+  const isPublished = examSchedule.length > 0;
   
   if (isLoading) {
     return (
@@ -175,26 +143,6 @@ const ExamSchedulePreview = () => {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setViewMode(viewMode === "timetable" ? "list" : "timetable")}
-              >
-                <Calendar className="h-4 w-4 mr-2" />
-                {viewMode === "timetable" ? "List View" : "Timetable View"}
-              </Button>
-              
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleExportPDF}
-              >
-                <Download className="h-4 w-4 mr-2" />
-                Export CSV
-              </Button>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
                 onClick={isPublished ? handleUnpublish : handlePublish}
                 disabled={publishMutation.isPending}
               >
@@ -225,8 +173,8 @@ const ExamSchedulePreview = () => {
         </CardContent>
       </Card>
 
-      {/* Schedule View */}
-      <ExamTimetableView schedule={examSchedule} viewMode={viewMode} />
+      {/* Schedule View - Using Caleb University Format */}
+      <CalebExamTimetableView schedule={examSchedule} />
     </div>
   );
 };
