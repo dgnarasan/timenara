@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -99,7 +98,7 @@ const ExamScheduleGenerator = ({ onScheduleGenerated }: ExamScheduleGeneratorPro
       console.log("Starting IMPROVED exam schedule generation for", examCourses.length, "courses");
       
       const schedule: ExamScheduleItem[] = [];
-      const sessions = [
+      const sessions: Array<{ name: 'Morning' | 'Midday' | 'Afternoon'; startTime: string; endTime: string }> = [
         { name: 'Morning', startTime: '08:00', endTime: '11:00' },
         { name: 'Midday', startTime: '12:00', endTime: '15:00' },
         { name: 'Afternoon', startTime: '15:30', endTime: '18:30' }
