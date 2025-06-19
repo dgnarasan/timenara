@@ -60,9 +60,9 @@ const ExamTimetableView = ({ examCourses = [], examSchedule = [], schedule, view
         "Course Code": courseCode,
         "Course Title": courseTitle,
         "Department": course.department,
-        "College": course.college,
-        "Level": course.level,
-        "Student Count": course.studentCount,
+        "College": course.college || '',
+        "Level": course.level || '',
+        "Student Count": (course.studentCount || 0),
       };
     });
 
@@ -93,9 +93,9 @@ const ExamTimetableView = ({ examCourses = [], examSchedule = [], schedule, view
         courseCode,
         courseTitle,
         course.department,
-        course.college,
-        course.level,
-        course.studentCount.toString(),
+        course.college || '',
+        course.level || '',
+        (course.studentCount || 0).toString(),
       ];
     });
 

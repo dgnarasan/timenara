@@ -43,7 +43,7 @@ const CalebExamTimetableView = ({ schedule }: CalebExamTimetableViewProps) => {
         'LEVEL': item.level || '',
         'VENUE': item.venueName || 'TBD',
         'SESSION': item.sessionName,
-        'STUDENTS': item.studentCount.toString()
+        'STUDENTS': (item.studentCount || 0).toString()
       }));
 
       const csvContent = "data:text/csv;charset=utf-8," + 
@@ -214,7 +214,7 @@ const CalebExamTimetableView = ({ schedule }: CalebExamTimetableViewProps) => {
                                 Students
                               </p>
                               <p className="text-sm font-medium text-gray-800">
-                                {exam.studentCount.toLocaleString()}
+                                {(exam.studentCount || 0).toLocaleString()}
                               </p>
                               <p className="text-xs text-gray-500">
                                 registered
@@ -256,7 +256,7 @@ const CalebExamTimetableView = ({ schedule }: CalebExamTimetableViewProps) => {
             </div>
             <div>
               <div className="text-2xl font-bold text-gray-900">
-                {schedule.reduce((sum, s) => sum + s.studentCount, 0).toLocaleString()}
+                {schedule.reduce((sum, s) => sum + (s.studentCount || 0), 0).toLocaleString()}
               </div>
               <p className="text-sm text-gray-600">Course Registrations</p>
             </div>
