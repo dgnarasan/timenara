@@ -10,94 +10,68 @@ interface CollegeLevelExamFilterProps {
   examCourses: ExamCourse[];
 }
 
-// Updated College to department mapping based on user's provided list
-const COLLEGE_DEPARTMENTS: Record<string, string[]> = {
+// College to department mapping
+const COLLEGE_DEPARTMENTS = {
   "COLLEGE OF ARTS, SOCIAL AND MANAGEMENT SCIENCES (CASMAS)": [
-    "Accounting", 
-    "Banking and Finance", 
-    "Business Administration", 
-    "Bus. Administration",
-    "Bus. Admin",
-    "Criminology", 
-    "Economics", 
-    "International Relations", 
-    "Mass Communication",
-    "Political Science", 
-    "Psychology"
+    "Accounting", "Banking and Finance", "Business Administration", "Criminology and Security Studies",
+    "Economics", "International Relations", "Mass Communication", "Peace Studies and Conflict Resolution",
+    "Political Science", "Public Administration", "Psychology", "Taxation"
   ],
   "COLLEGE OF PURE AND APPLIED SCIENCES (COPAS)": [
-    "Biochemistry", 
-    "Computer Science", 
-    "Cyber Security", 
-    "Industrial Chemistry", 
-    "Microbiology"
+    "Biochemistry", "Computer Science", "Cyber Security", "Environmental Management and Toxicology",
+    "Industrial Chemistry", "Information Systems", "Microbiology and Industrial Biotechnology", "Software Engineering"
+  ],
+  "COLLEGE OF ENVIRONMENTAL SCIENCES & MANAGEMENT (COLENSMA)": [
+    "Architecture", "Estate Management"
+  ],
+  "COLLEGE OF NURSING AND BASIC MEDICAL SCIENCES": [
+    "Maternal and Child Health Nursing", "Community and Public Health Nursing",
+    "Adult Health/Medical and Surgical Nursing", "Mental Health and Psychiatric Nursing",
+    "Nursing Management and Education", "Human Physiology", "Human Anatomy"
+  ],
+  "COLLEGE OF EDUCATION (COLED)": [
+    "Education/Christian Religious Studies", "Guidance & Counselling",
+    "Early Childhood Education", "Educational Management"
   ]
 };
 
 const getCollegeFromDepartment = (department: string): string => {
-  console.log("Checking department:", department);
-  
-  // Clean and normalize the department name
-  const cleanDepartment = department.toLowerCase().trim();
-  
   for (const [college, departments] of Object.entries(COLLEGE_DEPARTMENTS)) {
-    const match = departments.some(dept => {
-      const cleanDept = dept.toLowerCase().trim();
-      
-      // Exact match first
-      if (cleanDept === cleanDepartment) {
-        return true;
-      }
-      
-      // Check if department contains key words
-      const deptWords = cleanDepartment.split(/\s+/);
-      const mappedWords = cleanDept.split(/\s+/);
-      
-      // Check for partial matches
-      return deptWords.some(word => mappedWords.some(mapped => 
-        word.includes(mapped) || mapped.includes(word)
-      ));
-    });
-    
-    if (match) {
-      console.log(`Found match: ${department} → ${college}`);
+    if (departments.some(dept => 
+      dept.toLowerCase().includes(department.toLowerCase()) || 
+      department.toLowerCase().includes(dept.toLowerCase())
+    )) {
       return college;
     }
   }
-  
-  console.log(`No match found for department: ${department}, assigning to Other Departments`);
-  return "Other Departments";
+  return "General";
+};
+
+const getCollegeAbbreviation = (college: string): string => {
+  const abbreviations: Record<string, string> = {
+    "COLLEGE OF ARTS, SOCIAL AND MANAGEMENT SCIENCES (CASMAS)": "CASMAS",
+    "COLLEGE OF PURE AND APPLIED SCIENCES (COPAS)": "COPAS",
+    "COLLEGE OF ENVIRONMENTAL SCIENCES & MANAGEMENT (COLENSMA)": "COLENSMA",
+    "COLLEGE OF NURSING AND BASIC MEDICAL SCIENCES": "NURSING",
+    "COLLEGE OF EDUCATION (COLED)": "COLED"
+  };
+  return abbreviations[college] || "GENERAL";
 };
 
 const extractLevel = (courseCode: string): string => {
   const match = courseCode.match(/(\d)/);
-  const level = match ? `${match[1]}00` : "000";
-  console.log(`Course code ${courseCode} → Level ${level}`);
-  return level;
+  return match ? `${match[1]}00` : "000";
 };
-
-interface GroupedCourse {
-  courses: ExamCourse[];
-  college: string;
-  level: string;
-  totalStudents: number;
-}
 
 const CollegeLevelExamFilter = ({ examCourses }: CollegeLevelExamFilterProps) => {
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
-
-  useEffect(() => {
-    console.log("Exam courses received:", examCourses);
-    console.log("Number of courses:", examCourses.length);
-  }, [examCourses]);
 
   // Group courses by college and level
   const groupedCourses = examCourses.reduce((groups, course) => {
     const college = getCollegeFromDepartment(course.department);
     const level = extractLevel(course.courseCode);
-    const groupKey = `${college} – Level ${level}`;
-    
-    console.log(`Grouping course ${course.courseCode} (${course.department}) into: ${groupKey}`);
+    const collegeAbbrev = getCollegeAbbreviation(college);
+    const groupKey = `${collegeAbbrev} Level ${level}`;
     
     if (!groups[groupKey]) {
       groups[groupKey] = {
@@ -111,10 +85,7 @@ const CollegeLevelExamFilter = ({ examCourses }: CollegeLevelExamFilterProps) =>
     groups[groupKey].courses.push(course);
     groups[groupKey].totalStudents += course.studentCount;
     return groups;
-  }, {} as Record<string, GroupedCourse>);
-
-  console.log("Final grouped courses:", groupedCourses);
-  console.log("Group keys:", Object.keys(groupedCourses));
+  }, {} as Record<string, { courses: ExamCourse[], college: string, level: string, totalStudents: number }>);
 
   const toggleGroup = (groupKey: string) => {
     setExpandedGroups(prev => {
@@ -128,23 +99,16 @@ const CollegeLevelExamFilter = ({ examCourses }: CollegeLevelExamFilterProps) =>
     });
   };
 
-  // Sort groups by college name and level
+  // Sort groups by college abbreviation and level
   const sortedGroupKeys = Object.keys(groupedCourses).sort((a, b) => {
-    const [collegeA, levelPartA] = a.split(' – Level ');
-    const [collegeB, levelPartB] = b.split(' – Level ');
+    const [collegeA, levelA] = a.split(' Level ');
+    const [collegeB, levelB] = b.split(' Level ');
     
     if (collegeA !== collegeB) {
       return collegeA.localeCompare(collegeB);
     }
-    return parseInt(levelPartA) - parseInt(levelPartB);
+    return parseInt(levelA) - parseInt(levelB);
   });
-
-  // Calculate shared courses
-  const courseCodeCounts: Record<string, number> = {};
-  examCourses.forEach(course => {
-    courseCodeCounts[course.courseCode] = (courseCodeCounts[course.courseCode] || 0) + 1;
-  });
-  const sharedCoursesCount = Object.values(courseCodeCounts).filter(count => count > 1).length;
 
   if (examCourses.length === 0) {
     return (
@@ -157,37 +121,11 @@ const CollegeLevelExamFilter = ({ examCourses }: CollegeLevelExamFilterProps) =>
 
   return (
     <div className="space-y-4">
-      {/* Parsed Stats Header */}
-      <Card className="p-4 bg-gradient-to-r from-green-50 to-blue-50 border-green-200">
-        <div className="text-center space-y-2">
-          <h3 className="text-lg font-semibold text-green-800">✅ Courses Successfully Parsed</h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
-            <div className="text-center">
-              <div className="text-2xl font-bold text-green-600">{examCourses.length}</div>
-              <div className="text-sm text-green-700">📘 Courses Parsed</div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-blue-600">
-                {examCourses.reduce((sum, course) => sum + course.studentCount, 0).toLocaleString()}
-              </div>
-              <div className="text-sm text-blue-700">👨‍🎓 Students Detected</div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-purple-600">{sharedCoursesCount}</div>
-              <div className="text-sm text-purple-700">🔗 Shared Courses Detected</div>
-            </div>
-          </div>
-          <p className="text-sm text-muted-foreground mt-2">
-            Ready to proceed to generation parameters →
-          </p>
-        </div>
-      </Card>
-
       <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold">Courses Grouped by College & Level</h3>
+        <h3 className="text-lg font-semibold">Exam Courses by College & Level</h3>
         <Badge variant="secondary" className="gap-2">
           <GraduationCap className="h-4 w-4" />
-          {sortedGroupKeys.length} Groups
+          {examCourses.length} Total Courses
         </Badge>
       </div>
 
@@ -271,6 +209,32 @@ const CollegeLevelExamFilter = ({ examCourses }: CollegeLevelExamFilterProps) =>
           </Card>
         );
       })}
+
+      {/* Summary Statistics */}
+      <Card className="p-4 bg-gradient-to-r from-primary/5 to-primary/10 border-primary/20">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+          <div>
+            <div className="text-2xl font-bold text-primary">{sortedGroupKeys.length}</div>
+            <div className="text-xs text-muted-foreground">College-Level Groups</div>
+          </div>
+          <div>
+            <div className="text-2xl font-bold text-primary">{examCourses.length}</div>
+            <div className="text-xs text-muted-foreground">Total Courses</div>
+          </div>
+          <div>
+            <div className="text-2xl font-bold text-primary">
+              {Object.values(groupedCourses).reduce((sum, group) => sum + group.totalStudents, 0).toLocaleString()}
+            </div>
+            <div className="text-xs text-muted-foreground">Total Students</div>
+          </div>
+          <div>
+            <div className="text-2xl font-bold text-primary">
+              {new Set(examCourses.map(course => getCollegeFromDepartment(course.department))).size}
+            </div>
+            <div className="text-xs text-muted-foreground">Colleges</div>
+          </div>
+        </div>
+      </Card>
     </div>
   );
 };

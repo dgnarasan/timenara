@@ -1,5 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
-import { Course, ExamCourse, Room, ScheduleItem, User, ExamScheduleItem, ExamCourseForUpload, TimeSlot, UserProfile } from './types';
+import { Course, ExamCourse, Room, ScheduleItem, User, ExamScheduleItem, ExamCourseForUpload, TimeSlot } from './types';
 
 // Helper function to safely convert TimeSlot[] to Json
 const timeSlotArrayToJson = (timeSlots: TimeSlot[] | undefined): any => {
@@ -367,10 +367,10 @@ export const deleteScheduleItem = async (id: string): Promise<void> => {
 };
 
 // Function to fetch users
-export const fetchUsers = async (): Promise<UserProfile[]> => {
+export const fetchUsers = async (): Promise<User[]> => {
   const { data: users, error } = await supabase
     .from('profiles')
-    .select('id, email, role');
+    .select('*');
 
   if (error) {
     console.error('Error fetching users:', error);
@@ -380,12 +380,12 @@ export const fetchUsers = async (): Promise<UserProfile[]> => {
   return (users || []).map(user => ({
     id: user.id,
     email: user.email,
-    role: (user.role === 'admin' ? 'admin' : 'student') as 'admin' | 'student',
+    role: user.role as "student" | "admin", // Explicit type casting
   }));
 };
 
 // Function to update user role
-export const updateUserRole = async (id: string, role: 'admin' | 'student'): Promise<User | null> => {
+export const updateUserRole = async (id: string, role: string): Promise<User | null> => {
   const { data, error } = await supabase
     .from('profiles')
     .update({ role })
@@ -398,16 +398,11 @@ export const updateUserRole = async (id: string, role: 'admin' | 'student'): Pro
     throw error;
   }
 
-  if (!data) return null;
-
-  // Ensure the role is one of the expected values with proper typing
-  const validRole: 'admin' | 'student' = (data.role === 'admin') ? 'admin' : 'student';
-
-  return {
+  return data ? {
     id: data.id,
     email: data.email,
-    role: validRole,
-  };
+    role: data.role as "student" | "admin", // Explicit type casting
+  } : null;
 };
 
 // Function to fetch exam courses
@@ -653,24 +648,4 @@ export const fetchExamSchedule = async (): Promise<any[]> => {
   }
 
   return data || [];
-};
-
-// Function to fetch user
-export const fetchUser = async (userId: string): Promise<UserProfile | null> => {
-  const { data, error } = await supabase
-    .from('profiles')
-    .select('id, email, role')
-    .eq('id', userId)
-    .single();
-
-  if (error) {
-    console.error('Error fetching user:', error);
-    return null;
-  }
-
-  return data ? {
-    id: data.id,
-    email: data.email,
-    role: data.role === 'admin' || data.role === 'student' ? data.role : 'student',
-  } : null;
 };

@@ -1,30 +1,25 @@
 
 import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { fetchAdminExamSchedule, publishExamSchedule, clearExamSchedule } from "@/lib/db";
 import { useToast } from "@/hooks/use-toast";
-import { Eye, Calendar } from "lucide-react";
+import { Eye, Download, Trash2, Play, Square, Calendar } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { ExamScheduleItem } from "@/lib/types";
-import ExamScheduleSummary from "./preview/ExamScheduleSummary";
-import ExamScheduleActions from "./preview/ExamScheduleActions";
-import ExamScheduleTable from "./preview/ExamScheduleTable";
-import ExamScheduleDetailed from "./preview/ExamScheduleDetailed";
+import ExamTimetableView from "@/components/student/ExamTimetableView";
 
 const ExamSchedulePreview = () => {
-  const [viewMode, setViewMode] = useState<"simple" | "detailed">("simple");
+  const [viewMode, setViewMode] = useState<"timetable" | "list">("timetable");
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Fetch exam schedule with proper typing
-  const { data: examScheduleData, isLoading } = useQuery({
+  // Fetch exam schedule
+  const { data: examSchedule = [], isLoading } = useQuery({
     queryKey: ['admin-exam-schedule'],
     queryFn: fetchAdminExamSchedule,
   });
-
-  // Ensure examSchedule is properly typed as an array with safety checks
-  const examSchedule: ExamScheduleItem[] = Array.isArray(examScheduleData) ? examScheduleData : [];
 
   // Publish/unpublish mutation
   const publishMutation = useMutation({
@@ -80,8 +75,40 @@ const ExamSchedulePreview = () => {
     }
   };
 
-  const isPublished = examSchedule.length > 0; // Simplified check
+  const handleExportPDF = () => {
+    // Simple export functionality - in production, this would generate a proper PDF
+    const scheduleData = examSchedule.map(item => ({
+      'Course Code': item.courseCode,
+      'Course Title': item.courseTitle,
+      'Date': new Date(item.day).toLocaleDateString(),
+      'Time': `${item.startTime} - ${item.endTime}`,
+      'Session': item.sessionName,
+      'Venue': item.venueName || 'TBD',
+      'Department': item.department,
+      'Students': item.studentCount,
+    }));
 
+    const csvContent = "data:text/csv;charset=utf-8," + 
+      Object.keys(scheduleData[0] || {}).join(",") + "\n" +
+      scheduleData.map(row => Object.values(row).join(",")).join("\n");
+
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `exam_schedule_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    toast({
+      title: "Export Successful",
+      description: "Exam schedule has been exported to CSV.",
+    });
+  };
+
+  // Check if any exams are published
+  const isPublished = examSchedule.length > 0; // For this demo, we'll consider any schedule as potentially published
+  
   if (isLoading) {
     return (
       <Card>
@@ -121,45 +148,85 @@ const ExamSchedulePreview = () => {
 
   return (
     <div className="space-y-6">
-      {/* Schedule Summary Header */}
-      <ExamScheduleSummary 
-        examSchedule={examSchedule}
-        isPublished={isPublished}
-      />
-
-      {/* Action Buttons */}
+      {/* Header */}
       <Card>
-        <CardContent className="p-6">
-          <ExamScheduleActions
-            examSchedule={examSchedule}
-            isPublished={isPublished}
-            viewMode={viewMode}
-            onViewModeChange={setViewMode}
-            onPublish={handlePublish}
-            onUnpublish={handleUnpublish}
-            onClear={handleClear}
-            isPublishPending={publishMutation.isPending}
-            isClearPending={clearMutation.isPending}
-          />
+        <CardHeader>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <Eye className="h-5 w-5" />
+                Schedule Preview
+              </CardTitle>
+              <CardDescription>
+                {examSchedule.length} exams scheduled
+              </CardDescription>
+            </div>
+            
+            <div className="flex items-center gap-2">
+              <Badge variant={isPublished ? "default" : "secondary"}>
+                {isPublished ? "Published" : "Draft"}
+              </Badge>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-wrap gap-3">
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setViewMode(viewMode === "timetable" ? "list" : "timetable")}
+              >
+                <Calendar className="h-4 w-4 mr-2" />
+                {viewMode === "timetable" ? "List View" : "Timetable View"}
+              </Button>
+              
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleExportPDF}
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Export CSV
+              </Button>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={isPublished ? handleUnpublish : handlePublish}
+                disabled={publishMutation.isPending}
+              >
+                {isPublished ? (
+                  <>
+                    <Square className="h-4 w-4 mr-2" />
+                    Unpublish
+                  </>
+                ) : (
+                  <>
+                    <Play className="h-4 w-4 mr-2" />
+                    Publish
+                  </>
+                )}
+              </Button>
+              
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={handleClear}
+                disabled={clearMutation.isPending}
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Clear Schedule
+              </Button>
+            </div>
+          </div>
         </CardContent>
       </Card>
 
       {/* Schedule View */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Exam Schedule</CardTitle>
-          <CardDescription>
-            {viewMode === "simple" ? "Simplified schedule view" : "Detailed schedule with grouping"}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {viewMode === "simple" ? (
-            <ExamScheduleTable examSchedule={examSchedule} />
-          ) : (
-            <ExamScheduleDetailed examSchedule={examSchedule} />
-          )}
-        </CardContent>
-      </Card>
+      <ExamTimetableView schedule={examSchedule} viewMode={viewMode} />
     </div>
   );
 };

@@ -1,159 +1,167 @@
 
-import { useQuery } from "@tanstack/react-query";
-import { fetchExamSchedule, fetchExamCourses } from "@/lib/db";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { AlertCircle, Calendar, Clock, MapPin, BookOpen } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { useState, useEffect } from "react";
+import { ExamCourse, ExamScheduleItem } from "@/lib/types";
+import { useToast } from "@/hooks/use-toast";
+import * as XLSX from "xlsx";
+import jsPDF from "jspdf";
+import "jspdf-autotable";
+import { Calendar, FileText, Download, GraduationCap } from "lucide-react";
+import { Button } from "../ui/button";
+import { Card } from "../ui/card";
 import CollegeLevelExamFilter from "./CollegeLevelExamFilter";
+import { 
+  DropdownMenu, 
+  DropdownMenuContent, 
+  DropdownMenuItem, 
+  DropdownMenuTrigger 
+} from "../ui/dropdown-menu";
 
 interface ExamTimetableViewProps {
-  schedule?: any[];
-  viewMode?: "timetable" | "list";
+  examCourses: ExamCourse[];
+  examSchedule: ExamScheduleItem[];
 }
 
-const ExamTimetableView = ({ schedule: propSchedule, viewMode }: ExamTimetableViewProps) => {
-  // Fetch exam courses for classification
-  const { data: examCourses = [], isLoading: isLoadingCourses } = useQuery({
-    queryKey: ['exam-courses'],
-    queryFn: fetchExamCourses,
-  });
+const ExamTimetableView = ({ examCourses, examSchedule }: ExamTimetableViewProps) => {
+  const { toast } = useToast();
 
-  // Fetch published exam schedule only if not provided as prop
-  const { data: fetchedExamSchedule = [], isLoading: isLoadingSchedule } = useQuery({
-    queryKey: ['exam-schedule'],
-    queryFn: fetchExamSchedule,
-    enabled: !propSchedule, // Only fetch if schedule not provided as prop
-  });
-
-  // Use prop schedule if provided, otherwise use fetched schedule
-  const examSchedule = propSchedule || fetchedExamSchedule;
-  const isLoading = isLoadingCourses || (!propSchedule && isLoadingSchedule);
-
-  if (isLoading) {
-    return (
-      <div className="space-y-6">
-        <div className="flex items-center justify-center h-64">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-            <p className="text-muted-foreground">Loading exam information...</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // Group schedule by date for better organization
-  const scheduleByDate = examSchedule.reduce((acc, item) => {
-    const date = item.day;
-    if (!acc[date]) {
-      acc[date] = [];
+  const handleExport = (format: "pdf" | "csv") => {
+    if (examCourses.length === 0) {
+      toast({
+        title: "No Data to Export",
+        description: "No exam courses available to export.",
+        variant: "destructive",
+      });
+      return;
     }
-    acc[date].push(item);
-    return acc;
-  }, {} as Record<string, typeof examSchedule>);
 
-  const sortedDates = Object.keys(scheduleByDate).sort();
+    if (format === "csv") {
+      exportToCSV();
+    } else {
+      exportToPDF();
+    }
+  };
+
+  const exportToCSV = () => {
+    const data = examCourses.map((course) => ({
+      "Course Code": course.courseCode,
+      "Course Title": course.courseTitle,
+      "Department": course.department,
+      "College": course.college,
+      "Level": course.level,
+      "Student Count": course.studentCount,
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Exam Courses");
+    XLSX.writeFile(wb, "exam-courses.xlsx");
+
+    toast({
+      title: "Data Exported",
+      description: "Exam courses have been exported to Excel format.",
+    });
+  };
+
+  const exportToPDF = () => {
+    const doc = new jsPDF();
+    
+    const tableData = examCourses.map((course) => [
+      course.courseCode,
+      course.courseTitle,
+      course.department,
+      course.college,
+      course.level,
+      course.studentCount.toString(),
+    ]);
+
+    doc.autoTable({
+      head: [["Code", "Title", "Department", "College", "Level", "Students"]],
+      body: tableData,
+      startY: 20,
+      theme: "grid",
+      styles: { fontSize: 8, cellPadding: 1 },
+      headStyles: { fillColor: [41, 128, 185], textColor: 255 },
+    });
+
+    doc.save("exam-courses.pdf");
+
+    toast({
+      title: "Data Exported",
+      description: "Exam courses have been exported to PDF format.",
+    });
+  };
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="space-y-2">
-        <h2 className="text-2xl font-bold text-primary">Examination Timetable</h2>
-        <p className="text-muted-foreground">
-          View your examination schedule and course classifications
-        </p>
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+        <div className="space-y-2">
+          <h2 className="text-xl font-semibold flex items-center gap-2">
+            <GraduationCap className="h-6 w-6 text-primary" />
+            Exam Courses
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            View exam courses organized by college and academic level
+          </p>
+        </div>
+        
+        <div className="flex items-center gap-2 w-full sm:w-auto">
+          {/* Mobile export dropdown */}
+          <div className="sm:hidden flex-1">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="w-full">
+                  <Download className="h-4 w-4 mr-2" />
+                  Export
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="w-48">
+                <DropdownMenuItem onClick={() => handleExport("csv")}>
+                  <FileText className="h-4 w-4 mr-2" />
+                  Export as CSV
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleExport("pdf")}>
+                  <FileText className="h-4 w-4 mr-2" />
+                  Export as PDF
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+
+          {/* Desktop export buttons */}
+          <div className="hidden sm:flex items-center gap-2">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => handleExport("csv")}
+              className="shadow-sm hover:bg-secondary/80 transition-all duration-200 font-medium"
+            >
+              <FileText className="h-4 w-4 mr-2" />
+              CSV
+            </Button>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => handleExport("pdf")}
+              className="shadow-sm hover:bg-secondary/80 transition-all duration-200 font-medium"
+            >
+              <FileText className="h-4 w-4 mr-2" />
+              PDF
+            </Button>
+          </div>
+        </div>
       </div>
 
-      {/* College Level Classification */}
       <CollegeLevelExamFilter examCourses={examCourses} />
 
-      {/* Exam Schedule Section */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Calendar className="h-5 w-5" />
-            Published Exam Schedule
-          </CardTitle>
-          <CardDescription>
-            {examSchedule.length > 0 
-              ? `${examSchedule.length} examinations scheduled`
-              : "No examinations scheduled yet"
-            }
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {examSchedule.length === 0 ? (
-            <Alert>
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>
-                No examination schedule has been published yet. Please check back later.
-              </AlertDescription>
-            </Alert>
-          ) : (
-            <div className="space-y-6">
-              {sortedDates.map(date => (
-                <div key={date} className="space-y-3">
-                  <div className="flex items-center gap-2 border-b pb-2">
-                    <Calendar className="h-4 w-4 text-primary" />
-                    <h3 className="font-semibold text-lg">
-                      {new Date(date).toLocaleDateString('en-US', {
-                        weekday: 'long',
-                        year: 'numeric',
-                        month: 'long',
-                        day: 'numeric'
-                      })}
-                    </h3>
-                    <Badge variant="secondary">
-                      {scheduleByDate[date].length} exam{scheduleByDate[date].length !== 1 ? 's' : ''}
-                    </Badge>
-                  </div>
-                  
-                  <div className="grid gap-3">
-                    {scheduleByDate[date]
-                      .sort((a, b) => a.start_time.localeCompare(b.start_time))
-                      .map((exam, index) => (
-                        <Card key={index} className="border-l-4 border-l-primary">
-                          <CardContent className="p-4">
-                            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-                              <div className="space-y-2">
-                                <div className="flex items-center gap-2">
-                                  <BookOpen className="h-4 w-4 text-primary" />
-                                  <span className="font-semibold text-primary">
-                                    {exam.course_code || 'N/A'}
-                                  </span>
-                                  <Badge variant="outline" className="text-xs">
-                                    {exam.session_name}
-                                  </Badge>
-                                </div>
-                                <p className="text-sm text-muted-foreground">
-                                  {exam.course_title || 'Course Title Not Available'}
-                                </p>
-                              </div>
-                              
-                              <div className="flex flex-col sm:flex-row gap-2 text-sm">
-                                <div className="flex items-center gap-1 text-muted-foreground">
-                                  <Clock className="h-3 w-3" />
-                                  <span>{exam.start_time} - {exam.end_time}</span>
-                                </div>
-                                {exam.venue_name && (
-                                  <div className="flex items-center gap-1 text-muted-foreground">
-                                    <MapPin className="h-3 w-3" />
-                                    <span>{exam.venue_name}</span>
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      {examCourses.length === 0 && (
+        <Card className="p-8 text-center">
+          <Calendar className="h-12 w-12 mx-auto mb-4 opacity-20" />
+          <p className="text-muted-foreground">No exam courses uploaded yet.</p>
+          <p className="text-sm text-muted-foreground mt-2">
+            Upload an Excel file with exam courses to get started.
+          </p>
+        </Card>
+      )}
     </div>
   );
 };
