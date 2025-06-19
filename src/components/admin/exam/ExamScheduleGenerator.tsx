@@ -9,7 +9,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { fetchExamCourses, saveExamSchedule } from "@/lib/db";
 import { useToast } from "@/hooks/use-toast";
-import { Settings, Play, Calendar, Clock, AlertCircle, CheckCircle } from "lucide-react";
+import { Settings, Play, Calendar, Clock, AlertCircle, CheckCircle, Loader2 } from "lucide-react";
 import { ExamScheduleItem } from "@/lib/types";
 
 interface ExamScheduleGeneratorProps {
@@ -22,10 +22,12 @@ const ExamScheduleGenerator = ({ onScheduleGenerated }: ExamScheduleGeneratorPro
     endDate: "",
     sessionDuration: "3", // hours
     breakBetweenSessions: "1", // hours
-    maxExamsPerDay: "3",
+    maxExamsPerDay: "2", // Max 2 exams per student per day
     preferredStartTime: "08:00",
+    preferredEndTime: "17:00",
   });
   const [isGenerating, setIsGenerating] = useState(false);
+  const [generationProgress, setGenerationProgress] = useState(0);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -41,8 +43,8 @@ const ExamScheduleGenerator = ({ onScheduleGenerated }: ExamScheduleGeneratorPro
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-exam-schedule'] });
       toast({
-        title: "Schedule Generated",
-        description: "Exam schedule has been generated successfully.",
+        title: "Schedule Generated Successfully",
+        description: "Exam schedule has been generated and saved.",
       });
       onScheduleGenerated();
     },
@@ -59,7 +61,7 @@ const ExamScheduleGenerator = ({ onScheduleGenerated }: ExamScheduleGeneratorPro
   const generateSchedule = async () => {
     if (!config.startDate || !config.endDate) {
       toast({
-        title: "Invalid Configuration",
+        title: "Missing Configuration",
         description: "Please select both start and end dates.",
         variant: "destructive",
       });
@@ -68,36 +70,78 @@ const ExamScheduleGenerator = ({ onScheduleGenerated }: ExamScheduleGeneratorPro
 
     if (examCourses.length === 0) {
       toast({
-        title: "No Courses",
+        title: "No Courses Available",
         description: "Please upload exam courses before generating schedule.",
         variant: "destructive",
       });
       return;
     }
 
+    const startDate = new Date(config.startDate);
+    const endDate = new Date(config.endDate);
+    
+    if (startDate >= endDate) {
+      toast({
+        title: "Invalid Date Range",
+        description: "End date must be after start date.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsGenerating(true);
+    setGenerationProgress(0);
 
     try {
-      // Simple scheduling algorithm
+      // Progress simulation
+      const progressInterval = setInterval(() => {
+        setGenerationProgress(prev => Math.min(prev + 10, 90));
+      }, 500);
+
+      // Enhanced scheduling algorithm with shared course handling
       const schedule: ExamScheduleItem[] = [];
-      const sessions = ['Morning', 'Midday', 'Afternoon'] as const;
-      const startDate = new Date(config.startDate);
-      const endDate = new Date(config.endDate);
+      const sessions = ['Morning', 'Midday'] as const; // Max 2 sessions per day
+      const processedCourses: Set<string> = new Set();
       
       let currentDate = new Date(startDate);
       let courseIndex = 0;
       
-      while (currentDate <= endDate && courseIndex < examCourses.length) {
-        // Skip weekends for now
+      // Group courses by course code to handle shared courses
+      const courseGroups: Record<string, typeof examCourses> = {};
+      examCourses.forEach(course => {
+        if (!courseGroups[course.courseCode]) {
+          courseGroups[course.courseCode] = [];
+        }
+        courseGroups[course.courseCode].push(course);
+      });
+
+      const uniqueCourses = Object.keys(courseGroups);
+      console.log(`Processing ${uniqueCourses.length} unique courses from ${examCourses.length} total courses`);
+      
+      while (currentDate <= endDate && courseIndex < uniqueCourses.length) {
+        // Skip weekends
         if (currentDate.getDay() === 0 || currentDate.getDay() === 6) {
           currentDate.setDate(currentDate.getDate() + 1);
           continue;
         }
 
         for (let sessionIndex = 0; sessionIndex < Math.min(parseInt(config.maxExamsPerDay), sessions.length); sessionIndex++) {
-          if (courseIndex >= examCourses.length) break;
+          if (courseIndex >= uniqueCourses.length) break;
 
-          const course = examCourses[courseIndex];
+          const courseCode = uniqueCourses[courseIndex];
+          const courseGroup = courseGroups[courseCode];
+          
+          // Skip if already processed
+          if (processedCourses.has(courseCode)) {
+            courseIndex++;
+            continue;
+          }
+
+          // Use the course with highest student count for scheduling
+          const representativeCourse = courseGroup.reduce((max, course) => 
+            course.studentCount > max.studentCount ? course : max
+          );
+          
           const session = sessions[sessionIndex];
           
           // Calculate session times
@@ -116,36 +160,52 @@ const ExamScheduleGenerator = ({ onScheduleGenerated }: ExamScheduleGeneratorPro
               const middayStart = new Date(morningStart.getTime() + (sessionDuration + breakTime) * 60 * 60 * 1000);
               startTime = middayStart.toTimeString().slice(0, 5);
               break;
-            case 'Afternoon':
-              const morningStartTime = new Date(`2000-01-01T${config.preferredStartTime}`);
-              const afternoonStart = new Date(morningStartTime.getTime() + 2 * (sessionDuration + breakTime) * 60 * 60 * 1000);
-              startTime = afternoonStart.toTimeString().slice(0, 5);
-              break;
           }
           
           const startDateTime = new Date(`2000-01-01T${startTime}`);
           const endDateTime = new Date(startDateTime.getTime() + sessionDuration * 60 * 60 * 1000);
           endTime = endDateTime.toTimeString().slice(0, 5);
 
+          // Calculate total students for this course (sum all departments)
+          const totalStudents = courseGroup.reduce((sum, course) => sum + course.studentCount, 0);
+
+          // Select appropriate venue based on student count
+          let venueName = "Exam Hall 1";
+          if (totalStudents > 500) {
+            venueName = "Mascom Auditorium";
+          } else if (totalStudents > 300) {
+            venueName = "Cafeteria";
+          } else if (totalStudents > 150) {
+            venueName = `Exam Hall ${Math.floor(courseIndex / 5) + 1}`;
+          }
+
           schedule.push({
-            ...course,
+            ...representativeCourse,
+            studentCount: totalStudents, // Use combined student count
             day: currentDate.toISOString().split('T')[0],
             startTime,
             endTime,
             sessionName: session,
-            venueName: `Exam Hall ${Math.floor(courseIndex / 10) + 1}`, // Simple venue assignment
+            venueName,
           });
 
+          processedCourses.add(courseCode);
           courseIndex++;
         }
 
         currentDate.setDate(currentDate.getDate() + 1);
       }
 
-      if (courseIndex < examCourses.length) {
+      clearInterval(progressInterval);
+      setGenerationProgress(100);
+
+      console.log(`Generated schedule for ${schedule.length} out of ${uniqueCourses.length} unique courses`);
+
+      if (schedule.length < uniqueCourses.length) {
+        const missedCount = uniqueCourses.length - schedule.length;
         toast({
-          title: "Incomplete Schedule",
-          description: `Only ${courseIndex} out of ${examCourses.length} courses could be scheduled. Consider extending the date range.`,
+          title: "Partial Schedule Generated",
+          description: `${schedule.length}/${uniqueCourses.length} courses scheduled. ${missedCount} courses need extended date range.`,
           variant: "destructive",
         });
       }
@@ -155,22 +215,31 @@ const ExamScheduleGenerator = ({ onScheduleGenerated }: ExamScheduleGeneratorPro
       console.error("Schedule generation error:", error);
       toast({
         title: "Generation Error",
-        description: "An error occurred while generating the schedule.",
+        description: error instanceof Error ? error.message : "An error occurred while generating the schedule.",
         variant: "destructive",
       });
     } finally {
       setIsGenerating(false);
+      setGenerationProgress(0);
     }
   };
 
-  const isConfigValid = config.startDate && config.endDate && config.startDate <= config.endDate;
+  const isConfigValid = config.startDate && config.endDate && config.startDate < config.endDate;
+
+  // Calculate shared courses
+  const courseCodeCounts: Record<string, number> = {};
+  examCourses.forEach(course => {
+    courseCodeCounts[course.courseCode] = (courseCodeCounts[course.courseCode] || 0) + 1;
+  });
+  const sharedCoursesCount = Object.values(courseCodeCounts).filter(count => count > 1).length;
+  const uniqueCoursesCount = Object.keys(courseCodeCounts).length;
 
   if (isLoading) {
     return (
       <Card>
         <CardContent className="flex items-center justify-center h-64">
           <div className="text-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+            <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
             <p className="text-muted-foreground">Loading configuration...</p>
           </div>
         </CardContent>
@@ -184,40 +253,97 @@ const ExamScheduleGenerator = ({ onScheduleGenerated }: ExamScheduleGeneratorPro
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Settings className="h-5 w-5" />
-            Schedule Configuration
+            Generation Parameters
           </CardTitle>
           <CardDescription>
-            Configure the parameters for exam schedule generation
+            Configure exam schedule parameters for {uniqueCoursesCount} unique courses
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          {/* Date Range */}
+          {/* Course Statistics */}
+          <div className="bg-blue-50 p-4 rounded-lg">
+            <h4 className="font-medium mb-2">Course Analysis</h4>
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div>
+                <span className="font-medium">{examCourses.length}</span> Total Courses
+              </div>
+              <div>
+                <span className="font-medium">{uniqueCoursesCount}</span> Unique Courses
+              </div>
+              <div>
+                <span className="font-medium">{sharedCoursesCount}</span> Shared Courses
+              </div>
+              <div>
+                <span className="font-medium">{examCourses.reduce((sum, c) => sum + c.studentCount, 0).toLocaleString()}</span> Total Students
+              </div>
+            </div>
+          </div>
+
+          {/* Date Range - Fixed Calendar Input */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="start-date">Start Date</Label>
+              <Label htmlFor="start-date" className="flex items-center gap-2">
+                <Calendar className="h-4 w-4" />
+                Exam Start Date
+              </Label>
               <Input
                 id="start-date"
                 type="date"
                 value={config.startDate}
                 onChange={(e) => setConfig(prev => ({ ...prev, startDate: e.target.value }))}
+                className="cursor-pointer"
+                onFocus={(e) => e.target.showPicker?.()}
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="end-date">End Date</Label>
+              <Label htmlFor="end-date" className="flex items-center gap-2">
+                <Calendar className="h-4 w-4" />
+                Exam End Date
+              </Label>
               <Input
                 id="end-date"
                 type="date"
                 value={config.endDate}
                 onChange={(e) => setConfig(prev => ({ ...prev, endDate: e.target.value }))}
                 min={config.startDate}
+                className="cursor-pointer"
+                onFocus={(e) => e.target.showPicker?.()}
+              />
+            </div>
+          </div>
+
+          {/* Time Configuration */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="start-time" className="flex items-center gap-2">
+                <Clock className="h-4 w-4" />
+                Daily Start Time
+              </Label>
+              <Input
+                id="start-time"
+                type="time"
+                value={config.preferredStartTime}
+                onChange={(e) => setConfig(prev => ({ ...prev, preferredStartTime: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="end-time" className="flex items-center gap-2">
+                <Clock className="h-4 w-4" />
+                Daily End Time
+              </Label>
+              <Input
+                id="end-time"
+                type="time"
+                value={config.preferredEndTime}
+                onChange={(e) => setConfig(prev => ({ ...prev, preferredEndTime: e.target.value }))}
               />
             </div>
           </div>
 
           {/* Session Configuration */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="session-duration">Session Duration (hours)</Label>
+              <Label htmlFor="session-duration">Exam Duration (hours)</Label>
               <Select
                 value={config.sessionDuration}
                 onValueChange={(value) => setConfig(prev => ({ ...prev, sessionDuration: value }))}
@@ -234,7 +360,7 @@ const ExamScheduleGenerator = ({ onScheduleGenerated }: ExamScheduleGeneratorPro
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="break-time">Break Between Sessions (hours)</Label>
+              <Label htmlFor="break-time">Break Between Exams (hours)</Label>
               <Select
                 value={config.breakBetweenSessions}
                 onValueChange={(value) => setConfig(prev => ({ ...prev, breakBetweenSessions: value }))}
@@ -252,7 +378,7 @@ const ExamScheduleGenerator = ({ onScheduleGenerated }: ExamScheduleGeneratorPro
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="max-exams">Max Exams Per Day</Label>
+              <Label htmlFor="max-exams">Max Exams Per Student/Day</Label>
               <Select
                 value={config.maxExamsPerDay}
                 onValueChange={(value) => setConfig(prev => ({ ...prev, maxExamsPerDay: value }))}
@@ -262,23 +388,9 @@ const ExamScheduleGenerator = ({ onScheduleGenerated }: ExamScheduleGeneratorPro
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="1">1 exam</SelectItem>
-                  <SelectItem value="2">2 exams</SelectItem>
-                  <SelectItem value="3">3 exams</SelectItem>
+                  <SelectItem value="2">2 exams (recommended)</SelectItem>
                 </SelectContent>
               </Select>
-            </div>
-          </div>
-
-          {/* Start Time */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="start-time">Preferred Start Time</Label>
-              <Input
-                id="start-time"
-                type="time"
-                value={config.preferredStartTime}
-                onChange={(e) => setConfig(prev => ({ ...prev, preferredStartTime: e.target.value }))}
-              />
             </div>
           </div>
 
@@ -296,7 +408,7 @@ const ExamScheduleGenerator = ({ onScheduleGenerated }: ExamScheduleGeneratorPro
             <Alert variant="destructive">
               <AlertCircle className="h-4 w-4" />
               <AlertDescription>
-                Please ensure start date is before or equal to end date.
+                Please ensure start date is before end date and both dates are selected.
               </AlertDescription>
             </Alert>
           )}
@@ -305,9 +417,25 @@ const ExamScheduleGenerator = ({ onScheduleGenerated }: ExamScheduleGeneratorPro
             <Alert>
               <CheckCircle className="h-4 w-4" />
               <AlertDescription>
-                Ready to generate schedule for {examCourses.length} exam courses.
+                Ready to generate schedule for {uniqueCoursesCount} unique courses ({examCourses.length} total entries).
               </AlertDescription>
             </Alert>
+          )}
+
+          {/* Progress Bar */}
+          {isGenerating && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-sm">
+                <span>Generating schedule...</span>
+                <span>{generationProgress}%</span>
+              </div>
+              <div className="h-2 bg-secondary rounded-full overflow-hidden">
+                <div 
+                  className="h-full bg-primary transition-all duration-300"
+                  style={{ width: `${generationProgress}%` }}
+                />
+              </div>
+            </div>
           )}
 
           {/* Generate Button */}
@@ -316,10 +444,11 @@ const ExamScheduleGenerator = ({ onScheduleGenerated }: ExamScheduleGeneratorPro
               onClick={generateSchedule}
               disabled={!isConfigValid || examCourses.length === 0 || isGenerating}
               size="lg"
+              className="min-w-[160px]"
             >
               {isGenerating ? (
                 <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2"></div>
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
                   Generating...
                 </>
               ) : (

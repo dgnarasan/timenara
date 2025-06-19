@@ -44,77 +44,19 @@ const getCollegeFromDepartment = (department: string): string => {
     const match = departments.some(dept => {
       const cleanDept = dept.toLowerCase().trim();
       
-      // Exact match
+      // Exact match first
       if (cleanDept === cleanDepartment) {
         return true;
       }
       
-      // Partial matches for common abbreviations
-      if (cleanDepartment.includes('accounting') && cleanDept.includes('accounting')) {
-        return true;
-      }
+      // Check if department contains key words
+      const deptWords = cleanDepartment.split(/\s+/);
+      const mappedWords = cleanDept.split(/\s+/);
       
-      if (cleanDepartment.includes('business') && cleanDept.includes('business')) {
-        return true;
-      }
-      
-      if (cleanDepartment.includes('bus.') && cleanDept.includes('business')) {
-        return true;
-      }
-      
-      if (cleanDepartment.includes('computer') && cleanDept.includes('computer')) {
-        return true;
-      }
-      
-      if (cleanDepartment.includes('chemistry') && cleanDept.includes('chemistry')) {
-        return true;
-      }
-      
-      if (cleanDepartment.includes('biochemistry') && cleanDept.includes('biochemistry')) {
-        return true;
-      }
-      
-      if (cleanDepartment.includes('microbiology') && cleanDept.includes('microbiology')) {
-        return true;
-      }
-      
-      if (cleanDepartment.includes('cyber') && cleanDept.includes('cyber')) {
-        return true;
-      }
-      
-      if (cleanDepartment.includes('economics') && cleanDept.includes('economics')) {
-        return true;
-      }
-      
-      if (cleanDepartment.includes('psychology') && cleanDept.includes('psychology')) {
-        return true;
-      }
-      
-      if (cleanDepartment.includes('political') && cleanDept.includes('political')) {
-        return true;
-      }
-      
-      if (cleanDepartment.includes('mass communication') && cleanDept.includes('mass communication')) {
-        return true;
-      }
-      
-      if (cleanDepartment.includes('banking') && cleanDept.includes('banking')) {
-        return true;
-      }
-      
-      if (cleanDepartment.includes('finance') && cleanDept.includes('finance')) {
-        return true;
-      }
-      
-      if (cleanDepartment.includes('criminology') && cleanDept.includes('criminology')) {
-        return true;
-      }
-      
-      if (cleanDepartment.includes('international') && cleanDept.includes('international')) {
-        return true;
-      }
-      
-      return false;
+      // Check for partial matches
+      return deptWords.some(word => mappedWords.some(mapped => 
+        word.includes(mapped) || mapped.includes(word)
+      ));
     });
     
     if (match) {
@@ -197,6 +139,13 @@ const CollegeLevelExamFilter = ({ examCourses }: CollegeLevelExamFilterProps) =>
     return parseInt(levelPartA) - parseInt(levelPartB);
   });
 
+  // Calculate shared courses
+  const courseCodeCounts: Record<string, number> = {};
+  examCourses.forEach(course => {
+    courseCodeCounts[course.courseCode] = (courseCodeCounts[course.courseCode] || 0) + 1;
+  });
+  const sharedCoursesCount = Object.values(courseCodeCounts).filter(count => count > 1).length;
+
   if (examCourses.length === 0) {
     return (
       <div className="text-center py-8 text-muted-foreground">
@@ -208,11 +157,37 @@ const CollegeLevelExamFilter = ({ examCourses }: CollegeLevelExamFilterProps) =>
 
   return (
     <div className="space-y-4">
+      {/* Parsed Stats Header */}
+      <Card className="p-4 bg-gradient-to-r from-green-50 to-blue-50 border-green-200">
+        <div className="text-center space-y-2">
+          <h3 className="text-lg font-semibold text-green-800">✅ Courses Successfully Parsed</h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+            <div className="text-center">
+              <div className="text-2xl font-bold text-green-600">{examCourses.length}</div>
+              <div className="text-sm text-green-700">📘 Courses Parsed</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-blue-600">
+                {examCourses.reduce((sum, course) => sum + course.studentCount, 0).toLocaleString()}
+              </div>
+              <div className="text-sm text-blue-700">👨‍🎓 Students Detected</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-purple-600">{sharedCoursesCount}</div>
+              <div className="text-sm text-purple-700">🔗 Shared Courses Detected</div>
+            </div>
+          </div>
+          <p className="text-sm text-muted-foreground mt-2">
+            Ready to proceed to generation parameters →
+          </p>
+        </div>
+      </Card>
+
       <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold">Exam Courses by College & Level</h3>
+        <h3 className="text-lg font-semibold">Courses Grouped by College & Level</h3>
         <Badge variant="secondary" className="gap-2">
           <GraduationCap className="h-4 w-4" />
-          {examCourses.length} Total Courses
+          {sortedGroupKeys.length} Groups
         </Badge>
       </div>
 
@@ -296,32 +271,6 @@ const CollegeLevelExamFilter = ({ examCourses }: CollegeLevelExamFilterProps) =>
           </Card>
         );
       })}
-
-      {/* Summary Statistics */}
-      <Card className="p-4 bg-gradient-to-r from-primary/5 to-primary/10 border-primary/20">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
-          <div>
-            <div className="text-2xl font-bold text-primary">{sortedGroupKeys.length}</div>
-            <div className="text-xs text-muted-foreground">College-Level Groups</div>
-          </div>
-          <div>
-            <div className="text-2xl font-bold text-primary">{examCourses.length}</div>
-            <div className="text-xs text-muted-foreground">Total Courses</div>
-          </div>
-          <div>
-            <div className="text-2xl font-bold text-primary">
-              {Object.values(groupedCourses).reduce((sum, group) => sum + group.totalStudents, 0).toLocaleString()}
-            </div>
-            <div className="text-xs text-muted-foreground">Total Students</div>
-          </div>
-          <div>
-            <div className="text-2xl font-bold text-primary">
-              {new Set(examCourses.map(course => getCollegeFromDepartment(course.department))).size}
-            </div>
-            <div className="text-xs text-muted-foreground">Colleges</div>
-          </div>
-        </div>
-      </Card>
     </div>
   );
 };
