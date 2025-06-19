@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -80,7 +79,7 @@ const ExamScheduleGenerator = ({ onScheduleGenerated }: ExamScheduleGeneratorPro
   ];
 
   // Multi-venue splitting logic
-  const splitCourseAcrossVenues = (course: any, availableVenuesForSlot: any[], session: any, dayKey: string) => {
+  const splitCourseAcrossVenues = (course: ExamCourse, availableVenuesForSlot: any[], session: any, dayKey: string) => {
     const scheduleItems: ExamScheduleItem[] = [];
     let remainingStudents = course.studentCount;
     let venueIndex = 0;
@@ -92,7 +91,7 @@ const ExamScheduleGenerator = ({ onScheduleGenerated }: ExamScheduleGeneratorPro
       
       const studentsInThisVenue = Math.min(remainingStudents, venue.capacity);
       
-      // Create a schedule item for this venue - use the original course ID
+      // Create a schedule item for this venue - include all required properties from ExamCourse
       const scheduleItem: ExamScheduleItem = {
         id: course.id, // Use the original exam course ID from the database
         courseCode: course.courseCode,
@@ -101,6 +100,8 @@ const ExamScheduleGenerator = ({ onScheduleGenerated }: ExamScheduleGeneratorPro
         college: course.college || '',
         level: course.level || '',
         studentCount: studentsInThisVenue, // Students assigned to this venue
+        createdAt: course.createdAt, // Include required createdAt property
+        updatedAt: course.updatedAt, // Include required updatedAt property
         day: dayKey,
         startTime: session.startTime,
         endTime: session.endTime,
