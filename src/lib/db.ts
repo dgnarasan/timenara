@@ -380,12 +380,12 @@ export const fetchUsers = async (): Promise<User[]> => {
   return (users || []).map(user => ({
     id: user.id,
     email: user.email,
-    role: user.role as "student" | "admin", // Explicit type casting
+    role: user.role as "student" | "admin",
   }));
 };
 
 // Function to update user role
-export const updateUserRole = async (id: string, role: string): Promise<User | null> => {
+export const updateUserRole = async (id: string, role: "student" | "admin"): Promise<User | null> => {
   const { data, error } = await supabase
     .from('profiles')
     .update({ role })
@@ -401,7 +401,7 @@ export const updateUserRole = async (id: string, role: string): Promise<User | n
   return data ? {
     id: data.id,
     email: data.email,
-    role: data.role as "student" | "admin", // Explicit type casting
+    role: data.role as "student" | "admin",
   } : null;
 };
 

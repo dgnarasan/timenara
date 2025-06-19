@@ -17,13 +17,13 @@ import {
 } from "../ui/dropdown-menu";
 
 interface ExamTimetableViewProps {
-  examCourses: ExamCourse[];
-  examSchedule: ExamScheduleItem[];
+  examCourses?: ExamCourse[];
+  examSchedule?: ExamScheduleItem[];
   schedule?: ExamScheduleItem[];
   viewMode?: "timetable" | "list";
 }
 
-const ExamTimetableView = ({ examCourses, examSchedule, schedule, viewMode = "timetable" }: ExamTimetableViewProps) => {
+const ExamTimetableView = ({ examCourses = [], examSchedule = [], schedule, viewMode = "timetable" }: ExamTimetableViewProps) => {
   const { toast } = useToast();
 
   // Use schedule prop if provided, otherwise use examCourses
@@ -47,14 +47,20 @@ const ExamTimetableView = ({ examCourses, examSchedule, schedule, viewMode = "ti
   };
 
   const exportToCSV = () => {
-    const data = displayData.map((course) => ({
-      "Course Code": 'courseCode' in course ? course.courseCode : course.courseCode,
-      "Course Title": 'courseTitle' in course ? course.courseTitle : course.courseTitle,
-      "Department": course.department,
-      "College": course.college,
-      "Level": course.level,
-      "Student Count": course.studentCount,
-    }));
+    const data = displayData.map((course) => {
+      // Handle both ExamCourse and ExamScheduleItem types
+      const courseCode = 'courseCode' in course ? course.courseCode : course.courseCode;
+      const courseTitle = 'courseTitle' in course ? course.courseTitle : course.courseTitle;
+      
+      return {
+        "Course Code": courseCode,
+        "Course Title": courseTitle,
+        "Department": course.department,
+        "College": course.college,
+        "Level": course.level,
+        "Student Count": course.studentCount,
+      };
+    });
 
     const ws = XLSX.utils.json_to_sheet(data);
     const wb = XLSX.utils.book_new();
@@ -70,14 +76,20 @@ const ExamTimetableView = ({ examCourses, examSchedule, schedule, viewMode = "ti
   const exportToPDF = () => {
     const doc = new jsPDF();
     
-    const tableData = displayData.map((course) => [
-      'courseCode' in course ? course.courseCode : course.courseCode,
-      'courseTitle' in course ? course.courseTitle : course.courseTitle,
-      course.department,
-      course.college,
-      course.level,
-      course.studentCount.toString(),
-    ]);
+    const tableData = displayData.map((course) => {
+      // Handle both ExamCourse and ExamScheduleItem types
+      const courseCode = 'courseCode' in course ? course.courseCode : course.courseCode;
+      const courseTitle = 'courseTitle' in course ? course.courseTitle : course.courseTitle;
+      
+      return [
+        courseCode,
+        courseTitle,
+        course.department,
+        course.college,
+        course.level,
+        course.studentCount.toString(),
+      ];
+    });
 
     doc.autoTable({
       head: [["Code", "Title", "Department", "College", "Level", "Students"]],
