@@ -26,11 +26,11 @@ interface ExamTimetableViewProps {
 const ExamTimetableView = ({ examCourses = [], examSchedule = [], schedule, viewMode = "timetable" }: ExamTimetableViewProps) => {
   const { toast } = useToast();
 
-  // Use schedule prop if provided, otherwise use examCourses
-  const displayData: (ExamCourse | ExamScheduleItem)[] = schedule || examCourses;
+  // Use schedule prop if provided, otherwise use examCourses - ensure we always have an array
+  const displayData: (ExamCourse | ExamScheduleItem)[] = schedule || examCourses || [];
 
   const handleExport = (format: "pdf" | "csv") => {
-    if (displayData.length === 0) {
+    if (!displayData || displayData.length === 0) {
       toast({
         title: "No Data to Export",
         description: "No exam courses available to export.",
@@ -47,6 +47,10 @@ const ExamTimetableView = ({ examCourses = [], examSchedule = [], schedule, view
   };
 
   const exportToCSV = () => {
+    if (!displayData || displayData.length === 0) {
+      return;
+    }
+
     const data = displayData.map((course) => {
       // Type guard to check if it's an ExamCourse or ExamScheduleItem
       const courseCode = course.courseCode;
@@ -74,6 +78,10 @@ const ExamTimetableView = ({ examCourses = [], examSchedule = [], schedule, view
   };
 
   const exportToPDF = () => {
+    if (!displayData || displayData.length === 0) {
+      return;
+    }
+
     const doc = new jsPDF();
     
     const tableData = displayData.map((course) => {
@@ -170,7 +178,7 @@ const ExamTimetableView = ({ examCourses = [], examSchedule = [], schedule, view
 
       <CollegeLevelExamFilter examCourses={examCourses} />
 
-      {displayData.length === 0 && (
+      {(!displayData || displayData.length === 0) && (
         <Card className="p-8 text-center">
           <Calendar className="h-12 w-12 mx-auto mb-4 opacity-20" />
           <p className="text-muted-foreground">No exam courses uploaded yet.</p>
