@@ -22,7 +22,7 @@ const ExamScheduleGenerator = ({ onScheduleGenerated }: ExamScheduleGeneratorPro
     endDate: "",
     sessionDuration: "3", // hours
     breakBetweenSessions: "1", // hours
-    maxExamsPerDay: "3",
+    maxExamsPerDay: "4",
     preferredStartTime: "08:00",
   });
   const [isGenerating, setIsGenerating] = useState(false);
@@ -78,54 +78,62 @@ const ExamScheduleGenerator = ({ onScheduleGenerated }: ExamScheduleGeneratorPro
     setIsGenerating(true);
 
     try {
-      // Simple scheduling algorithm
+      console.log("Starting schedule generation for", examCourses.length, "courses");
+      
+      // Enhanced scheduling algorithm
       const schedule: ExamScheduleItem[] = [];
-      const sessions = ['Morning', 'Midday', 'Afternoon'] as const;
+      const sessions = ['Morning', 'Midday', 'Afternoon', 'Evening'] as const;
       const startDate = new Date(config.startDate);
       const endDate = new Date(config.endDate);
       
-      let currentDate = new Date(startDate);
-      let courseIndex = 0;
+      const sessionDuration = parseInt(config.sessionDuration);
+      const breakTime = parseInt(config.breakBetweenSessions);
+      const maxExamsPerDay = parseInt(config.maxExamsPerDay);
       
-      while (currentDate <= endDate && courseIndex < examCourses.length) {
-        // Skip weekends for now
-        if (currentDate.getDay() === 0 || currentDate.getDay() === 6) {
-          currentDate.setDate(currentDate.getDate() + 1);
-          continue;
-        }
+      // Calculate session times
+      const getSessionTime = (sessionIndex: number) => {
+        const baseHour = parseInt(config.preferredStartTime.split(':')[0]);
+        const startHour = baseHour + (sessionIndex * (sessionDuration + breakTime));
+        const endHour = startHour + sessionDuration;
+        
+        return {
+          startTime: `${startHour.toString().padStart(2, '0')}:00`,
+          endTime: `${endHour.toString().padStart(2, '0')}:00`
+        };
+      };
 
-        for (let sessionIndex = 0; sessionIndex < Math.min(parseInt(config.maxExamsPerDay), sessions.length); sessionIndex++) {
-          if (courseIndex >= examCourses.length) break;
+      let courseIndex = 0;
+      let currentDate = new Date(startDate);
+      
+      // Sort courses by student count (larger classes first for better venue allocation)
+      const sortedCourses = [...examCourses].sort((a, b) => b.studentCount - a.studentCount);
+      
+      while (currentDate <= endDate && courseIndex < sortedCourses.length) {
+        // Include weekends if needed to accommodate all courses
+        const dayName = currentDate.toLocaleDateString('en-US', { weekday: 'long' });
+        
+        // Determine how many sessions to use this day
+        const remainingCourses = sortedCourses.length - courseIndex;
+        const sessionsToday = Math.min(maxExamsPerDay, remainingCourses, sessions.length);
+        
+        for (let sessionIndex = 0; sessionIndex < sessionsToday; sessionIndex++) {
+          if (courseIndex >= sortedCourses.length) break;
 
-          const course = examCourses[courseIndex];
+          const course = sortedCourses[courseIndex];
           const session = sessions[sessionIndex];
+          const { startTime, endTime } = getSessionTime(sessionIndex);
           
-          // Calculate session times
-          let startTime: string;
-          let endTime: string;
-          
-          const sessionDuration = parseInt(config.sessionDuration);
-          const breakTime = parseInt(config.breakBetweenSessions);
-          
-          switch (session) {
-            case 'Morning':
-              startTime = config.preferredStartTime;
-              break;
-            case 'Midday':
-              const morningStart = new Date(`2000-01-01T${config.preferredStartTime}`);
-              const middayStart = new Date(morningStart.getTime() + (sessionDuration + breakTime) * 60 * 60 * 1000);
-              startTime = middayStart.toTimeString().slice(0, 5);
-              break;
-            case 'Afternoon':
-              const morningStartTime = new Date(`2000-01-01T${config.preferredStartTime}`);
-              const afternoonStart = new Date(morningStartTime.getTime() + 2 * (sessionDuration + breakTime) * 60 * 60 * 1000);
-              startTime = afternoonStart.toTimeString().slice(0, 5);
-              break;
+          // Smart venue assignment based on student count
+          let venueName: string;
+          if (course.studentCount > 200) {
+            venueName = `Main Examination Hall ${Math.floor(courseIndex / 50) + 1}`;
+          } else if (course.studentCount > 100) {
+            venueName = `Large Hall ${Math.floor(courseIndex / 30) + 1}`;
+          } else if (course.studentCount > 50) {
+            venueName = `Medium Hall ${Math.floor(courseIndex / 20) + 1}`;
+          } else {
+            venueName = `Small Hall ${Math.floor(courseIndex / 10) + 1}`;
           }
-          
-          const startDateTime = new Date(`2000-01-01T${startTime}`);
-          const endDateTime = new Date(startDateTime.getTime() + sessionDuration * 60 * 60 * 1000);
-          endTime = endDateTime.toTimeString().slice(0, 5);
 
           schedule.push({
             ...course,
@@ -133,7 +141,7 @@ const ExamScheduleGenerator = ({ onScheduleGenerated }: ExamScheduleGeneratorPro
             startTime,
             endTime,
             sessionName: session,
-            venueName: `Exam Hall ${Math.floor(courseIndex / 10) + 1}`, // Simple venue assignment
+            venueName,
           });
 
           courseIndex++;
@@ -142,15 +150,20 @@ const ExamScheduleGenerator = ({ onScheduleGenerated }: ExamScheduleGeneratorPro
         currentDate.setDate(currentDate.getDate() + 1);
       }
 
-      if (courseIndex < examCourses.length) {
+      console.log(`Successfully scheduled ${courseIndex} out of ${sortedCourses.length} courses`);
+
+      if (courseIndex < sortedCourses.length) {
+        const scheduledPercentage = Math.round((courseIndex / sortedCourses.length) * 100);
         toast({
-          title: "Incomplete Schedule",
-          description: `Only ${courseIndex} out of ${examCourses.length} courses could be scheduled. Consider extending the date range.`,
+          title: "Partial Schedule Generated",
+          description: `Scheduled ${courseIndex} out of ${sortedCourses.length} courses (${scheduledPercentage}%). Consider extending the date range or increasing max exams per day.`,
           variant: "destructive",
         });
       }
 
+      // Save the schedule even if it's partial
       await saveScheduleMutation.mutateAsync(schedule);
+      
     } catch (error) {
       console.error("Schedule generation error:", error);
       toast({
@@ -163,7 +176,17 @@ const ExamScheduleGenerator = ({ onScheduleGenerated }: ExamScheduleGeneratorPro
     }
   };
 
+  const calculateEstimatedDays = () => {
+    if (examCourses.length === 0) return 0;
+    const maxExamsPerDay = parseInt(config.maxExamsPerDay);
+    return Math.ceil(examCourses.length / maxExamsPerDay);
+  };
+
   const isConfigValid = config.startDate && config.endDate && config.startDate <= config.endDate;
+  const estimatedDays = calculateEstimatedDays();
+  const selectedDateRange = config.startDate && config.endDate 
+    ? Math.ceil((new Date(config.endDate).getTime() - new Date(config.startDate).getTime()) / (1000 * 60 * 60 * 24)) + 1
+    : 0;
 
   if (isLoading) {
     return (
@@ -261,9 +284,11 @@ const ExamScheduleGenerator = ({ onScheduleGenerated }: ExamScheduleGeneratorPro
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="1">1 exam</SelectItem>
                   <SelectItem value="2">2 exams</SelectItem>
                   <SelectItem value="3">3 exams</SelectItem>
+                  <SelectItem value="4">4 exams</SelectItem>
+                  <SelectItem value="5">5 exams</SelectItem>
+                  <SelectItem value="6">6 exams</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -281,6 +306,36 @@ const ExamScheduleGenerator = ({ onScheduleGenerated }: ExamScheduleGeneratorPro
               />
             </div>
           </div>
+
+          {/* Schedule Analysis */}
+          {examCourses.length > 0 && (
+            <div className="bg-blue-50 p-4 rounded-lg space-y-2">
+              <h4 className="font-medium text-blue-900">Schedule Analysis</h4>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                <div>
+                  <span className="text-blue-700">Total Courses:</span>
+                  <span className="font-medium ml-2">{examCourses.length}</span>
+                </div>
+                <div>
+                  <span className="text-blue-700">Estimated Days Needed:</span>
+                  <span className="font-medium ml-2">{estimatedDays}</span>
+                </div>
+                <div>
+                  <span className="text-blue-700">Selected Date Range:</span>
+                  <span className="font-medium ml-2">{selectedDateRange} days</span>
+                </div>
+              </div>
+              {selectedDateRange > 0 && selectedDateRange < estimatedDays && (
+                <Alert className="mt-2">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription className="text-sm">
+                    Warning: Selected date range ({selectedDateRange} days) may be insufficient. 
+                    Consider extending to at least {estimatedDays} days or increasing max exams per day.
+                  </AlertDescription>
+                </Alert>
+              )}
+            </div>
+          )}
 
           {/* Validation Messages */}
           {examCourses.length === 0 && (
