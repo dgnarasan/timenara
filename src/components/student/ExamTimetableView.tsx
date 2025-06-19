@@ -27,7 +27,7 @@ const ExamTimetableView = ({ examCourses = [], examSchedule = [], schedule, view
   const { toast } = useToast();
 
   // Use schedule prop if provided, otherwise use examCourses
-  const displayData = schedule || examCourses;
+  const displayData: (ExamCourse | ExamScheduleItem)[] = schedule || examCourses;
 
   const handleExport = (format: "pdf" | "csv") => {
     if (displayData.length === 0) {
@@ -48,9 +48,9 @@ const ExamTimetableView = ({ examCourses = [], examSchedule = [], schedule, view
 
   const exportToCSV = () => {
     const data = displayData.map((course) => {
-      // Handle both ExamCourse and ExamScheduleItem types
-      const courseCode = 'courseCode' in course ? course.courseCode : course.courseCode;
-      const courseTitle = 'courseTitle' in course ? course.courseTitle : course.courseTitle;
+      // Type guard to check if it's an ExamCourse or ExamScheduleItem
+      const courseCode = course.courseCode;
+      const courseTitle = course.courseTitle;
       
       return {
         "Course Code": courseCode,
@@ -77,9 +77,9 @@ const ExamTimetableView = ({ examCourses = [], examSchedule = [], schedule, view
     const doc = new jsPDF();
     
     const tableData = displayData.map((course) => {
-      // Handle both ExamCourse and ExamScheduleItem types
-      const courseCode = 'courseCode' in course ? course.courseCode : course.courseCode;
-      const courseTitle = 'courseTitle' in course ? course.courseTitle : course.courseTitle;
+      // Type guard to check if it's an ExamCourse or ExamScheduleItem
+      const courseCode = course.courseCode;
+      const courseTitle = course.courseTitle;
       
       return [
         courseCode,
