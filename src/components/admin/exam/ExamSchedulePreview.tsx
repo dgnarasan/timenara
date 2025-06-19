@@ -22,7 +22,7 @@ const ExamSchedulePreview = () => {
     queryFn: fetchAdminExamSchedule,
   });
 
-  // Ensure examSchedule is properly typed as an array
+  // Ensure examSchedule is properly typed as an array with safety checks
   const examSchedule: ExamScheduleItem[] = Array.isArray(examScheduleData) ? examScheduleData : [];
 
   // Publish/unpublish mutation
@@ -81,14 +81,14 @@ const ExamSchedulePreview = () => {
 
   const handleExportCSV = () => {
     const scheduleData = examSchedule.map(item => ({
-      'Course Code': item.courseCode,
-      'Course Title': item.courseTitle,
-      'Date': new Date(item.day).toLocaleDateString(),
-      'Time': `${item.startTime} - ${item.endTime}`,
-      'Session': item.sessionName,
+      'Course Code': item.courseCode || '',
+      'Course Title': item.courseTitle || '',
+      'Date': item.day ? new Date(item.day).toLocaleDateString() : '',
+      'Time': `${item.startTime || ''} - ${item.endTime || ''}`,
+      'Session': item.sessionName || '',
       'Venue': item.venueName || 'TBD',
-      'Department': item.department,
-      'Students': item.studentCount,
+      'Department': item.department || '',
+      'Students': item.studentCount || 0,
     }));
 
     const csvContent = "data:text/csv;charset=utf-8," + 
@@ -109,19 +109,21 @@ const ExamSchedulePreview = () => {
     });
   };
 
-  // Calculate summary statistics
-  const totalExamDays = new Set(examSchedule.map(item => item.day)).size;
-  const totalVenues = new Set(examSchedule.map(item => item.venueName)).size;
-  const totalStudents = examSchedule.reduce((sum, item) => sum + item.studentCount, 0);
+  // Calculate summary statistics - with safety checks
+  const totalExamDays = new Set(examSchedule.map(item => item.day).filter(Boolean)).size;
+  const totalVenues = new Set(examSchedule.map(item => item.venueName).filter(Boolean)).size;
+  const totalStudents = examSchedule.reduce((sum, item) => sum + (item.studentCount || 0), 0);
   const isPublished = examSchedule.length > 0; // Simplified check
 
-  // Group by date for display
+  // Group by date for display - with safety checks
   const scheduleByDate = examSchedule.reduce((acc, item) => {
     const date = item.day;
-    if (!acc[date]) {
-      acc[date] = [];
+    if (date) {
+      if (!acc[date]) {
+        acc[date] = [];
+      }
+      acc[date].push(item);
     }
-    acc[date].push(item);
     return acc;
   }, {} as Record<string, ExamScheduleItem[]>);
 
@@ -294,34 +296,44 @@ const ExamSchedulePreview = () => {
                 </TableHeader>
                 <TableBody>
                   {examSchedule
-                    .sort((a, b) => new Date(a.day).getTime() - new Date(b.day).getTime() || 
-                                     a.startTime.localeCompare(b.startTime))
+                    .filter(item => item.day && item.startTime) // Filter out invalid entries
+                    .sort((a, b) => {
+                      // Safe sorting with fallbacks
+                      const dateA = new Date(a.day || '');
+                      const dateB = new Date(b.day || '');
+                      const dateDiff = dateA.getTime() - dateB.getTime();
+                      if (dateDiff !== 0) return dateDiff;
+                      
+                      const timeA = a.startTime || '';
+                      const timeB = b.startTime || '';
+                      return timeA.localeCompare(timeB);
+                    })
                     .map((item, index) => (
-                    <TableRow key={item.id} className={index % 2 === 0 ? "bg-background" : "bg-muted/20"}>
+                    <TableRow key={item.id || index} className={index % 2 === 0 ? "bg-background" : "bg-muted/20"}>
                       <TableCell className="font-medium">
-                        {new Date(item.day).toLocaleDateString('en-US', { 
+                        {item.day ? new Date(item.day).toLocaleDateString('en-US', { 
                           weekday: 'short', 
                           month: 'short', 
                           day: 'numeric' 
-                        })}
+                        }) : 'N/A'}
                       </TableCell>
                       <TableCell>
                         <div className="text-sm">
-                          <div className="font-medium">{item.startTime} - {item.endTime}</div>
-                          <div className="text-muted-foreground">{item.sessionName}</div>
+                          <div className="font-medium">{item.startTime || 'N/A'} - {item.endTime || 'N/A'}</div>
+                          <div className="text-muted-foreground">{item.sessionName || 'N/A'}</div>
                         </div>
                       </TableCell>
                       <TableCell className="font-mono font-semibold text-primary">
-                        {item.courseCode}
+                        {item.courseCode || 'N/A'}
                       </TableCell>
                       <TableCell className="text-muted-foreground">
-                        {item.department}
+                        {item.department || 'N/A'}
                       </TableCell>
                       <TableCell>
-                        <Badge variant="outline">{item.venueName}</Badge>
+                        <Badge variant="outline">{item.venueName || 'TBD'}</Badge>
                       </TableCell>
                       <TableCell className="text-right font-medium">
-                        {item.studentCount.toLocaleString()}
+                        {(item.studentCount || 0).toLocaleString()}
                       </TableCell>
                     </TableRow>
                   ))}
@@ -345,30 +357,30 @@ const ExamSchedulePreview = () => {
                       })}
                     </CardTitle>
                     <CardDescription>
-                      {items.length} exams scheduled • {items.reduce((sum, item) => sum + item.studentCount, 0).toLocaleString()} students
+                      {items.length} exams scheduled • {items.reduce((sum, item) => sum + (item.studentCount || 0), 0).toLocaleString()} students
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
                     <div className="grid gap-3">
                       {items
-                        .sort((a, b) => a.startTime.localeCompare(b.startTime))
+                        .sort((a, b) => (a.startTime || '').localeCompare(b.startTime || ''))
                         .map((item) => (
                         <div key={item.id} className="flex items-center justify-between p-3 border rounded-lg">
                           <div className="flex items-center gap-4">
                             <div className="text-sm font-medium">
-                              {item.startTime} - {item.endTime}
+                              {item.startTime || 'N/A'} - {item.endTime || 'N/A'}
                             </div>
                             <div className="font-mono font-semibold text-primary">
-                              {item.courseCode}
+                              {item.courseCode || 'N/A'}
                             </div>
                             <div className="text-muted-foreground">
-                              {item.department}
+                              {item.department || 'N/A'}
                             </div>
                           </div>
                           <div className="flex items-center gap-2">
-                            <Badge variant="outline">{item.venueName}</Badge>
+                            <Badge variant="outline">{item.venueName || 'TBD'}</Badge>
                             <Badge variant="secondary">
-                              {item.studentCount} students
+                              {(item.studentCount || 0)} students
                             </Badge>
                           </div>
                         </div>

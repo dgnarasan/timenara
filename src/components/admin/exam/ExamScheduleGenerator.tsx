@@ -106,13 +106,15 @@ const ExamScheduleGenerator = ({ onScheduleGenerated }: ExamScheduleGeneratorPro
       let currentDate = new Date(startDate);
       let courseIndex = 0;
       
-      // Group courses by course code to handle shared courses
+      // Group courses by course code to handle shared courses - with null safety
       const courseGroups: Record<string, typeof examCourses> = {};
       examCourses.forEach(course => {
-        if (!courseGroups[course.courseCode]) {
-          courseGroups[course.courseCode] = [];
+        if (course && course.courseCode) {
+          if (!courseGroups[course.courseCode]) {
+            courseGroups[course.courseCode] = [];
+          }
+          courseGroups[course.courseCode].push(course);
         }
-        courseGroups[course.courseCode].push(course);
       });
 
       const uniqueCourses = Object.keys(courseGroups);
@@ -137,10 +139,16 @@ const ExamScheduleGenerator = ({ onScheduleGenerated }: ExamScheduleGeneratorPro
             continue;
           }
 
-          // Use the course with highest student count for scheduling
-          const representativeCourse = courseGroup.reduce((max, course) => 
-            course.studentCount > max.studentCount ? course : max
-          );
+          // Use the course with highest student count for scheduling - with safety checks
+          const representativeCourse = courseGroup.reduce((max, course) => {
+            if (!course || !max) return course || max;
+            return (course.studentCount || 0) > (max.studentCount || 0) ? course : max;
+          });
+          
+          if (!representativeCourse) {
+            courseIndex++;
+            continue;
+          }
           
           const session = sessions[sessionIndex];
           
@@ -166,8 +174,8 @@ const ExamScheduleGenerator = ({ onScheduleGenerated }: ExamScheduleGeneratorPro
           const endDateTime = new Date(startDateTime.getTime() + sessionDuration * 60 * 60 * 1000);
           endTime = endDateTime.toTimeString().slice(0, 5);
 
-          // Calculate total students for this course (sum all departments)
-          const totalStudents = courseGroup.reduce((sum, course) => sum + course.studentCount, 0);
+          // Calculate total students for this course (sum all departments) - with safety checks
+          const totalStudents = courseGroup.reduce((sum, course) => sum + (course?.studentCount || 0), 0);
 
           // Select appropriate venue based on student count
           let venueName = "Exam Hall 1";
@@ -226,10 +234,12 @@ const ExamScheduleGenerator = ({ onScheduleGenerated }: ExamScheduleGeneratorPro
 
   const isConfigValid = config.startDate && config.endDate && config.startDate < config.endDate;
 
-  // Calculate shared courses
+  // Calculate shared courses with safety checks
   const courseCodeCounts: Record<string, number> = {};
   examCourses.forEach(course => {
-    courseCodeCounts[course.courseCode] = (courseCodeCounts[course.courseCode] || 0) + 1;
+    if (course?.courseCode) {
+      courseCodeCounts[course.courseCode] = (courseCodeCounts[course.courseCode] || 0) + 1;
+    }
   });
   const sharedCoursesCount = Object.values(courseCodeCounts).filter(count => count > 1).length;
   const uniqueCoursesCount = Object.keys(courseCodeCounts).length;
@@ -274,7 +284,7 @@ const ExamScheduleGenerator = ({ onScheduleGenerated }: ExamScheduleGeneratorPro
                 <span className="font-medium">{sharedCoursesCount}</span> Shared Courses
               </div>
               <div>
-                <span className="font-medium">{examCourses.reduce((sum, c) => sum + c.studentCount, 0).toLocaleString()}</span> Total Students
+                <span className="font-medium">{examCourses.reduce((sum, c) => sum + (c?.studentCount || 0), 0).toLocaleString()}</span> Total Students
               </div>
             </div>
           </div>
@@ -291,8 +301,6 @@ const ExamScheduleGenerator = ({ onScheduleGenerated }: ExamScheduleGeneratorPro
                 type="date"
                 value={config.startDate}
                 onChange={(e) => setConfig(prev => ({ ...prev, startDate: e.target.value }))}
-                className="cursor-pointer"
-                onFocus={(e) => e.target.showPicker?.()}
               />
             </div>
             <div className="space-y-2">
@@ -306,8 +314,6 @@ const ExamScheduleGenerator = ({ onScheduleGenerated }: ExamScheduleGeneratorPro
                 value={config.endDate}
                 onChange={(e) => setConfig(prev => ({ ...prev, endDate: e.target.value }))}
                 min={config.startDate}
-                className="cursor-pointer"
-                onFocus={(e) => e.target.showPicker?.()}
               />
             </div>
           </div>
@@ -455,7 +461,7 @@ const ExamScheduleGenerator = ({ onScheduleGenerated }: ExamScheduleGeneratorPro
                 <>
                   <Play className="h-4 w-4 mr-2" />
                   Generate Schedule
-                </>
+                </> 
               )}
             </Button>
           </div>

@@ -11,6 +11,7 @@ import { FileText, Calendar, Settings, Users, Play, Square, Eye, BookOpen, Calen
 import ExamCourseManagement from "@/components/admin/exam/ExamCourseManagement";
 import ExamScheduleGenerator from "@/components/admin/exam/ExamScheduleGenerator";
 import ExamSchedulePreview from "@/components/admin/exam/ExamSchedulePreview";
+import ExamCourseGroupDisplay from "@/components/admin/exam/ExamCourseGroupDisplay";
 
 const ExamTimetableGenerator = () => {
   const [activeTab, setActiveTab] = useState("courses");
@@ -58,12 +59,14 @@ const ExamTimetableGenerator = () => {
   };
 
   const isPublished = examSchedule.length > 0;
-  const totalStudents = examCourses.reduce((sum, course) => sum + course.studentCount, 0);
+  const totalStudents = examCourses.reduce((sum, course) => sum + (course?.studentCount || 0), 0);
 
-  // Calculate shared courses
+  // Calculate shared courses - with safety checks
   const courseCodeCounts: Record<string, number> = {};
   examCourses.forEach(course => {
-    courseCodeCounts[course.courseCode] = (courseCodeCounts[course.courseCode] || 0) + 1;
+    if (course?.courseCode) {
+      courseCodeCounts[course.courseCode] = (courseCodeCounts[course.courseCode] || 0) + 1;
+    }
   });
   const sharedCoursesCount = Object.values(courseCodeCounts).filter(count => count > 1).length;
 
@@ -217,12 +220,23 @@ const ExamTimetableGenerator = () => {
                     Upload your exam courses and review the parsed data grouped by college and level.
                   </p>
                 </div>
+                
+                {/* Upload Section */}
                 <ExamCourseManagement />
+                
+                {/* Course Groups Display - Only show after upload */}
                 {examCourses.length > 0 && (
-                  <div className="flex justify-end">
-                    <Button onClick={() => setActiveTab("generate")} className="gap-2">
-                      Proceed to Configuration <ArrowRight className="h-4 w-4" />
-                    </Button>
+                  <div className="space-y-4">
+                    <div className="border-t pt-6">
+                      <h4 className="text-md font-semibold mb-4">Course Preview (Grouped by College + Level)</h4>
+                      <ExamCourseGroupDisplay courses={examCourses} />
+                    </div>
+                    
+                    <div className="flex justify-end pt-4">
+                      <Button onClick={() => setActiveTab("generate")} className="gap-2">
+                        Proceed to Configuration <ArrowRight className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
                 )}
               </TabsContent>
