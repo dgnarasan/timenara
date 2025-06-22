@@ -14,92 +14,130 @@ import { fetchAdminSchedule, clearSchedule, publishSchedule } from "@/lib/db";
 import { Button } from "@/components/ui/button";
 import { LogOut, Calendar, Home, Trash2, Eye, EyeOff } from "lucide-react";
 
-// Simplified validation function that's more forgiving
+// More robust validation function that provides detailed logging
 const isValidScheduleItem = (item: any): item is ScheduleItem => {
-  console.log('Validating schedule item:', item);
+  console.log('=== Validating schedule item ===');
+  console.log('Raw item:', JSON.stringify(item, null, 2));
   
-  // Basic structure check
   if (!item || typeof item !== 'object') {
-    console.log('Invalid: not an object');
+    console.log('❌ Invalid: not an object');
     return false;
   }
 
-  // Essential fields for rendering
-  const requiredFields = ['id', 'code', 'name'];
+  // Check essential fields with detailed logging
+  const requiredFields = ['id', 'code', 'name', 'lecturer'];
   for (const field of requiredFields) {
     if (!item[field] || typeof item[field] !== 'string') {
-      console.log(`Invalid: missing or invalid ${field}:`, item[field]);
+      console.log(`❌ Invalid: missing or invalid ${field}:`, item[field]);
       return false;
     }
   }
 
-  // TimeSlot validation - essential for timetable display
+  // TimeSlot validation with detailed logging
   if (!item.timeSlot || typeof item.timeSlot !== 'object') {
-    console.log('Invalid: timeSlot structure:', item.timeSlot);
+    console.log('❌ Invalid: timeSlot structure missing or invalid:', item.timeSlot);
     return false;
   }
 
-  if (!item.timeSlot.day || !item.timeSlot.startTime) {
-    console.log('Invalid: timeSlot missing day or startTime:', item.timeSlot);
+  if (!item.timeSlot.day || !item.timeSlot.startTime || !item.timeSlot.endTime) {
+    console.log('❌ Invalid: timeSlot missing required fields:', {
+      day: item.timeSlot.day,
+      startTime: item.timeSlot.startTime,
+      endTime: item.timeSlot.endTime
+    });
     return false;
   }
 
-  // Venue validation - essential for display
+  const validDays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
+  if (!validDays.includes(item.timeSlot.day)) {
+    console.log('❌ Invalid: invalid day:', item.timeSlot.day);
+    return false;
+  }
+
+  // Venue validation with detailed logging
   if (!item.venue || typeof item.venue !== 'object') {
-    console.log('Invalid: venue structure:', item.venue);
+    console.log('❌ Invalid: venue structure missing or invalid:', item.venue);
     return false;
   }
 
   if (!item.venue.id || !item.venue.name) {
-    console.log('Invalid: venue missing id or name:', item.venue);
+    console.log('❌ Invalid: venue missing required fields:', {
+      id: item.venue.id,
+      name: item.venue.name
+    });
     return false;
   }
 
-  // Provide defaults for optional fields instead of rejecting
-  if (!item.lecturer) {
-    console.log('Warning: lecturer missing, setting default');
-    item.lecturer = 'TBD';
+  // Provide defaults for optional fields
+  if (typeof item.classSize !== 'number' || item.classSize <= 0) {
+    console.log('⚠️ Warning: invalid classSize, setting default:', item.classSize);
+    item.classSize = 30;
   }
   
   if (!item.department) {
-    console.log('Warning: department missing, setting default');
+    console.log('⚠️ Warning: department missing, setting default');
     item.department = 'Unknown Department';
   }
-  
-  if (typeof item.classSize !== 'number' || item.classSize <= 0) {
-    console.log('Warning: classSize invalid, setting default');
-    item.classSize = 30;
-  }
 
-  console.log('Valid schedule item:', item.code);
+  console.log('✅ Valid schedule item:', item.code);
   return true;
 };
 
-// Function to filter and validate schedule items
-const validateScheduleItems = (scheduleItems: any[]): ScheduleItem[] => {
-  console.log('Validating schedule items array:', scheduleItems);
+// Enhanced validation function that also normalizes the data
+const validateAndNormalizeScheduleItems = (scheduleItems: any[]): ScheduleItem[] => {
+  console.log('=== Starting validation of schedule items ===');
+  console.log(`Processing ${scheduleItems?.length || 0} items`);
   
   if (!Array.isArray(scheduleItems)) {
-    console.warn('Schedule items is not an array:', scheduleItems);
+    console.warn('❌ Schedule items is not an array:', scheduleItems);
     return [];
   }
 
-  console.log(`Starting validation of ${scheduleItems.length} items`);
+  const validItems: ScheduleItem[] = [];
   
-  const validItems = scheduleItems.filter((item, index) => {
-    console.log(`Validating item ${index + 1}:`, item);
-    const isValid = isValidScheduleItem(item);
-    console.log(`Item ${index + 1} is ${isValid ? 'valid' : 'invalid'}`);
-    return isValid;
+  scheduleItems.forEach((item, index) => {
+    console.log(`\n--- Processing item ${index + 1} ---`);
+    
+    try {
+      // Create a normalized copy of the item
+      const normalizedItem = {
+        id: item.id || `temp-${index}`,
+        code: item.code || item.courseCode || 'UNKNOWN',
+        name: item.name || item.courseName || item.title || 'Unknown Course',
+        lecturer: item.lecturer || item.instructor || 'TBD',
+        classSize: typeof item.classSize === 'number' ? item.classSize : (item.class_size || 30),
+        department: item.department || 'Unknown Department',
+        academicLevel: item.academicLevel || item.academic_level,
+        timeSlot: {
+          day: item.timeSlot?.day || item.day,
+          startTime: item.timeSlot?.startTime || item.start_time || item.startTime,
+          endTime: item.timeSlot?.endTime || item.end_time || item.endTime
+        },
+        venue: {
+          id: item.venue?.id || item.venue_id || `venue-${index}`,
+          name: item.venue?.name || item.venueName || item.venue_name || 'TBD',
+          capacity: item.venue?.capacity || 50,
+          availability: item.venue?.availability || []
+        },
+        constraints: item.constraints || [],
+        preferredSlots: item.preferredSlots || item.preferred_slots
+      };
+
+      if (isValidScheduleItem(normalizedItem)) {
+        validItems.push(normalizedItem);
+        console.log(`✅ Item ${index + 1} added to valid items`);
+      } else {
+        console.log(`❌ Item ${index + 1} failed validation`);
+      }
+    } catch (error) {
+      console.error(`❌ Error processing item ${index + 1}:`, error);
+    }
   });
   
-  const invalidCount = scheduleItems.length - validItems.length;
-  
-  console.log(`Validation complete: ${validItems.length} valid, ${invalidCount} invalid`);
-  
-  if (invalidCount > 0) {
-    console.warn(`Filtered out ${invalidCount} invalid schedule items`);
-  }
+  console.log(`\n=== Validation Summary ===`);
+  console.log(`Total items processed: ${scheduleItems.length}`);
+  console.log(`Valid items: ${validItems.length}`);
+  console.log(`Invalid items: ${scheduleItems.length - validItems.length}`);
   
   return validItems;
 };
@@ -143,17 +181,18 @@ const AdminDashboard = () => {
     const loadSchedule = async () => {
       try {
         setIsLoadingSchedule(true);
+        console.log('📊 Loading existing schedule from database...');
         const existingSchedule = await fetchAdminSchedule();
-        console.log('Loaded existing schedule from DB:', existingSchedule);
+        console.log('📊 Raw schedule data from DB:', existingSchedule);
         
-        // Validate and filter schedule items
-        const validSchedule = validateScheduleItems(existingSchedule);
-        console.log(`Loaded ${validSchedule.length} valid schedule items out of ${existingSchedule.length} total`);
+        // Validate and normalize schedule items
+        const validSchedule = validateAndNormalizeScheduleItems(existingSchedule);
+        console.log(`📊 Final processed schedule: ${validSchedule.length} items`);
         
         setSchedule(validSchedule);
         setIsSchedulePublished(validSchedule.length > 0);
       } catch (error) {
-        console.error('Error loading schedule:', error);
+        console.error('❌ Error loading schedule:', error);
         toast({
           title: "Error",
           description: "Failed to load existing schedule",
@@ -244,40 +283,49 @@ const AdminDashboard = () => {
 
   const handleScheduleGenerated = useCallback((newSchedule: ScheduleItem[]) => {
     try {
-      console.log('Received new schedule with', newSchedule.length, 'items');
-      console.log('First few items:', newSchedule.slice(0, 3));
+      console.log('🎯 Received new schedule from generator');
+      console.log(`🎯 Raw schedule length: ${newSchedule?.length || 0}`);
+      console.log('🎯 First few raw items:', newSchedule?.slice(0, 2));
       
-      // Log the raw data to understand the structure
-      console.log('Raw schedule item structure:', JSON.stringify(newSchedule[0], null, 2));
+      if (!newSchedule || !Array.isArray(newSchedule)) {
+        console.error('❌ Invalid schedule data received');
+        toast({
+          title: "Error",
+          description: "Invalid schedule data received from generator",
+          variant: "destructive",
+        });
+        return;
+      }
       
-      // Validate the new schedule items with more forgiving validation
-      const validSchedule = validateScheduleItems(newSchedule);
-      console.log(`Setting ${validSchedule.length} valid schedule items in dashboard`);
+      // Use the enhanced validation and normalization
+      const validSchedule = validateAndNormalizeScheduleItems(newSchedule);
       
-      // Use setTimeout to prevent React rendering conflicts
+      console.log(`🎯 Final validated schedule: ${validSchedule.length} items`);
+      
+      // Update state with a slight delay to prevent React conflicts
       setTimeout(() => {
         setSchedule(validSchedule);
         setIsSchedulePublished(false);
         
         if (validSchedule.length > 0) {
           toast({
-            title: "Schedule Updated",
-            description: `Successfully loaded ${validSchedule.length} courses`,
+            title: "Schedule Generated Successfully",
+            description: `Generated schedule with ${validSchedule.length} courses`,
           });
         } else {
           toast({
-            title: "No Valid Schedule Items",
-            description: "All schedule items were filtered out. Check console for validation details.",
+            title: "Schedule Generation Issue",
+            description: "No valid courses could be scheduled. Check console for details.",
             variant: "destructive",
           });
         }
       }, 100);
       
     } catch (error) {
-      console.error('Error setting schedule:', error);
+      console.error('❌ Error in handleScheduleGenerated:', error);
       toast({
         title: "Error",
-        description: "Failed to update schedule display. Please try again.",
+        description: "Failed to process generated schedule",
         variant: "destructive",
       });
     }

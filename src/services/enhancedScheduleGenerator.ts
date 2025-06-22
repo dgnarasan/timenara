@@ -13,15 +13,53 @@ export interface EnhancedGenerationResult extends GenerationResult {
   preValidationPassed: boolean;
 }
 
+// Helper function to normalize schedule item data
+const normalizeScheduleItem = (item: any): ScheduleItem | null => {
+  try {
+    console.log('🔄 Normalizing schedule item:', item);
+    
+    // Ensure all required fields exist
+    const normalized: ScheduleItem = {
+      id: item.id || `generated-${Date.now()}-${Math.random()}`,
+      code: item.code || item.courseCode || 'UNKNOWN',
+      name: item.name || item.courseName || item.title || 'Unknown Course',
+      lecturer: item.lecturer || item.instructor || 'TBD',
+      classSize: typeof item.classSize === 'number' ? item.classSize : (item.class_size || 30),
+      department: item.department || 'Unknown Department',
+      academicLevel: item.academicLevel || item.academic_level,
+      constraints: item.constraints || [],
+      preferredSlots: item.preferredSlots || item.preferred_slots || [],
+      timeSlot: {
+        day: item.timeSlot?.day || item.day || 'Monday',
+        startTime: item.timeSlot?.startTime || item.start_time || item.startTime || '09:00',
+        endTime: item.timeSlot?.endTime || item.end_time || item.endTime || '11:00'
+      },
+      venue: {
+        id: item.venue?.id || item.venue_id || `venue-${Date.now()}`,
+        name: item.venue?.name || item.venueName || item.venue_name || 'TBD',
+        capacity: item.venue?.capacity || 50,
+        availability: item.venue?.availability || []
+      }
+    };
+
+    console.log('✅ Normalized schedule item:', normalized.code);
+    return normalized;
+  } catch (error) {
+    console.error('❌ Error normalizing schedule item:', error, item);
+    return null;
+  }
+};
+
 export const generateEnhancedSchedule = async (
   courses: Course[],
   enableFallbacks: boolean = true
 ): Promise<EnhancedGenerationResult> => {
   const startTime = Date.now();
-  console.log('Starting enhanced schedule generation with pre-validation...');
+  console.log('🚀 Starting enhanced schedule generation...');
+  console.log(`📊 Processing ${courses.length} courses`);
 
   try {
-    // Get venues from database and ensure they have required properties
+    // Get venues from database
     const { data: venueData } = await supabase
       .from('venues')
       .select('id, name, capacity')
@@ -34,19 +72,21 @@ export const generateEnhancedSchedule = async (
     // Transform venues to include required availability property
     const venues: Venue[] = venueData.map(venue => ({
       ...venue,
-      availability: [] // Initialize with empty availability array
+      availability: []
     }));
 
+    console.log(`🏢 Using ${venues.length} venues for scheduling`);
+
     // Step 1: Pre-generation validation
-    console.log('Performing pre-generation validation...');
+    console.log('🔍 Performing pre-generation validation...');
     const validationResult = performPreGenerationValidation(courses, venues);
     
-    // Check if we have critical errors that prevent generation
     const criticalErrors = validationResult.errors.filter(e => 
       e.severity === 'critical' || e.severity === 'high'
     );
 
     if (criticalErrors.length > 0 && !enableFallbacks) {
+      console.log(`❌ ${criticalErrors.length} critical errors found, generation stopped`);
       return {
         schedule: [],
         conflicts: criticalErrors.map(error => ({
@@ -68,7 +108,7 @@ export const generateEnhancedSchedule = async (
     }
 
     // Step 2: Course grouping for shared courses
-    console.log('Analyzing course groups...');
+    console.log('👥 Analyzing course groups...');
     const courseGroups = identifySharedCourses(courses);
     const sharedGroups = courseGroups.filter(shouldGroupCourses);
     
@@ -92,7 +132,7 @@ export const generateEnhancedSchedule = async (
     // Step 3: Apply fallback strategies if needed
     let fallbackResult: FallbackResult | null = null;
     if (enableFallbacks && (criticalErrors.length > 0 || validationResult.warnings.length > 3)) {
-      console.log('Applying fallback strategies...');
+      console.log('🔧 Applying fallback strategies...');
       const fallbackOptions: FallbackOptions = {
         splitLargeClasses: true,
         useAlternativeTimeSlots: true,
@@ -109,12 +149,12 @@ export const generateEnhancedSchedule = async (
       
       if (fallbackResult.success) {
         processedCourses = fallbackResult.modifiedCourses;
-        console.log('Fallback strategies applied:', fallbackResult.fallbacksApplied);
+        console.log('✅ Fallback strategies applied:', fallbackResult.fallbacksApplied);
       }
     }
 
-    // Step 4: Call the generation service with processed courses
-    console.log('Calling enhanced generation service...');
+    // Step 4: Call the generation service
+    console.log('🤖 Calling AI schedule generation service...');
     const { data, error } = await supabase.functions.invoke('generate-schedule', {
       body: { 
         courses: processedCourses,
@@ -126,9 +166,10 @@ export const generateEnhancedSchedule = async (
     });
 
     const generationTime = Date.now() - startTime;
-    console.log(`Enhanced generation completed in ${generationTime}ms`);
+    console.log(`⏱️ Generation completed in ${generationTime}ms`);
 
     if (error || !data?.success) {
+      console.error('❌ Generation service error:', error);
       return {
         schedule: [],
         conflicts: [{
@@ -150,11 +191,28 @@ export const generateEnhancedSchedule = async (
       };
     }
 
-    const scheduledCourses = data.schedule?.length || 0;
+    console.log('📊 Raw schedule data from service:', data.schedule?.length || 0, 'items');
+
+    // Step 5: Normalize the schedule items
+    const rawSchedule = data.schedule || [];
+    const normalizedSchedule: ScheduleItem[] = [];
+    
+    rawSchedule.forEach((item: any, index: number) => {
+      const normalized = normalizeScheduleItem(item);
+      if (normalized) {
+        normalizedSchedule.push(normalized);
+      } else {
+        console.warn(`⚠️ Failed to normalize item ${index + 1}`);
+      }
+    });
+
+    const scheduledCourses = normalizedSchedule.length;
     const successRate = Math.round((scheduledCourses / courses.length) * 100);
 
+    console.log(`✅ Final result: ${scheduledCourses}/${courses.length} courses scheduled (${successRate}%)`);
+
     return {
-      schedule: data.schedule || [],
+      schedule: normalizedSchedule,
       conflicts: data.conflicts || [],
       summary: {
         totalCourses: courses.length,
@@ -169,7 +227,7 @@ export const generateEnhancedSchedule = async (
     };
 
   } catch (error) {
-    console.error('Error in enhanced schedule generation:', error);
+    console.error('❌ Error in enhanced schedule generation:', error);
     
     return {
       schedule: [],
