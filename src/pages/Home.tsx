@@ -1,7 +1,7 @@
 
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { CalendarDays, GraduationCap, Calendar, ArrowRight, LogIn, LogOut, Menu, FileText, Settings } from "lucide-react";
+import { CalendarDays, GraduationCap, Calendar, ArrowRight, LogIn, LogOut, Menu } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useState } from "react";
@@ -86,16 +86,15 @@ const Home = () => {
               className="text-base md:text-lg w-full sm:w-auto"
               onClick={() => navigate("/schedule")}
             >
-              View Course Schedule <ArrowRight className="ml-2" />
+              Get Started <ArrowRight className="ml-2" />
             </Button>
             <Button
               size="lg"
               variant="outline"
               className="text-base md:text-lg w-full sm:w-auto"
-              onClick={() => navigate("/exam-schedule")}
+              onClick={() => navigate("/admin")}
             >
-              <FileText className="mr-2 h-4 w-4" />
-              Exam Timetable
+              Admin Dashboard
             </Button>
           </div>
         </div>
@@ -139,32 +138,13 @@ const Home = () => {
           <p className="text-sm md:text-base text-muted-foreground max-w-xl mx-auto">
             Join our platform today and experience the future of academic scheduling.
           </p>
-          <div className="flex flex-col sm:flex-row justify-center gap-3">
-            <Button
-              size="lg"
-              className="text-base md:text-lg w-full sm:w-auto bg-primary hover:bg-primary/90"
-              onClick={() => navigate("/admin/exam-timetable-generator")}
-            >
-              <Settings className="mr-2 h-4 w-4" />
-              Exam Timetable Generator
-            </Button>
-            <Button
-              size="lg"
-              variant="outline"
-              className="text-base md:text-lg w-full sm:w-auto"
-              onClick={() => navigate("/schedule")}
-            >
-              View Course Schedule <ArrowRight className="ml-2" />
-            </Button>
-            <Button
-              size="lg"
-              variant="outline"
-              className="text-base md:text-lg w-full sm:w-auto"
-              onClick={() => navigate("/admin")}
-            >
-              Admin Dashboard
-            </Button>
-          </div>
+          <Button
+            size="lg"
+            className="text-base md:text-lg w-full sm:w-auto"
+            onClick={() => navigate("/schedule")}
+          >
+            View Schedule <ArrowRight className="ml-2" />
+          </Button>
         </div>
       </div>
     </div>

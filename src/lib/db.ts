@@ -1,546 +1,212 @@
-import { supabase } from '@/integrations/supabase/client';
-import { Course, ExamCourse, Room, ScheduleItem, User, ExamScheduleItem, ExamCourseForUpload, TimeSlot } from './types';
+import { supabase } from "@/integrations/supabase/client";
+import { Course, DBCourse, Venue, DBVenue, TimeSlot, Department, ScheduleItem } from "./types";
+import { PostgrestResponse } from "@supabase/supabase-js";
+import { Database } from "@/integrations/supabase/types";
 
-// Helper function to safely convert TimeSlot[] to Json
-const timeSlotArrayToJson = (timeSlots: TimeSlot[] | undefined): any => {
-  return timeSlots ? JSON.parse(JSON.stringify(timeSlots)) : null;
-};
+export const mapDBCourseToClient = (dbCourse: DBCourse): Course => ({
+  id: dbCourse.id,
+  code: dbCourse.code,
+  name: dbCourse.name,
+  lecturer: dbCourse.lecturer,
+  classSize: dbCourse.class_size,
+  department: dbCourse.department,
+  academicLevel: dbCourse.academic_level,
+  preferredSlots: dbCourse.preferred_slots || undefined,
+  constraints: dbCourse.constraints || undefined,
+});
 
-// Helper function to safely convert Json to TimeSlot[]
-const jsonToTimeSlotArray = (json: any): TimeSlot[] => {
-  if (!json || !Array.isArray(json)) return [];
-  
-  return json.map((slot: any) => ({
-    day: slot.day as "Monday" | "Tuesday" | "Wednesday" | "Thursday" | "Friday",
-    startTime: slot.startTime,
-    endTime: slot.endTime,
-  }));
-};
+export const mapDBVenueToClient = (dbVenue: DBVenue): Venue => ({
+  id: dbVenue.id,
+  name: dbVenue.name,
+  capacity: dbVenue.capacity,
+  availability: dbVenue.availability,
+});
 
-// Helper function to safely convert constraints
-const constraintsToArray = (constraints: any): string[] => {
-  if (!constraints) return [];
-  if (Array.isArray(constraints)) return constraints;
-  return [];
-};
-
-// Helper function to transform database course to frontend course
-const transformDbCourseToFrontend = (dbCourse: any): Course => {
-  return {
-    id: dbCourse.id,
-    code: dbCourse.code,
-    name: dbCourse.name,
-    lecturer: dbCourse.lecturer,
-    classSize: dbCourse.class_size,
-    department: dbCourse.department,
-    academicLevel: dbCourse.academic_level,
-    preferredSlots: jsonToTimeSlotArray(dbCourse.preferred_slots),
-    constraints: constraintsToArray(dbCourse.constraints),
-  };
-};
-
-// Helper function to transform frontend course to database format
-const transformFrontendCourseToDb = (course: Omit<Course, 'id'>) => {
-  return {
-    code: course.code,
-    name: course.name,
-    lecturer: course.lecturer,
-    class_size: course.classSize,
-    department: course.department,
-    academic_level: course.academicLevel,
-    preferred_slots: timeSlotArrayToJson(course.preferredSlots),
-    constraints: course.constraints || null,
-  };
-};
-
-// Helper function to transform database venue to frontend room
-const transformDbVenueToRoom = (dbVenue: any): Room => {
-  return {
-    id: dbVenue.id,
-    name: dbVenue.name,
-    capacity: dbVenue.capacity,
-    availability: jsonToTimeSlotArray(dbVenue.availability),
-  };
-};
-
-// Helper function to transform frontend room to database venue format
-const transformRoomToDbVenue = (room: Omit<Room, 'id'>) => {
-  return {
-    name: room.name,
-    capacity: room.capacity,
-    availability: timeSlotArrayToJson(room.availability),
-  };
-};
-
-// Function to fetch courses
 export const fetchCourses = async (): Promise<Course[]> => {
-  const { data: courses, error } = await supabase
+  const { data, error } = await supabase
     .from('courses')
     .select('*')
-    .order('code', { ascending: true });
+    .order('created_at', { ascending: true });
 
-  if (error) {
-    console.error('Error fetching courses:', error);
-    throw error;
-  }
-
-  return (courses || []).map(transformDbCourseToFrontend);
+  if (error) throw error;
+  return (data as unknown as DBCourse[]).map(mapDBCourseToClient);
 };
 
-// Function to add a new course
-export const addCourse = async (course: Omit<Course, 'id'>): Promise<Course> => {
-  const dbCourse = transformFrontendCourseToDb(course);
-  
+export const addCourse = async (course: Omit<Course, "id">): Promise<Course> => {
   const { data, error } = await supabase
     .from('courses')
-    .insert([dbCourse])
+    .insert({
+      code: course.code,
+      name: course.name,
+      lecturer: course.lecturer,
+      class_size: course.classSize,
+      department: course.department,
+      academic_level: course.academicLevel,
+      preferred_slots: course.preferredSlots ? JSON.stringify(course.preferredSlots) : null,
+      constraints: course.constraints || null,
+    })
     .select()
     .single();
 
-  if (error) {
-    console.error('Error adding course:', error);
-    throw error;
+  if (error) throw error;
+  const dbCourse = data as unknown as DBCourse;
+  if (dbCourse.preferred_slots) {
+    dbCourse.preferred_slots = JSON.parse(dbCourse.preferred_slots as unknown as string);
   }
-
-  return transformDbCourseToFrontend(data);
+  return mapDBCourseToClient(dbCourse);
 };
 
-// Function to update an existing course
-export const updateCourse = async (id: string, updates: Partial<Omit<Course, 'id'>>): Promise<Course | null> => {
-  const dbUpdates: any = {};
-  
-  if (updates.code !== undefined) dbUpdates.code = updates.code;
-  if (updates.name !== undefined) dbUpdates.name = updates.name;
-  if (updates.lecturer !== undefined) dbUpdates.lecturer = updates.lecturer;
-  if (updates.classSize !== undefined) dbUpdates.class_size = updates.classSize;
-  if (updates.department !== undefined) dbUpdates.department = updates.department;
-  if (updates.academicLevel !== undefined) dbUpdates.academic_level = updates.academicLevel;
-  if (updates.preferredSlots !== undefined) dbUpdates.preferred_slots = timeSlotArrayToJson(updates.preferredSlots);
-  if (updates.constraints !== undefined) dbUpdates.constraints = updates.constraints;
-
+export const addCourses = async (courses: Omit<Course, "id">[]): Promise<Course[]> => {
   const { data, error } = await supabase
     .from('courses')
-    .update(dbUpdates)
-    .eq('id', id)
-    .select()
-    .single();
-
-  if (error) {
-    console.error('Error updating course:', error);
-    throw error;
-  }
-
-  return data ? transformDbCourseToFrontend(data) : null;
-};
-
-// Function to delete a course
-export const deleteCourse = async (id: string): Promise<void> => {
-  const { error } = await supabase
-    .from('courses')
-    .delete()
-    .eq('id', id);
-
-  if (error) {
-    console.error('Error deleting course:', error);
-    throw error;
-  }
-};
-
-// Function to fetch rooms (venues)
-export const fetchRooms = async (): Promise<Room[]> => {
-  const { data: venues, error } = await supabase
-    .from('venues')
-    .select('*')
-    .order('name', { ascending: true });
-
-  if (error) {
-    console.error('Error fetching venues:', error);
-    throw error;
-  }
-
-  return (venues || []).map(transformDbVenueToRoom);
-};
-
-// Function to add a new room (venue)
-export const addRoom = async (room: Omit<Room, 'id'>): Promise<Room> => {
-  const dbVenue = transformRoomToDbVenue(room);
-  
-  const { data, error } = await supabase
-    .from('venues')
-    .insert([dbVenue])
-    .select()
-    .single();
-
-  if (error) {
-    console.error('Error adding venue:', error);
-    throw error;
-  }
-
-  return transformDbVenueToRoom(data);
-};
-
-// Function to update an existing room (venue)
-export const updateRoom = async (id: string, updates: Partial<Omit<Room, 'id'>>): Promise<Room | null> => {
-  const dbUpdates: any = {};
-  
-  if (updates.name !== undefined) dbUpdates.name = updates.name;
-  if (updates.capacity !== undefined) dbUpdates.capacity = updates.capacity;
-  if (updates.availability !== undefined) dbUpdates.availability = timeSlotArrayToJson(updates.availability);
-
-  const { data, error } = await supabase
-    .from('venues')
-    .update(dbUpdates)
-    .eq('id', id)
-    .select()
-    .single();
-
-  if (error) {
-    console.error('Error updating venue:', error);
-    throw error;
-  }
-
-  return data ? transformDbVenueToRoom(data) : null;
-};
-
-// Function to delete a room (venue)
-export const deleteRoom = async (id: string): Promise<void> => {
-  const { error } = await supabase
-    .from('venues')
-    .delete()
-    .eq('id', id);
-
-  if (error) {
-    console.error('Error deleting venue:', error);
-    throw error;
-  }
-};
-
-// Function to fetch schedule
-export const fetchSchedule = async (): Promise<ScheduleItem[]> => {
-  const { data: schedule, error } = await supabase
-    .from('schedules')
-    .select(`
-      *,
-      course:course_id(*),
-      venue:venue_id(*)
-    `)
-    .eq('published', true)
-    .order('start_time', { ascending: true });
-
-  if (error) {
-    console.error('Error fetching schedule:', error);
-    throw error;
-  }
-
-  return (schedule || []).map((item: any) => ({
-    id: item.course.id,
-    code: item.course.code,
-    name: item.course.name,
-    lecturer: item.course.lecturer,
-    classSize: item.course.class_size,
-    department: item.course.department,
-    academicLevel: item.course.academic_level,
-    preferredSlots: jsonToTimeSlotArray(item.course.preferred_slots),
-    constraints: constraintsToArray(item.course.constraints),
-    venue: {
-      id: item.venue.id,
-      name: item.venue.name,
-      capacity: item.venue.capacity,
-      availability: jsonToTimeSlotArray(item.venue.availability),
-    },
-    timeSlot: {
-      day: item.day as "Monday" | "Tuesday" | "Wednesday" | "Thursday" | "Friday",
-      startTime: item.start_time,
-      endTime: item.end_time,
-    },
-  }));
-};
-
-// Function to add a schedule item
-export const addScheduleItem = async (item: Omit<ScheduleItem, 'course' | 'room'>): Promise<ScheduleItem> => {
-  const { data, error } = await supabase
-    .from('schedules')
-    .insert([{
-      course_id: item.id,
-      venue_id: item.venue.id,
-      day: item.timeSlot.day,
-      start_time: item.timeSlot.startTime,
-      end_time: item.timeSlot.endTime,
-    }])
-    .select(`
-      *,
-      course:course_id(*),
-      venue:venue_id(*)
-    `)
-    .single();
-
-  if (error) {
-    console.error('Error adding schedule item:', error);
-    throw error;
-  }
-
-  return {
-    id: data.course.id,
-    code: data.course.code,
-    name: data.course.name,
-    lecturer: data.course.lecturer,
-    classSize: data.course.class_size,
-    department: data.course.department,
-    academicLevel: data.course.academic_level,
-    preferredSlots: jsonToTimeSlotArray(data.course.preferred_slots),
-    constraints: constraintsToArray(data.course.constraints),
-    venue: {
-      id: data.venue.id,
-      name: data.venue.name,
-      capacity: data.venue.capacity,
-      availability: jsonToTimeSlotArray(data.venue.availability),
-    },
-    timeSlot: {
-      day: data.day as "Monday" | "Tuesday" | "Wednesday" | "Thursday" | "Friday",
-      startTime: data.start_time,
-      endTime: data.end_time,
-    },
-  };
-};
-
-// Function to update a schedule item
-export const updateScheduleItem = async (id: string, updates: Partial<Omit<ScheduleItem, 'id' | 'course' | 'room'>>): Promise<ScheduleItem | null> => {
-  const dbUpdates: any = {};
-  
-  if (updates.venue?.id) dbUpdates.venue_id = updates.venue.id;
-  if (updates.timeSlot?.day) dbUpdates.day = updates.timeSlot.day;
-  if (updates.timeSlot?.startTime) dbUpdates.start_time = updates.timeSlot.startTime;
-  if (updates.timeSlot?.endTime) dbUpdates.end_time = updates.timeSlot.endTime;
-
-  const { data, error } = await supabase
-    .from('schedules')
-    .update(dbUpdates)
-    .eq('id', id)
-    .select(`
-      *,
-      course:course_id(*),
-      venue:venue_id(*)
-    `)
-    .single();
-
-  if (error) {
-    console.error('Error updating schedule item:', error);
-    throw error;
-  }
-
-  if (!data) return null;
-
-  return {
-    id: data.course.id,
-    code: data.course.code,
-    name: data.course.name,
-    lecturer: data.course.lecturer,
-    classSize: data.course.class_size,
-    department: data.course.department,
-    academicLevel: data.course.academic_level,
-    preferredSlots: jsonToTimeSlotArray(data.course.preferred_slots),
-    constraints: constraintsToArray(data.course.constraints),
-    venue: {
-      id: data.venue.id,
-      name: data.venue.name,
-      capacity: data.venue.capacity,
-      availability: jsonToTimeSlotArray(data.venue.availability),
-    },
-    timeSlot: {
-      day: data.day as "Monday" | "Tuesday" | "Wednesday" | "Thursday" | "Friday",
-      startTime: data.start_time,
-      endTime: data.end_time,
-    },
-  };
-};
-
-// Function to delete a schedule item
-export const deleteScheduleItem = async (id: string): Promise<void> => {
-  const { error } = await supabase
-    .from('schedules')
-    .delete()
-    .eq('id', id);
-
-  if (error) {
-    console.error('Error deleting schedule item:', error);
-  }
-};
-
-// Function to fetch users
-export const fetchUsers = async (): Promise<User[]> => {
-  const { data: users, error } = await supabase
-    .from('profiles')
-    .select('*');
-
-  if (error) {
-    console.error('Error fetching users:', error);
-    throw error;
-  }
-
-  return (users || []).map(user => ({
-    id: user.id,
-    email: user.email,
-    role: user.role as "student" | "admin",
-  }));
-};
-
-// Function to update user role
-export const updateUserRole = async (id: string, role: "student" | "admin"): Promise<User | null> => {
-  const { data, error } = await supabase
-    .from('profiles')
-    .update({ role })
-    .eq('id', id)
-    .select()
-    .single();
-
-  if (error) {
-    console.error('Error updating user role:', error);
-    throw error;
-  }
-
-  return data ? {
-    id: data.id,
-    email: data.email,
-    role: data.role as "student" | "admin",
-  } : null;
-};
-
-// Function to fetch exam courses
-export const fetchExamCourses = async (): Promise<ExamCourse[]> => {
-  const { data: exam_courses, error } = await supabase
-    .from('exam_courses')
-    .select('*')
-    .order('course_code', { ascending: true });
-
-  if (error) {
-    console.error('Error fetching exam courses:', error);
-    throw error;
-  }
-
-  return (exam_courses || []).map(course => ({
-    id: course.id,
-    courseCode: course.course_code,
-    courseTitle: course.course_title,
-    department: course.department,
-    college: course.college,
-    level: course.level,
-    studentCount: course.student_count,
-    createdAt: course.created_at,
-    updatedAt: course.updated_at,
-  }));
-};
-
-// Function to add exam courses
-export const addExamCourses = async (courses: ExamCourseForUpload[]) => {
-  console.log("Adding exam courses to database:", courses);
-  
-  const validatedCourses = courses.map(course => ({
-    course_code: course.courseCode,
-    course_title: course.courseTitle,
-    department: course.department,
-    college: course.college,
-    level: course.level,
-    student_count: course.studentCount,
-  }));
-  
-  console.log("Validated courses for database:", validatedCourses);
-  
-  try {
-    const { data, error } = await supabase
-      .rpc('clear_and_insert_exam_courses', {
-        courses_data: validatedCourses
-      });
-
-    if (error) {
-      console.error("Database error details:", {
-        message: error.message,
-        details: error.details,
-        hint: error.hint,
-        code: error.code
-      });
-      throw new Error(`Database error: ${error.message}`);
-    }
-
-    console.log("Successfully added exam courses:", data);
-    return data;
-  } catch (error) {
-    console.error("Exam courses upload error:", error);
-    throw error;
-  }
-};
-
-// Function to delete all exam courses
-export const deleteAllExamCourses = async (): Promise<void> => {
-  const { error } = await supabase
-    .from('exam_courses')
-    .delete()
-    .neq('id', '00000000-0000-0000-0000-000000000000');
-
-  if (error) {
-    console.error('Error deleting all exam courses:', error);
-    throw error;
-  }
-};
-
-// Function to fetch admin exam schedule
-export const fetchAdminExamSchedule = async (): Promise<any[]> => {
-    const { data, error } = await supabase
-        .from('exam_schedules')
-        .select('*');
-
-    if (error) {
-        console.error('Error fetching exam schedule:', error);
-        throw error;
-    }
-
-    return data || [];
-};
-
-// Function to publish exam schedule
-export const publishExamSchedule = async (isPublished: boolean): Promise<void> => {
-  const { error } = await supabase
-    .from('exam_schedules')
-    .update({ published: isPublished })
-    .neq('id', '00000000-0000-0000-0000-000000000000');
-
-  if (error) {
-    console.error('Error publishing exam schedule:', error);
-    throw error;
-  }
-};
-
-// Function to add multiple courses
-export const addCourses = async (courses: Omit<Course, 'id'>[]): Promise<Course[]> => {
-  const dbCourses = courses.map(transformFrontendCourseToDb);
-  
-  const { data, error } = await supabase
-    .from('courses')
-    .insert(dbCourses)
+    .insert(
+      courses.map(course => ({
+        code: course.code,
+        name: course.name,
+        lecturer: course.lecturer,
+        class_size: course.classSize,
+        department: course.department,
+        academic_level: course.academicLevel,
+        preferred_slots: course.preferredSlots ? JSON.stringify(course.preferredSlots) : null,
+        constraints: course.constraints || null,
+      }))
+    )
     .select();
 
-  if (error) {
-    console.error('Error adding courses:', error);
-    throw error;
-  }
-
-  return (data || []).map(transformDbCourseToFrontend);
+  if (error) throw error;
+  return (data as unknown as DBCourse[]).map(course => {
+    if (course.preferred_slots) {
+      course.preferred_slots = JSON.parse(course.preferred_slots as unknown as string);
+    }
+    return mapDBCourseToClient(course);
+  });
 };
 
-// Function to delete all courses
+export const deleteCourse = async (courseId: string): Promise<void> => {
+  const { error } = await supabase
+    .from('courses')
+    .delete()
+    .eq('id', courseId);
+
+  if (error) throw error;
+};
+
 export const deleteAllCourses = async (): Promise<void> => {
   const { error } = await supabase
     .from('courses')
     .delete()
-    .neq('id', '00000000-0000-0000-0000-000000000000');
+    .gte('created_at', '1970-01-01'); // Delete all rows by using a condition that matches all
 
-  if (error) {
-    console.error('Error deleting all courses:', error);
-    throw error;
-  }
+  if (error) throw error;
 };
 
-// Function to save general schedule
-export const saveSchedule = async (schedule: ScheduleItem[], isPublished: boolean = false): Promise<void> => {
+export const fetchSchedule = async (): Promise<ScheduleItem[]> => {
+  const { data: scheduleData, error } = await supabase
+    .from('schedules')
+    .select(`
+      id,
+      day,
+      start_time,
+      end_time,
+      published,
+      created_at,
+      courses!inner (
+        id,
+        code,
+        name,
+        lecturer,
+        class_size,
+        department,
+        academic_level
+      ),
+      venues!inner (
+        id,
+        name,
+        capacity
+      )
+    `)
+    .eq('published', true)
+    .order('day', { ascending: true })
+    .order('start_time', { ascending: true });
+
+  if (error) throw error;
+
+  return (scheduleData || []).map((item: any) => ({
+    id: item.courses.id,
+    code: item.courses.code,
+    name: item.courses.name,
+    lecturer: item.courses.lecturer,
+    classSize: item.courses.class_size,
+    department: item.courses.department,
+    academicLevel: item.courses.academic_level,
+    timeSlot: {
+      day: item.day as TimeSlot["day"],
+      startTime: item.start_time,
+      endTime: item.end_time,
+    },
+    venue: {
+      id: item.venues.id,
+      name: item.venues.name,
+      capacity: item.venues.capacity,
+      availability: [],
+    },
+  }));
+};
+
+export const fetchAdminSchedule = async (): Promise<ScheduleItem[]> => {
+  const { data: scheduleData, error } = await supabase
+    .from('schedules')
+    .select(`
+      id,
+      day,
+      start_time,
+      end_time,
+      published,
+      created_at,
+      courses!inner (
+        id,
+        code,
+        name,
+        lecturer,
+        class_size,
+        department,
+        academic_level
+      ),
+      venues!inner (
+        id,
+        name,
+        capacity
+      )
+    `)
+    .order('day', { ascending: true })
+    .order('start_time', { ascending: true });
+
+  if (error) throw error;
+
+  return (scheduleData || []).map((item: any) => ({
+    id: item.courses.id,
+    code: item.courses.code,
+    name: item.courses.name,
+    lecturer: item.courses.lecturer,
+    classSize: item.courses.class_size,
+    department: item.courses.department,
+    academicLevel: item.courses.academic_level,
+    timeSlot: {
+      day: item.day as TimeSlot["day"],
+      startTime: item.start_time,
+      endTime: item.end_time,
+    },
+    venue: {
+      id: item.venues.id,
+      name: item.venues.name,
+      capacity: item.venues.capacity,
+      availability: [],
+    },
+  }));
+};
+
+export const saveSchedule = async (schedule: ScheduleItem[], shouldPublish: boolean = false): Promise<void> => {
+  // Prepare schedule data for the database function
   const scheduleData = schedule.map(item => ({
     course_id: item.id,
     venue_id: item.venue.id,
@@ -549,103 +215,27 @@ export const saveSchedule = async (schedule: ScheduleItem[], isPublished: boolea
     end_time: item.timeSlot.endTime,
   }));
 
-  const { error } = await supabase
-    .rpc('clear_and_insert_schedule', {
-      schedule_data: scheduleData,
-      should_publish: isPublished
-    });
+  const { error } = await supabase.rpc('clear_and_insert_schedule', {
+    schedule_data: scheduleData,
+    should_publish: shouldPublish
+  });
 
-  if (error) {
-    console.error('Error saving schedule:', error);
-    throw error;
-  }
+  if (error) throw error;
 };
 
-// Function to fetch admin schedule
-export const fetchAdminSchedule = async (): Promise<any[]> => {
-  const { data, error } = await supabase
-    .from('schedules')
-    .select('*');
+export const publishSchedule = async (shouldPublish: boolean): Promise<void> => {
+  const { error } = await supabase.rpc('publish_schedule', {
+    should_publish: shouldPublish
+  });
 
-  if (error) {
-    console.error('Error fetching admin schedule:', error);
-    throw error;
-  }
-
-  return data || [];
+  if (error) throw error;
 };
 
-// Function to clear schedule
 export const clearSchedule = async (): Promise<void> => {
   const { error } = await supabase
     .from('schedules')
     .delete()
-    .neq('id', '00000000-0000-0000-0000-000000000000');
+    .gte('created_at', '1970-01-01'); // Delete all rows
 
-  if (error) {
-    console.error('Error clearing schedule:', error);
-    throw error;
-  }
-};
-
-// Function to publish schedule
-export const publishSchedule = async (isPublished: boolean): Promise<void> => {
-  const { error } = await supabase
-    .rpc('publish_schedule', { should_publish: isPublished });
-
-  if (error) {
-    console.error('Error publishing schedule:', error);
-    throw error;
-  }
-};
-
-// Function to save exam schedule
-export const saveExamSchedule = async (schedule: ExamScheduleItem[], isPublished: boolean = false): Promise<void> => {
-  const scheduleData = schedule.map(item => ({
-    exam_course_id: item.id, // This should be the actual exam course UUID from the database
-    day: item.day,
-    start_time: item.startTime,
-    end_time: item.endTime,
-    session_name: item.sessionName,
-    venue_name: item.venueName,
-  }));
-
-  const { error } = await supabase
-    .rpc('clear_and_insert_exam_schedule', {
-      schedule_data: scheduleData,
-      should_publish: isPublished
-    });
-
-  if (error) {
-    console.error('Error saving exam schedule:', error);
-    throw error;
-  }
-};
-
-// Function to clear exam schedule
-export const clearExamSchedule = async (): Promise<void> => {
-  const { error } = await supabase
-    .from('exam_schedules')
-    .delete()
-    .neq('id', '00000000-0000-0000-0000-000000000000');
-
-  if (error) {
-    console.error('Error clearing exam schedule:', error);
-    throw error;
-  }
-};
-
-// Function to fetch exam schedule (for students)
-export const fetchExamSchedule = async (): Promise<any[]> => {
-  const { data, error } = await supabase
-    .from('exam_schedules')
-    .select('*')
-    .eq('published', true);
-
-  if (error) {
-    console.error('Error fetching exam schedule:', error);
-    throw error;
-  }
-
-  return data || [];
+  if (error) throw error;
 };

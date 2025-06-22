@@ -1,3 +1,4 @@
+
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ThemeProvider } from "next-themes";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -11,12 +12,10 @@ import "./App.css";
 // Lazy load components for better performance
 const AdminDashboard = lazy(() => import("@/pages/admin/Dashboard"));
 const StudentSchedule = lazy(() => import("@/pages/student/Schedule"));
-const ExamSchedule = lazy(() => import("@/pages/student/ExamSchedule"));
 const NotFound = lazy(() => import("@/pages/NotFound"));
 const Home = lazy(() => import("@/pages/Home"));
 const Auth = lazy(() => import("@/pages/Auth"));
 const AccessDenied = lazy(() => import("@/pages/AccessDenied"));
-const ExamTimetableGenerator = lazy(() => import("@/pages/admin/ExamTimetableGenerator"));
 
 // Improved loading fallback component
 const LoadingFallback = () => (
@@ -63,30 +62,11 @@ function App() {
                       </ProtectedRoute>
                     } 
                   />
-                  
-                  {/* Add new exam timetable generator route */}
-                  <Route 
-                    path="/admin/exam-timetable-generator" 
-                    element={
-                      <ProtectedRoute requireAdmin={true}>
-                        <ExamTimetableGenerator />
-                      </ProtectedRoute>
-                    } 
-                  />
-                  
                   <Route 
                     path="/schedule" 
                     element={
                       <ProtectedRoute>
                         <StudentSchedule />
-                      </ProtectedRoute>
-                    } 
-                  />
-                  <Route 
-                    path="/exam-schedule" 
-                    element={
-                      <ProtectedRoute>
-                        <ExamSchedule />
                       </ProtectedRoute>
                     } 
                   />

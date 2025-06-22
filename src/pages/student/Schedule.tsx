@@ -14,8 +14,7 @@ import {
   Home, 
   Calendar, 
   List,
-  Grid3x3,
-  GraduationCap
+  Grid3x3 
 } from "lucide-react";
 
 const Schedule = () => {
@@ -97,15 +96,6 @@ const Schedule = () => {
             >
               <Home className="h-4 w-4" />
               Home
-            </Button>
-            <Button 
-              variant="outline" 
-              size="sm" 
-              className="gap-2"
-              onClick={() => navigate("/exam-schedule")}
-            >
-              <GraduationCap className="h-4 w-4" />
-              Exam Schedule
             </Button>
             <Button 
               variant="outline" 

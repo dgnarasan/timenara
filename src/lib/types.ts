@@ -1,3 +1,4 @@
+
 export interface Course {
   id: string;
   code: string;
@@ -8,19 +9,6 @@ export interface Course {
   academicLevel?: string;
   preferredSlots?: TimeSlot[];
   constraints?: string[];
-}
-
-export interface Room {
-  id: string;
-  name: string;
-  capacity: number;
-  availability: TimeSlot[];
-}
-
-export interface User {
-  id: string;
-  email: string;
-  role: UserRole;
 }
 
 export type College = 
@@ -125,62 +113,6 @@ export interface AuthState {
 export interface CollegeWithDepartments {
   college: College;
   departments: Department[];
-}
-
-// New exam-related types
-export interface ExamCourse {
-  id: string;
-  courseCode: string;
-  courseTitle: string;
-  department: string;
-  college: string;
-  level: string;
-  studentCount: number;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface ExamScheduleItem extends ExamCourse {
-  day: string;
-  startTime: string;
-  endTime: string;
-  sessionName: 'Morning' | 'Midday' | 'Afternoon';
-  venueName?: string;
-}
-
-export type DBExamCourse = {
-  id: string;
-  course_code: string;
-  course_title: string;
-  department: string;
-  college: string;
-  level: string;
-  student_count: number;
-  created_at: string;
-  updated_at: string;
-};
-
-export type DBExamSchedule = {
-  id: string;
-  exam_course_id: string | null;
-  day: string;
-  start_time: string;
-  end_time: string;
-  session_name: string;
-  venue_name: string | null;
-  created_by: string | null;
-  published: boolean | null;
-  created_at: string;
-};
-
-// Upload-specific interface for exam courses
-export interface ExamCourseForUpload {
-  courseCode: string;
-  courseTitle: string;
-  department: string;
-  college: string;
-  level: string;
-  studentCount: number;
 }
 
 export const collegeStructure: CollegeWithDepartments[] = [

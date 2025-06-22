@@ -1,5 +1,4 @@
 
-
 import { useState, useEffect } from "react";
 import { Course } from "@/lib/types";
 import { fetchCourses, addCourse, addCourses, deleteCourse, deleteAllCourses } from "@/lib/db";
@@ -70,7 +69,7 @@ export const useCourses = () => {
 
   const handleDeleteCourse = async (courseId: string) => {
     try {
-      await deleteCourse(courseId); // Use string ID directly
+      await deleteCourse(courseId);
       setCourses(prev => prev.filter(course => course.id !== courseId));
       toast({
         title: "Course Deleted",
@@ -115,4 +114,3 @@ export const useCourses = () => {
     handleClearAllCourses,
   };
 };
-

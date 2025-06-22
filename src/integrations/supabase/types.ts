@@ -75,89 +75,6 @@ export type Database = {
         }
         Relationships: []
       }
-      exam_courses: {
-        Row: {
-          college: string
-          course_code: string
-          course_title: string
-          created_at: string
-          department: string
-          id: string
-          level: string
-          student_count: number
-          updated_at: string
-        }
-        Insert: {
-          college: string
-          course_code: string
-          course_title: string
-          created_at?: string
-          department: string
-          id?: string
-          level: string
-          student_count: number
-          updated_at?: string
-        }
-        Update: {
-          college?: string
-          course_code?: string
-          course_title?: string
-          created_at?: string
-          department?: string
-          id?: string
-          level?: string
-          student_count?: number
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      exam_schedules: {
-        Row: {
-          created_at: string
-          created_by: string | null
-          day: string
-          end_time: string
-          exam_course_id: string | null
-          id: string
-          published: boolean | null
-          session_name: string
-          start_time: string
-          venue_name: string | null
-        }
-        Insert: {
-          created_at?: string
-          created_by?: string | null
-          day: string
-          end_time: string
-          exam_course_id?: string | null
-          id?: string
-          published?: boolean | null
-          session_name: string
-          start_time: string
-          venue_name?: string | null
-        }
-        Update: {
-          created_at?: string
-          created_by?: string | null
-          day?: string
-          end_time?: string
-          exam_course_id?: string | null
-          id?: string
-          published?: boolean | null
-          session_name?: string
-          start_time?: string
-          venue_name?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "exam_schedules_exam_course_id_fkey"
-            columns: ["exam_course_id"]
-            isOneToOne: false
-            referencedRelation: "exam_courses"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       profiles: {
         Row: {
           college: string | null
@@ -268,14 +185,6 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      clear_and_insert_exam_courses: {
-        Args: { courses_data: Json }
-        Returns: undefined
-      }
-      clear_and_insert_exam_schedule: {
-        Args: { schedule_data: Json; should_publish?: boolean }
-        Returns: undefined
-      }
       clear_and_insert_schedule: {
         Args:
           | { schedule_data: Json }
@@ -285,10 +194,6 @@ export type Database = {
       get_user_role: {
         Args: Record<PropertyKey, never>
         Returns: Database["public"]["Enums"]["user_role"]
-      }
-      publish_exam_schedule: {
-        Args: { should_publish: boolean }
-        Returns: undefined
       }
       publish_schedule: {
         Args: { should_publish: boolean }
